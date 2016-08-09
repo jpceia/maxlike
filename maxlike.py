@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class maxlike:
+class poisson:
     def __init__(self, I, X):
         """
         I: observation frequency for a given parameter
