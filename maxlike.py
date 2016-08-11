@@ -1,4 +1,26 @@
 import numpy as np
+import pandas as pd
+
+
+def series_to_ndarray(s):
+    """
+    Accepts a pandas.Series with a multiIndex and returns two ndarrays, I and X
+    with the same dimensions as the levels of the MultiIndex.
+    I refers to the frequency of observations
+    X refers to the sum of the observations
+    """
+    axis = [list(level.sort_values()) for level in s.index.levels]
+    axis_names = list(s.index.names)
+    shape = map(len, axis)
+    df = s.to_frame('s')
+    df['f'] = 1  # frequency
+    # sum repeated ocurrences for the same index entry
+    df = df.groupby(df.index).sum()
+    df = df.reindex(
+        pd.MultiIndex.from_product(axis, names=axis_names)).fillna(0)
+    X = df['s'].values.reshape(shape)
+    I = df['f'].values.reshape(shape)
+    return I, X, axis
 
 
 class poisson:
@@ -105,7 +127,7 @@ class poisson:
     def L(self, Y_val):
         assert hasattr(self, "Y_val"), "set_model should be called first"
         return (np.nan_to_num(self.X * np.ma.log(Y_val)).sum() -
-                (self.I * Y_val).sum()) / self.I.sum()
+                (self.I * Y_val).sum())
 
     def __reshape_coef(self, coef_free):
         coef_ = np.insert(coef_free, self.coerc_index, self.coef_coerc)
@@ -235,7 +257,6 @@ class poisson:
             np.hstack([np.vstack(map(np.hstack, hess)), hess_c.transpose()]),
             np.hstack([hess_c, np.zeros((
                 len(self.constraint), len(self.constraint)))])])
-        hess[:]
 
         # --------------------------------------------------------------------
         # 5th phase: Compute
