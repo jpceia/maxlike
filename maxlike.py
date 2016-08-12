@@ -41,15 +41,15 @@ class poisson:
         coerc: list of boolean arrays with value = True if the coeficient has a
         coerced value
         """
+        N = len(coef_guess)
         self.coef = coef_guess
-        self.N = len(coef_guess)
         self.split_ = np.array(
-            [0] + [self.coef[i].size for i in xrange(self.N)]).cumsum()
+            [0] + [self.coef[i].size for i in xrange(N)]).cumsum()
 
         # Set coerc arrays if not defined
         if coerc is None:
             coerc = [np.zeros(self.coef[i].shape, bool)
-                     for i in xrange(self.N)]
+                     for i in xrange(N)]
         else:
             assert isinstance(coerc, list) and \
                 all([coerc[i].shape == coef_guess[i].shape
@@ -60,12 +60,12 @@ class poisson:
 
         # coerced values
         self.coef_coerc = np.concatenate(
-            [coef_guess[i][coerc[i]] for i in xrange(self.N)])
+            [coef_guess[i][coerc[i]] for i in xrange(N)])
 
         # index to insert coerced values
         self.coerc_index = (lambda x: x - np.arange(x.size))((
             lambda x: np.arange(x.size)[x])(np.concatenate(
-                [coerc[i].flatten() for i in xrange(self.N)])))
+                [coerc[i].flatten() for i in xrange(N)])))
 
     def set_model(self, Y_func):
         """
@@ -73,11 +73,8 @@ class poisson:
         """
         assert hasattr(self, "coef"), "set_coef must be called first"
         self.Y_func = Y_func
-        Y_val = self.Y(self.coef)
-        assert Y_val.shape == self.I.shape, \
-            "Y_func must return an array with the same shape as I"
-        self.Y_val = Y_val
-        self.L_val = self.L(Y_val)
+        assert self.Y(self.coef).shape == self.I.shape, \
+            "Y_func must return an array with the same shape as I and X"
 
     def Y(self, coef):
         assert hasattr(self, "Y_func"), "set_model must be called first"
@@ -134,11 +131,13 @@ class poisson:
         return [
             coef_[self.split_[i]:self.split_[i + 1]].
             reshape(self.coef[i].shape)
-            for i in xrange(self.N)]
+            for i in xrange(len(self.coef))]
 
     def __reshape_matrix(self, matrix, value=np.NaN):
         assert len(matrix.shape) == 2 and matrix.shape[0] == matrix.shape[1], \
             "'matrix' must be an array with (N, N) shapex"
+
+        N = len(self.coef)
 
         # insert columns and rows ith coerced values
         matrix = np.insert(matrix, self.coerc_index, value, axis=0)
@@ -147,12 +146,12 @@ class poisson:
         # split by blocks
         matrix = [[matrix[self.split_[i]:self.split_[i + 1],
                           self.split_[j]:self.split_[j + 1]]
-                   for j in xrange(self.N)] for i in xrange(self.N)]
+                   for j in xrange(N)] for i in xrange(N)]
 
         # reshape each block accordingly
         matrix = [[matrix[i][j].reshape(np.concatenate((
                    self.coef[i].shape, self.coef[j].shape)))
-                   for j in xrange(self.N)] for i in xrange(self.N)]
+                   for j in xrange(N)] for i in xrange(N)]
 
         return matrix
 
@@ -178,7 +177,13 @@ class poisson:
         return self.__reshape_coef(
             np.sqrt(np.diag(-np.linalg.inv(self.hess_flat))))
 
-    def step(self):
+    def __step(self):
+        """
+        """
+
+        N = len(self.coef)
+        M = len(self.constraint)
+
         # --------------------------------------------------------------------
         # 1st phase: Evaluate and sum
         # --------------------------------------------------------------------
@@ -189,8 +194,7 @@ class poisson:
         # Add blocks corresponding to constraint variables:
         # Hess_lambda_coef = grad_g
         hess_c = [[np.zeros(self.coef[j].shape)
-                   for j in xrange(len(self.coef))]
-                  for i in xrange(len(self.constraint))]
+                   for j in xrange(N)] for i in xrange(M)]
 
         # --------------------------------------------------------------------
         # 2nd phase: Add constraints / regularization to grad and hess
@@ -203,7 +207,7 @@ class poisson:
                 for i in xrange(len(index)):
                     I = index[i]
                     grad[I] += grad_g_val[i]
-                    grad[self.N + c] = np.array([g(args)])
+                    grad[N + c] = np.array([g(args)])
                     hess_c[c][I] += grad_g_val[i]
                     for j in xrange(i + 1):
                         J = index[j]
@@ -234,18 +238,17 @@ class poisson:
         # --------------------------------------------------------------------
         # 3rd phase: Reshape and flatten
         # --------------------------------------------------------------------
-        coef = [self.coef[i][self.free[i]] for i in xrange(self.N)]
-        grad = [grad[i][self.free[i]] for i in xrange(self.N)] + grad[self.N:]
+        coef = [self.coef[i][self.free[i]] for i in xrange(N)]
+        grad = [grad[i][self.free[i]] for i in xrange(N)] + grad[N:]
         hess = [[hess[i][j][np.multiply.outer(
                 self.free[i], self.free[j])].reshape(
             (self.free[i].sum(), self.free[j].sum()))
-            for j in xrange(i + 1)]
-            for i in xrange(self.N)]
+            for j in xrange(i + 1)] for i in xrange(N)]
         hess = [[hess[i][j] for j in xrange(i)] +
-                [hess[j][i].transpose() for j in xrange(i, self.N)]
-                for i in xrange(self.N)]
-        hess_c = [[hess_c[i][j][self.free[j]] for j in xrange(self.N)]
-                  for i in xrange(len(self.constraint))]
+                [hess[j][i].transpose() for j in xrange(i, N)]
+                for i in xrange(N)]
+        hess_c = [[hess_c[i][j][self.free[j]] for j in xrange(N)]
+                  for i in xrange(M)]
 
         # --------------------------------------------------------------------
         # 4th phase: Consolidate blocks
@@ -255,14 +258,13 @@ class poisson:
         hess_c = np.vstack(map(np.concatenate, hess_c))
         hess = np.vstack([
             np.hstack([np.vstack(map(np.hstack, hess)), hess_c.transpose()]),
-            np.hstack([hess_c, np.zeros((
-                len(self.constraint), len(self.constraint)))])])
+            np.hstack([hess_c, np.zeros((M, M))])])
 
         # --------------------------------------------------------------------
         # 5th phase: Compute
         # --------------------------------------------------------------------
         u = 1
-        d = np.linalg.solve(hess, grad)[:-len(self.constraint)]
+        d = np.linalg.solve(hess, grad)[:-M]
         change = np.linalg.norm(d) / np.linalg.norm(coef)
         for i in xrange(100):
             new_coef = self.__reshape_coef(coef - u * d)
@@ -287,8 +289,10 @@ class poisson:
         - max_steps : the algorithm stops, and fails, if the max_steps are
           performed without having |dx|/|x| < e before.
         """
+        self.Y_val = self.Y(self.coef)
+        self.L_val = self.L(self.Y_val)
         for i in xrange(max_steps):
-            change = self.step()
+            change = self.__step()
             if change < e:
                 return True
         print "Error, the process didn't converge"
