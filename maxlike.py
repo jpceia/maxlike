@@ -90,6 +90,7 @@ class poisson:
         self.grad_L = grad_L
         self.hess_L = hess_L
 
+
     def add_constraint(self, index, g, grad_g, hess_g):
         """
         'index' is an index or a list of indexes
@@ -125,6 +126,15 @@ class poisson:
         assert hasattr(self, "Y_val"), "set_model should be called first"
         return (np.nan_to_num(self.X * np.ma.log(Y_val)).sum() -
                 (self.I * Y_val).sum())
+
+    def E(self, Y_val):
+        E = -self.L(Y_val)
+        for r, index, param, h, grad_h, hess_h in self.reg:
+            if isinstance(index, list):
+                E += param * h(map(lambda k: self.coef[k], index))
+            else:
+                E += param * h(self.coef[index])
+        return E
 
     def __reshape_coef(self, coef_free):
         coef_ = np.insert(coef_free, self.coerc_index, self.coef_coerc)
@@ -226,14 +236,14 @@ class poisson:
                 hess_h_val = hess_h(args)
                 for i in xrange(len(index)):
                     I = index[i]
-                    grad[I] += a * grad_h_val[i]
+                    grad[I] -= a * grad_h_val[i]
                     for j in xrange(i + 1):
                         J = index[j]
-                        hess[I][J] += a * hess_h_val[i][j]
+                        hess[I][J] -= a * hess_h_val[i][j]
             else:
                 k = index
-                grad[k] += a * grad_h(self.coef[k])
-                hess[k][k] += a * hess_h(self.coef[k])
+                grad[k] -= a * grad_h(self.coef[k])
+                hess[k][k] -= a * hess_h(self.coef[k])
 
         # --------------------------------------------------------------------
         # 3rd phase: Reshape and flatten
@@ -266,22 +276,25 @@ class poisson:
         u = 1
         d = np.linalg.solve(hess, grad)[:-M]
         change = np.linalg.norm(d) / np.linalg.norm(coef)
-        for i in xrange(100):
+        for i in xrange(1):
             new_coef = self.__reshape_coef(coef - u * d)
             self.Y_val = self.Y(new_coef)
-            new_L = self.L(self.Y_val)
-            if new_L > self.L_val:
+            new_E = self.E(self.Y_val)
+            if new_E < self.E_val:
                 self.coef = new_coef
-                self.L_val = new_L
+                self.E_val = new_E
                 self.hess_flat = hess
                 return change
             else:
                 u *= .5
 
         print "Error, the process didn't converge (within step)"
-        return False
+        self.coef = new_coef
+        self.E_val = new_E
+        self.hess_flat = hess
+        return change
 
-    def run(self, e=0.001, max_steps=1000):
+    def run(self, e=0.0001, max_steps=1000):
         """
         Run the algorithm to find the best fit
         Parameters:
@@ -290,8 +303,9 @@ class poisson:
           performed without having |dx|/|x| < e before.
         """
         self.Y_val = self.Y(self.coef)
-        self.L_val = self.L(self.Y_val)
+        self.E_val = self.E(self.Y_val)
         for i in xrange(max_steps):
+            print i, self.E_val
             change = self.__step()
             if change < e:
                 return True
