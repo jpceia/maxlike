@@ -9,7 +9,7 @@ def series_to_ndarray(s):
     I refers to the frequency of observations
     X refers to the sum of the observations
     """
-    axis = [list(level.sort_values()) for level in s.index.levels]
+    axis = [level.sort_values().values for level in s.index.levels]
     axis_names = list(s.index.names)
     shape = map(len, axis)
     df = s.to_frame('s')
@@ -78,7 +78,7 @@ class poisson:
 
     def Y(self, coef):
         assert hasattr(self, "Y_func"), "set_model must be called first"
-        return self.I * self.Y_func(coef)
+        return self.Y_func(self.I, coef)
 
     def set_L(self, grad_L, hess_L):
         """
@@ -89,7 +89,6 @@ class poisson:
         """
         self.grad_L = grad_L
         self.hess_L = hess_L
-
 
     def add_constraint(self, index, g, grad_g, hess_g):
         """
@@ -119,29 +118,33 @@ class poisson:
             assert index == sorted(index), \
                 "If the index is a list, it must be sorted"
 
+        assert param > 0, "The regularization parameter must be positive"
+
         self.reg.append(
             (len(self.reg), index, param, h, grad_h, hess_h))
 
-    def L(self, Y_val):
+    def E(self):
+        """
+        Cost function
+        """
         assert hasattr(self, "Y_val"), "set_model should be called first"
-        return (np.nan_to_num(self.X * np.ma.log(Y_val)).sum() -
-                (self.I * Y_val).sum())
+        E = self.Y_val.sum() - (np.nan_to_num(self.X * np.ma.log(self.Y_val))).sum()
 
-    def E(self, Y_val):
-        E = -self.L(Y_val)
         for r, index, param, h, grad_h, hess_h in self.reg:
             if isinstance(index, list):
                 E += param * h(map(lambda k: self.coef[k], index))
             else:
                 E += param * h(self.coef[index])
-        return E
+        return E / self.I.sum()
+
+    def __reshape_array(self, flat_array, val=0):
+        return [np.insert(flat_array, self.coerc_index, val)[
+                self.split_[i]:self.split_[i + 1]].
+                reshape(self.coef[i].shape)
+                for i in xrange(len(self.coef))]
 
     def __reshape_coef(self, coef_free):
-        coef_ = np.insert(coef_free, self.coerc_index, self.coef_coerc)
-        return [
-            coef_[self.split_[i]:self.split_[i + 1]].
-            reshape(self.coef[i].shape)
-            for i in xrange(len(self.coef))]
+        return self.__reshape_array(coef_free, self.coef_coerc)
 
     def __reshape_matrix(self, matrix, value=np.NaN):
         assert len(matrix.shape) == 2 and matrix.shape[0] == matrix.shape[1], \
@@ -169,23 +172,23 @@ class poisson:
         """
         Observed Information Matrix
         """
-        assert hasattr(self, 'hess_flat'), "step method must be called first"
-        return self.__reshape_matrix(-self.hess_flat)
+        assert hasattr(self, '__flat_hess'), "step method must be called first"
+        return self.__reshape_matrix(-self.__flat_hess)
 
     def error_matrix(self):
         """
         Covariance Matrix
         """
-        assert hasattr(self, 'hess_flat'), "step method must be called first"
-        return self.__reshape_matrix(-np.linalg.inv(self.hess_flat))
+        assert hasattr(self, '__flat_hess'), "step method must be called first"
+        return self.__reshape_matrix(-np.linalg.inv(self.__flat_hess))
 
-    def std_error(self):
+    def error_diag(self):
         """
         Standard Deviation array
         """
-        assert hasattr(self, 'hess_flat'), "step method must be called first"
-        return self.__reshape_coef(
-            np.sqrt(np.diag(-np.linalg.inv(self.hess_flat))))
+        #assert hasattr(self, '__flat_hess'), "step method must be called first"
+        return self.__reshape_array(
+            np.sqrt(np.diag(-np.linalg.inv(self.__flat_hess))))
 
     def __step(self):
         """
@@ -274,27 +277,26 @@ class poisson:
         # 5th phase: Compute
         # --------------------------------------------------------------------
         u = 1
-        d = np.linalg.solve(hess, grad)[:-M]
+        d = -np.linalg.solve(hess, grad)[:-M]
         change = np.linalg.norm(d) / np.linalg.norm(coef)
-        for i in xrange(1):
-            new_coef = self.__reshape_coef(coef - u * d)
+        for i in xrange(5):
+            new_coef = self.__reshape_coef(coef + u * d)
             self.Y_val = self.Y(new_coef)
-            new_E = self.E(self.Y_val)
+            new_E = self.E()
             if new_E < self.E_val:
                 self.coef = new_coef
                 self.E_val = new_E
-                self.hess_flat = hess
+                self.__flat_hess = hess
                 return change
             else:
-                u *= .5
+                u *= .75
 
-        print "Error, the process didn't converge (within step)"
         self.coef = new_coef
         self.E_val = new_E
-        self.hess_flat = hess
+        self.__flat_hess = hess
         return change
 
-    def run(self, e=0.0001, max_steps=1000):
+    def run(self, e=0.001, max_steps=1000):
         """
         Run the algorithm to find the best fit
         Parameters:
@@ -303,7 +305,7 @@ class poisson:
           performed without having |dx|/|x| < e before.
         """
         self.Y_val = self.Y(self.coef)
-        self.E_val = self.E(self.Y_val)
+        self.E_val = self.E()
         for i in xrange(max_steps):
             print i, self.E_val
             change = self.__step()
