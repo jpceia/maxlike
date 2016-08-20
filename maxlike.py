@@ -182,11 +182,11 @@ class poisson:
         assert hasattr(self, '__flat_hess'), "step method must be called first"
         return self.__reshape_matrix(-np.linalg.inv(self.__flat_hess))
 
-    def error_diag(self):
+    def std_error(self):
         """
         Standard Deviation array
         """
-        #assert hasattr(self, '__flat_hess'), "step method must be called first"
+        # assert hasattr(self, '__flat_hess'), "step method must be called first"
         return self.__reshape_array(
             np.sqrt(np.diag(-np.linalg.inv(self.__flat_hess))))
 
@@ -229,6 +229,7 @@ class poisson:
                 k = index
                 grad_g_val = grad_g(self.coef[k])
                 grad[k] += gamma * grad_g_val
+                grad[N + c] = np.array([g(self.coef[k])])
                 hess[k][k] += gamma * hess_g(self.coef[k])
                 hess_c[c][k] += grad_g_val
 
@@ -253,12 +254,23 @@ class poisson:
         # --------------------------------------------------------------------
         coef = [self.coef[i][self.free[i]] for i in xrange(N)]
         grad = [grad[i][self.free[i]] for i in xrange(N)] + grad[N:]
+
+        # ------
+        # | aa |
+        # -----------
+        # | ab | bb |
+        # ----------------
+        # | ac | bc | cc |
+        # ----------------
+        #
+        # then hess[i][j].shape = shape[j] x shape[i]
+
         hess = [[hess[i][j][np.multiply.outer(
-                self.free[i], self.free[j])].reshape(
-            (self.free[i].sum(), self.free[j].sum()))
+                self.free[j], self.free[i])].reshape(
+            (self.free[j].sum(), self.free[i].sum()))
             for j in xrange(i + 1)] for i in xrange(N)]
-        hess = [[hess[i][j] for j in xrange(i)] +
-                [hess[j][i].transpose() for j in xrange(i, N)]
+        hess = [[hess[i][j].transpose() for j in xrange(i)] +
+                [hess[j][i] for j in xrange(i, N)]
                 for i in xrange(N)]
         hess_c = [[hess_c[i][j][self.free[j]] for j in xrange(N)]
                   for i in xrange(M)]
