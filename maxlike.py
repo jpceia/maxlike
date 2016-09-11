@@ -26,10 +26,17 @@ def series_to_ndarray(s):
 class poisson:
     def __init__(self, I, X):
         """
-        I: observation frequency for a given parameter
-        X: sum of observations for a given parameter
+        Returns a Poisson Regression.
+
+        Parameters
+        ----------
+        I : ndarray
+            Observation frequency for a given parameter.
+        X : ndarray
+            Sum of observations for a given parameter.
         """
-        assert I.shape == X.shape, "I and X must have the same shape"
+        if I.shape != X.shape:
+            raise ValueError("I and X need to have the same shape")
         self.I = I
         self.X = X
         self.constraint = []
@@ -37,9 +44,15 @@ class poisson:
 
     def set_coef(self, coef_guess, coerc=None):
         """
-        coef_guess: initial guess for coeficients. It must be a list of arrays
-        coerc: list of boolean arrays with value = True if the coeficient has a
-        coerced value
+        Sets the coefficients.
+
+        Parameters
+        ----------
+        coef_guess: list
+            Initial guess for coefficients. It must be a list of arrays
+        coerc: list
+            List of boolean arrays with value = True if the coefficient has a
+            coerced value
         """
         N = len(coef_guess)
         self.coef = coef_guess
@@ -51,10 +64,12 @@ class poisson:
             coerc = [np.zeros(self.coef[i].shape, bool)
                      for i in xrange(N)]
         else:
-            assert isinstance(coerc, list) and \
-                all([coerc[i].shape == coef_guess[i].shape
-                     for i in xrange(len(coerc))]), \
-                "coerc must be a list of arrays with the same shape as coef"
+            if not isinstance(coerc, list):
+                raise ValueError("coerc must be a list of arrays")
+            if any([coerc[i].shape != coef_guess[i].shape
+                    for i in xrange(len(coerc))]):
+                raise ValueError(
+                    "the elements of coerc has to have the same shape as coef")
 
         self.free = map(lambda x: ~x, coerc)
 
@@ -69,65 +84,104 @@ class poisson:
 
     def set_model(self, Y_func):
         """
-        Y_func : function with argument 'coef'
+        Sets the regression function.
+
+        Parameters
+        ----------
+        Y_func : function
+            function with argument 'coef'
         """
-        assert hasattr(self, "coef"), "set_coef must be called first"
         self.Y_func = Y_func
-        assert self.Y(self.coef).shape == self.I.shape, \
-            "Y_func must return an array with the same shape as I and X"
+        if self.Y(self.coef).shape != self.I.shape:
+            raise ValueError(
+                "Y_func needs to return an array with the same shape as I and X")
 
     def Y(self, coef):
-        assert hasattr(self, "Y_func"), "set_model must be called first"
         return self.Y_func(self.I, coef)
 
     def set_L(self, grad_L, hess_L):
         """
-        grad_L must be an array of size equal to the number of coeficients
-        hess_L must be a triangular matrix with width and height equal to the
-        number of coeficients
-        Both must accept I, X, Y, coef as arguments.
+        Sets the likelihood function.
+
+        Parameters
+        ----------
+        grad_L: function
+            function that returns an array of size equal to the number of
+            coefficients
+        hess_L: function
+            function that returns a triangular matrix with width and height
+            equal to the number of coefficients
+
+        Both grad_L and hess_L need to accept I, X, Y, coef as arguments.
         """
         self.grad_L = grad_L
         self.hess_L = hess_L
 
     def add_constraint(self, index, g, grad_g, hess_g):
         """
-        'index' is an index or a list of indexes
-         - If 'index' is an index, grad_g and hess_g must return arrays with
-         the same shape as coef_index and its square respectively.
-         - If index is a list of indexes, grad_g and hess_g must return arrays
-         with lengths equal to len(index) and its elements must be arrays with
-         shapes equal to coef and coef x coef.
+        Adds a constraint factor to the objective function.
+
+        Parameters
+        ----------
+        index : int, list
+            index of the coefficients to witch g applies
+            - If i is an index, grad_g and hess_g must return arrays with the same
+             shape as coef_i and its square respectively.
+             - If i is a list of indexes, grad_g and hess_g must return arrays with
+             lengths equal to len(i) and its elements must be arrays with shapes
+        param : float
+            Scale parameter to apply to g
+        h : function
+            Regularization function
+        grad_g : function
+            Gradient of g
+        hess_g : function
+            Hessian of g
         """
         if isinstance(index, list):
-            assert index == sorted(index), \
-                "If the index is a list, it must be sorted"
+            if index != sorted(index):
+                raise ValueError(
+                    "If the index is a list, it needs to be sorted")
 
         self.constraint.append(
             (len(self.constraint), index, 0, g, grad_g, hess_g))
 
     def add_reg(self, index, param, h, grad_h, hess_h):
         """
-        'index' is an index or a list of indexes
-         - If i is an index, grad_g and hess_g must return arrays with the same
-         shape as coef_i and its square respectively.
-         - If i is a list of indexes, grad_g and hess_g must return arrays with
-         lengths equal to len(i) and its elements must be arrays with shapes
+        Adds a regularization factor to the objective function.
+
+        Parameters
+        ----------
+        index : int, list
+            index of the coefficients to witch f applies
+            - If i is an index, grad_f and hess_f must return arrays with the same
+             shape as coef_i and its square respectively.
+             - If i is a list of indexes, grad_f and hess_f must return arrays with
+             lengths equal to len(i) and its elements must be arrays with shapes
+        param : float
+            Scale parameter to apply to f
+        h : function
+            Regularization function
+        grad_h : function
+            Gradient of f
+        hess_h : function
+            Hessian of f
         """
         if isinstance(index, list):
-            assert index == sorted(index), \
-                "If the index is a list, it must be sorted"
+            if index != sorted(index):
+                raise ValueError(
+                    "If the index is a list, it needs to be sorted")
 
-        assert param > 0, "The regularization parameter must be positive"
+        if param < 0:
+            raise ValueError("The regularization parameter must be positive")
 
         self.reg.append(
             (len(self.reg), index, param, h, grad_h, hess_h))
 
     def E(self):
         """
-        Cost function
+        Cost / Energy function, to minimize.
         """
-        assert hasattr(self, "Y_val"), "set_model should be called first"
         E = self.Y_val.sum() - (np.nan_to_num(self.X * np.ma.log(self.Y_val))).sum()
 
         for r, index, param, h, grad_h, hess_h in self.reg:
@@ -147,8 +201,10 @@ class poisson:
         return self.__reshape_array(coef_free, self.coef_coerc)
 
     def __reshape_matrix(self, matrix, value=np.NaN):
-        assert len(matrix.shape) == 2 and matrix.shape[0] == matrix.shape[1], \
-            "'matrix' must be an array with (N, N) shapex"
+        if matrix.ndim != 2:
+            raise ValueError("'matrix' needs to have two axis")
+        elif matrix.shape[0] != matrix.shape[1]:
+            raise ValueError("'matrix' needs to be a square")
 
         N = len(self.coef)
 
@@ -170,29 +226,24 @@ class poisson:
 
     def fisher_matrix(self):
         """
-        Observed Information Matrix
+        Observed Information Matrix.
         """
-        assert hasattr(self, '__flat_hess'), "step method must be called first"
         return self.__reshape_matrix(-self.__flat_hess)
 
     def error_matrix(self):
         """
-        Covariance Matrix
+        Covariance Matrix.
         """
-        assert hasattr(self, '__flat_hess'), "step method must be called first"
         return self.__reshape_matrix(-np.linalg.inv(self.__flat_hess))
 
     def std_error(self):
         """
-        Standard Deviation array
+        Standard Deviation Array.
         """
-        # assert hasattr(self, '__flat_hess'), "step method must be called first"
         return self.__reshape_array(
             np.sqrt(np.diag(-np.linalg.inv(self.__flat_hess))))
 
     def __step(self):
-        """
-        """
 
         N = len(self.coef)
         M = len(self.constraint)
@@ -310,11 +361,20 @@ class poisson:
 
     def run(self, e=0.001, max_steps=1000):
         """
-        Run the algorithm to find the best fit
-        Parameters:
-        - e : the algorithm stops when |dx|/|x| < e
-        - max_steps : the algorithm stops, and fails, if the max_steps are
-          performed without having |dx|/|x| < e before.
+        Run the algorithm to find the best fit.
+
+        Parameters
+        ----------
+        e : float, optional
+            Tolerance for termination.
+        max_steps : int, optional
+            Maximum number of steps that the algorithm will perform.
+
+        Returns
+        -------
+        out : boolean
+            Returns True if the algorithm converges, otherwise returns
+            False.
         """
         self.Y_val = self.Y(self.coef)
         self.E_val = self.E()
@@ -323,5 +383,4 @@ class poisson:
             change = self.__step()
             if change < e:
                 return True
-        print "Error, the process didn't converge"
         return False
