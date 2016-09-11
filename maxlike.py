@@ -26,7 +26,7 @@ def series_to_ndarray(s):
     shape = map(len, axis)
     df = s.to_frame('s')
     df['f'] = 1  # frequency
-    # sum repeated ocurrences for the same index entry
+    # sum repeated occurrences for the same index entry
     df = df.groupby(df.index).sum()
     df = df.reindex(
         pd.MultiIndex.from_product(axis, names=axis_names)).fillna(0)
@@ -73,13 +73,11 @@ class poisson:
 
         # Set coerc arrays if not defined
         if coerc is None:
-            coerc = [np.zeros(self.coef[i].shape, bool)
-                     for i in xrange(N)]
+            coerc = [np.zeros(self.coef[i].shape, np.bool) for i in xrange(N)]
         else:
             if not isinstance(coerc, list):
                 raise ValueError("coerc must be a list of arrays")
-            if any([coerc[i].shape != coef_guess[i].shape
-                    for i in xrange(len(coerc))]):
+            if any([coerc[i].shape != coef_guess[i].shape for i in xrange(N)]):
                 raise ValueError(
                     "the elements of coerc has to have the same shape as coef")
 
@@ -166,10 +164,11 @@ class poisson:
         ----------
         index : int, list
             index of the coefficients to witch f applies
-            - If i is an index, grad_f and hess_f must return arrays with the same
-             shape as coef_i and its square respectively.
-             - If i is a list of indexes, grad_f and hess_f must return arrays with
-             lengths equal to len(i) and its elements must be arrays with shapes
+            - If i is an index, grad_f and hess_f must return arrays with the
+             same shape as coef_i and its square respectively.
+             - If i is a list of indexes, grad_f and hess_f must return arrays
+             with lengths equal to len(i) and its elements must be arrays with
+             shapes.
         param : float
             Scale parameter to apply to f
         h : function
