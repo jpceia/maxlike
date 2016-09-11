@@ -4,10 +4,22 @@ import pandas as pd
 
 def series_to_ndarray(s):
     """
-    Accepts a pandas.Series with a multiIndex and returns two ndarrays, I and X
-    with the same dimensions as the levels of the MultiIndex.
-    I refers to the frequency of observations
-    X refers to the sum of the observations
+    Accepts a Series with a multiIndex, and returns two ndarrays with the same
+    dimensions as the levels of the multiIndex.
+
+    Parameters
+    ----------
+    s : Series
+        Observation list.
+
+    Returns
+    -------
+    I : ndarray
+        Frequency of observations.
+    X : ndarray
+        Sum of the observations.
+    axis : list
+        list of arrays of labels for each axis
     """
     axis = [level.sort_values().values for level in s.index.levels]
     axis_names = list(s.index.names)
@@ -50,7 +62,7 @@ class poisson:
         ----------
         coef_guess: list
             Initial guess for coefficients. It must be a list of arrays
-        coerc: list
+        coerc: list, optional
             List of boolean arrays with value = True if the coefficient has a
             coerced value
         """
