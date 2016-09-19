@@ -64,7 +64,7 @@ class poisson:
             Initial guess for coefficients. It must be a list of arrays
         coerc: list, optional
             List of boolean arrays with value = True if the coefficient has a
-            coerced value
+            coerced value.
         """
         N = len(coef_guess)
         self.coef = coef_guess
@@ -74,12 +74,23 @@ class poisson:
         # Set coerc arrays if not defined
         if coerc is None:
             coerc = [np.zeros(self.coef[i].shape, np.bool) for i in xrange(N)]
+        elif isinstance(coerc, list):
+            for i in xrange(N):
+                if isinstance(coerc[i], bool):
+                    coerc[i] = coerc[i] * np.ones(coef_guess[i].shape, bool)
+                else:
+                    if isinstance(coerc[i], (list, tuple)):
+                        coerc[i] = np.array(coerc[i])
+
+                    if isinstance(coerc[i], np.ndarray):
+                        if coerc[i].shape != coef_guess[i].shape:
+                            raise ValueError("""The elements of coerc have to
+                                have the same shapes as coef elements""")
+                    else:
+                        raise ValueError("""The elements of coerc have to be a
+                            boolean or array_like""")
         else:
-            if not isinstance(coerc, list):
-                raise ValueError("coerc must be a list of arrays")
-            if any([coerc[i].shape != coef_guess[i].shape for i in xrange(N)]):
-                raise ValueError(
-                    "the elements of coerc has to have the same shape as coef")
+            raise ValueError("coerc has to be a list")
 
         self.free = map(lambda x: ~x, coerc)
 
@@ -103,8 +114,8 @@ class poisson:
         """
         self.Y_func = Y_func
         if self.Y(self.coef).shape != self.I.shape:
-            raise ValueError(
-                "Y_func needs to return an array with the same shape as I and X")
+            raise ValueError("""Y_func needs to return an array with the same
+                shape as I and X""")
 
     def Y(self, coef):
         return self.Y_func(self.I, coef)
@@ -135,10 +146,11 @@ class poisson:
         ----------
         index : int, list
             index of the coefficients to witch g applies
-            - If i is an index, grad_g and hess_g must return arrays with the same
-             shape as coef_i and its square respectively.
-             - If i is a list of indexes, grad_g and hess_g must return arrays with
-             lengths equal to len(i) and its elements must be arrays with shapes
+            - If i is an index, grad_g and hess_g must return arrays with the
+             same as coef_i and its square respectively.
+             - If i is a list of indexes, grad_g and hess_g must return arrays
+             with lengths equal to len(i) and its elements must be arrays with
+             shapes
         param : float
             Scale parameter to apply to g
         h : function
@@ -193,14 +205,31 @@ class poisson:
         """
         Cost / Energy function, to minimize.
         """
-        E = self.Y_val.sum() - (np.nan_to_num(self.X * np.ma.log(self.Y_val))).sum()
+        E = self.Y_val.sum() - \
+            (np.nan_to_num(self.X * np.ma.log(self.Y_val))).sum()
 
         for r, index, param, h, grad_h, hess_h in self.reg:
             if isinstance(index, list):
                 E += param * h(map(lambda k: self.coef[k], index))
             else:
                 E += param * h(self.coef[index])
-        return E / self.I.sum()
+        return E
+
+    def AIC(self):
+        """
+        Akaike information criterion.
+        (The best model is that which minimizes it)
+        """
+        k = sum([c.size for c in self.coef]) - len(self.constraint)
+        return 2 * k * (1 + (k - 1) / (self.I.sum() - k - 1)) - 2 * self.E()
+
+    def BIC(self):
+        """
+        Bayesian information criterion.
+        (The best model is that which minimizes it)
+        """
+        k = sum([c.size for c in self.coef]) - len(self.constraint)
+        return k * np.log(self.I.sum()) - 2 * self.E()
 
     def __reshape_array(self, flat_array, val=0):
         return [np.insert(flat_array, self.coerc_index, val)[
@@ -219,16 +248,16 @@ class poisson:
 
         N = len(self.coef)
 
-        # insert columns and rows ith coerced values
+        # Insert columns and rows ith coerced values
         matrix = np.insert(matrix, self.coerc_index, value, axis=0)
         matrix = np.insert(matrix, self.coerc_index, value, axis=1)
 
-        # split by blocks
+        # Split by blocks
         matrix = [[matrix[self.split_[i]:self.split_[i + 1],
                           self.split_[j]:self.split_[j + 1]]
                    for j in xrange(N)] for i in xrange(N)]
 
-        # reshape each block accordingly
+        # Reshape each block accordingly
         matrix = [[matrix[i][j].reshape(np.concatenate((
                    self.coef[i].shape, self.coef[j].shape)))
                    for j in xrange(N)] for i in xrange(N)]
@@ -253,6 +282,13 @@ class poisson:
         """
         return self.__reshape_array(
             np.sqrt(np.diag(-np.linalg.inv(self.__flat_hess))))
+
+    def dispersion(self):
+        return np.sqrt(
+            np.nan_to_num(
+                (self.X - self.I * self.Y_val) *
+                (self.X - self.I * self.Y_val) /
+                (self.I * self.Y_val)).sum() / self.I.sum())
 
     def __step(self):
 
