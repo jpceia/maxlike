@@ -284,6 +284,10 @@ class poisson:
             np.sqrt(np.diag(-np.linalg.inv(self.__flat_hess))))
 
     def dispersion(self):
+        """
+        Returns the normalized dispersion of the observed data.
+        Theoretically, it should be 1
+        """
         return np.sqrt(
             np.nan_to_num(
                 (self.X - self.I * self.Y_val) *
