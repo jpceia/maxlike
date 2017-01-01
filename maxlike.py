@@ -4,8 +4,10 @@ import pandas as pd
 
 def series_to_ndarray(s):
     """
-    Accepts a Series with a multiIndex, and returns two ndarrays with the same
-    dimensions as the levels of the multiIndex.
+    Accepts a Series with a multiIndex - where the values are the labels and
+    the multiIndex the features - and returns two ndarrays - frequency and sum
+    of the observations - with the same dimmensions as the levels of the
+    multiIndex.
 
     Parameters
     ----------
@@ -19,7 +21,7 @@ def series_to_ndarray(s):
     X : ndarray
         Sum of the observations.
     axis : list
-        list of arrays of labels for each axis
+        List of arrays of possible feature values for each axis.
     """
     axis = [level.sort_values().values for level in s.index.levels]
     axis_names = list(s.index.names)
@@ -38,7 +40,7 @@ def series_to_ndarray(s):
 class poisson:
     def __init__(self, I, X):
         """
-        Returns a Poisson Regression.
+        Class to model data under a Poisson Regression.
 
         Parameters
         ----------
@@ -61,8 +63,8 @@ class poisson:
         Parameters
         ----------
         coef_guess: list
-            Initial guess for coefficients. It must be a list of arrays
-        coerc: list, optional
+            Initial guess for coefficients. It must be a list of arrays.
+        coerc: list (optional)
             List of boolean arrays with value = True if the coefficient has a
             coerced value.
         """
@@ -84,7 +86,7 @@ class poisson:
 
                     if isinstance(coerc[i], np.ndarray):
                         if coerc[i].shape != coef_guess[i].shape:
-                            raise ValueError("""The elements of coerc have to
+                            raise ValueError("""The elements of coerc need to
                                 have the same shapes as coef elements""")
                     else:
                         raise ValueError("""The elements of coerc have to be a
@@ -110,30 +112,26 @@ class poisson:
         Parameters
         ----------
         Y_func : function
-            function with argument 'coef'
+            function with argument 'coef'.
         """
-        self.Y_func = Y_func
-        if self.Y(self.coef).shape != self.I.shape:
+        if Y_func(self.coef).shape != self.I.shape:
             raise ValueError("""Y_func needs to return an array with the same
                 shape as I and X""")
-
-    def Y(self, coef):
-        return self.Y_func(self.I, coef)
+        self.Y = Y_func
 
     def set_L(self, grad_L, hess_L):
         """
-        Sets the likelihood function.
+        Sets the likelihood function gradient and hessian.
+        Both grad_L and hess_L need to accept I, X, Y, coef as arguments.
 
         Parameters
         ----------
         grad_L: function
             function that returns an array of size equal to the number of
-            coefficients
+            coefficients.
         hess_L: function
             function that returns a triangular matrix with width and height
-            equal to the number of coefficients
-
-        Both grad_L and hess_L need to accept I, X, Y, coef as arguments.
+            equal to the number of coefficients.
         """
         self.grad_L = grad_L
         self.hess_L = hess_L
@@ -151,10 +149,8 @@ class poisson:
              - If i is a list of indexes, grad_g and hess_g must return arrays
              with lengths equal to len(i) and its elements must be arrays with
              shapes
-        param : float
-            Scale parameter to apply to g
-        h : function
-            Regularization function
+        g : function
+            Constraint function.
         grad_g : function
             Gradient of g
         hess_g : function
@@ -220,7 +216,9 @@ class poisson:
         Akaike information criterion.
         (The best model is that which minimizes it)
         """
+        # k: # of free parameters
         k = sum([c.size for c in self.coef]) - len(self.constraint)
+
         return 2 * k * (1 + (k - 1) / (self.I.sum() - k - 1)) - 2 * self.E()
 
     def BIC(self):
@@ -228,10 +226,24 @@ class poisson:
         Bayesian information criterion.
         (The best model is that which minimizes it)
         """
+        # k: # of free parameters
         k = sum([c.size for c in self.coef]) - len(self.constraint)
+
         return k * np.log(self.I.sum()) - 2 * self.E()
 
     def __reshape_array(self, flat_array, val=0):
+        """
+        Reshapes as array in order to have the same format as self.coef
+
+        Parameters
+        ----------
+        flat_array: ndarray
+            array with one axis with the same lenght as the number of free
+            coeficients.
+        val: float, ndarray (optional)
+            value(s) to fill in coerc_index places. If it is a ndarray it
+            needs to have the same size as coerc_index.
+        """
         return [np.insert(flat_array, self.coerc_index, val)[
                 self.split_[i]:self.split_[i + 1]].
                 reshape(self.coef[i].shape)
@@ -286,7 +298,7 @@ class poisson:
     def dispersion(self):
         """
         Returns the normalized dispersion of the observed data.
-        Theoretically, it should be 1
+        Theoretically, it should be 1.
         """
         return np.sqrt(
             np.nan_to_num(
@@ -416,9 +428,9 @@ class poisson:
 
         Parameters
         ----------
-        e : float, optional
+        e : float (optional)
             Tolerance for termination.
-        max_steps : int, optional
+        max_steps : int (optional)
             Maximum number of steps that the algorithm will perform.
 
         Returns
