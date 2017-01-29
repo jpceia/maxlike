@@ -2,6 +2,60 @@ import numpy as np
 import pandas as pd
 
 
+class func:
+    def __init__(self):
+        self.params = []
+
+    def eval(self, coef, *args, **kargs):
+        raise NotImplementedError
+
+    def grad(self, coef, *args, **kargs):
+        raise NotImplementedError
+
+    def hess(self, coef, *args, **kargs):
+        raise NotImplementedError
+
+    @staticmethod
+    def _wrap(param):
+        if isinstance(param, (tuple, list)):
+            return param
+        else:
+            return [param]
+
+
+class linear(func):
+    def __init__(self):
+        self.weight = []
+        self.level = 0
+
+    def eval(self, coef):
+        coef = self._wrap(coef)
+        return sum([sum(self.weight[i] * coef[i])
+                    for i in range(len(coef))]) - self.level
+
+    def grad(self, coef):
+        coef = self._wrap(coef)
+        return self.weight
+
+    def hess(self, coef):
+        coef = func._wrap(coef)
+        hess = []
+        for i in xrange(len(self.weight)):
+            hess_line = []
+            for j in xrange(i + 1):
+                hess_line.append(np.multiply.outer(
+                    np.zeros(self.weight[j].shape),
+                    np.zeros(self.weight[i].shape)))
+            hess.append(hess_line)
+        return hess
+
+    def add_feature(self, coef_guess, weight):
+        self.weight.append(weight * np.ones(coef_guess.shape))
+
+    def set_level(self, c):
+        self.level = c
+
+
 class poisson:
     def __init__(self, N, X):
         """
@@ -76,8 +130,8 @@ class poisson:
         self.coef_coerc = np.concatenate(
             [coef_guess[i][coerc[i]] for i in xrange(n)])
 
-        # index to insert coerced values
-        self.coerc_index = (lambda x: x - np.arange(x.size))((
+        # map to insert coerced values
+        self.coerc_map = (lambda x: x - np.arange(x.size))((
             lambda x: np.arange(x.size)[x])(np.concatenate(
                 [coerc[i].flatten() for i in xrange(n)])))
 
@@ -112,66 +166,33 @@ class poisson:
         self.grad_L = grad_L
         self.hess_L = hess_L
 
-    def add_constraint(self, index, g, grad_g, hess_g):
+    def add_constraint(self, coef_map, g):
         """
         Adds a constraint factor to the objective function.
 
         Parameters
         ----------
-        index : int, list
-            Index of the coefficients to witch g applies.
-            If i is an index, grad_g and hess_g must return arrays with the
-                same as coef_i and its square respectively.
-            If i is a list of indexes, grad_g and hess_g must return arrays
-                with lengths equal to len(i) and its elements must be arrays
-                with the shapes as the elements of coef list.
-        g : function
+        coef_map : int, list
+            index of the coefficients to witch g applies
+        g : func
             Constraint function.
-        grad_g : function
-            Gradient of g
-        hess_g : function
-            Hessian of g
         """
-        if isinstance(index, list):
-            if index != sorted(index):
-                raise ValueError(
-                    "If the index is a list, it needs to be sorted")
+        self.constraint.append((len(self.constraint), coef_map, 0, g))
 
-        self.constraint.append(
-            (len(self.constraint), index, 0, g, grad_g, hess_g))
-
-    def add_reg(self, index, param, h, grad_h, hess_h):
+    def add_reg(self, coef_map, param, h):
         """
         Adds a regularization factor to the objective function.
 
         Parameters
         ----------
-        index : int, list
+        coef_map : int, list
             index of the coefficients to witch f applies
-            If i is an index, grad_f and hess_f must return arrays with the
-            same shape as coef_i and its square respectively.
-            If i is a list of indexes, grad_f and hess_f must return arrays
-            with lengths equal to len(i) and its elements must be arrays with
-            shapes.
         param : float
             Scale parameter to apply to f
-        h : function
+        h : func
             Regularization function
-        grad_h : function
-            Gradient of f
-        hess_h : function
-            Hessian of f
         """
-        if isinstance(index, list):
-            if index != sorted(index):
-                raise ValueError(
-                    "If the index is a list, it needs to be sorted")
-
-        if param < 0:
-            raise ValueError("The regularization parameter must be positive")
-
-        self.reg.append(
-            (len(self.reg), index, param, h, grad_h, hess_h))
+        self.reg.append((len(self.reg), coef_map, param, h))
 
     def E(self):
         """
@@ -180,11 +201,9 @@ class poisson:
         E = self.Y_val.sum() - \
             (np.nan_to_num(self.X * np.ma.log(self.Y_val))).sum()
 
-        for r, index, param, h, grad_h, hess_h in self.reg:
-            if isinstance(index, list):
-                E += param * h(map(lambda k: self.coef[k], index))
-            else:
-                E += param * h(self.coef[index])
+        for r, coef_map, param, h in self.reg:
+            E += param * h.eval(map(lambda k: self.coef[k], coef_map))
+
         return E
 
     def Akaine_information_criterion(self):
@@ -217,10 +236,10 @@ class poisson:
             Array with one axis with the same lenght as the number of free
             coeficients.
         val: float, ndarray (optional)
-            Value(s) to fill in coerc_index places. If it is a ndarray it
-            needs to have the same size as coerc_index.
+            Value(s) to fill in coerc_map places. If it is a ndarray it
+            needs to have the same size as coerc_map.
         """
-        return [np.insert(flat_array, self.coerc_index, val)[
+        return [np.insert(flat_array, self.coerc_map, val)[
                 self.split_[i]:self.split_[i + 1]].
                 reshape(self.coef[i].shape)
                 for i in xrange(len(self.coef))]
@@ -237,8 +256,8 @@ class poisson:
         n = len(self.coef)
 
         # Insert columns and rows ith coerced values
-        matrix = np.insert(matrix, self.coerc_index, value, axis=0)
-        matrix = np.insert(matrix, self.coerc_index, value, axis=1)
+        matrix = np.insert(matrix, self.coerc_map, value, axis=0)
+        matrix = np.insert(matrix, self.coerc_map, value, axis=1)
 
         # Split by blocks
         matrix = [[matrix[self.split_[i]:self.split_[i + 1],
@@ -276,16 +295,12 @@ class poisson:
         Returns the normalized dispersion of the observed data.
         Theoretically, it should be 1.
         """
-        return np.sqrt(
-            np.nan_to_num(
-                (self.X - self.N * self.Y_val) *
-                (self.X - self.N * self.Y_val) /
-                (self.N * self.Y_val)).sum() / self.N.sum())
+        pass
 
     def __step(self):
 
         n = len(self.coef)
-        m = len(self.constraint)
+        cstr_len = len(self.constraint)
 
         # --------------------------------------------------------------------
         # 1st phase: Evaluate and sum
@@ -297,47 +312,34 @@ class poisson:
         # Add blocks corresponding to constraint variables:
         # Hess_lambda_coef = grad_g
         hess_c = [[np.zeros(self.coef[j].shape)
-                   for j in xrange(n)] for i in xrange(m)]
+                   for j in xrange(n)] for i in xrange(cstr_len)]
 
         # --------------------------------------------------------------------
         # 2nd phase: Add constraints / regularization to grad and hess
         # --------------------------------------------------------------------
-        for c, index, gamma, g, grad_g, hess_g in self.constraint:
-            if isinstance(index, list):
-                args = map(lambda k: self.coef[k], index)  # args = coef[index]
-                grad_g_val = grad_g(args)
-                hess_g_val = hess_g(args)
-                for i in xrange(len(index)):
-                    idx = index[i]
-                    grad[idx] += grad_g_val[i]
-                    grad[n + c] = np.array([g(args)])
-                    hess_c[c][idx] += grad_g_val[i]
+        for c, coef_map, gamma, g in self.constraint:
+            if isinstance(coef_map, list):
+                args = map(lambda k: self.coef[k], coef_map)
+                grad_g = g.grad(args)
+                hess_g = g.hess(args)
+                for i in xrange(len(coef_map)):
+                    idx = coef_map[i]
+                    grad[idx] += grad_g[i]
+                    grad[n + c] = np.array([g.eval(args)])
+                    hess_c[c][idx] += grad_g[i]
                     for j in xrange(i + 1):
-                        jdx = index[j]
-                        hess[idx][jdx] += hess_g_val[i][j]
-            else:
-                k = index
-                grad_g_val = grad_g(self.coef[k])
-                grad[k] += gamma * grad_g_val
-                grad[n + c] = np.array([g(self.coef[k])])
-                hess[k][k] += gamma * hess_g(self.coef[k])
-                hess_c[c][k] += grad_g_val
+                        hess[idx][coef_map[j]] += hess_g[i][j]
 
-        for r, index, a, h, grad_h, hess_h in self.reg:
-            if isinstance(index, list):
-                args = map(lambda k: self.coef[k], index)  # args = coef[index]
-                grad_h_val = grad_h(args)
-                hess_h_val = hess_h(args)
-                for i in xrange(len(index)):
-                    idx = index[i]
-                    grad[idx] -= a * grad_h_val[i]
+        for r, coef_map, a, h in self.reg:
+            if isinstance(coef_map, list):
+                args = map(lambda k: self.coef[k], coef_map)
+                grad_h = h.grad(args)
+                hess_h = h.hess(args)
+                for i in xrange(len(coef_map)):
+                    idx = coef_map[i]
+                    grad[idx] -= a * grad_h[i]
                     for j in xrange(i + 1):
-                        jdx = index[j]
-                        hess[idx][jdx] -= a * hess_h_val[i][j]
-            else:
-                k = index
-                grad[k] -= a * grad_h(self.coef[k])
-                hess[k][k] -= a * hess_h(self.coef[k])
+                        hess[idx][coef_map[j]] -= a * hess_h[i][j]
 
         # --------------------------------------------------------------------
         # 3rd phase: Reshape and flatten
@@ -357,13 +359,12 @@ class poisson:
 
         hess = [[hess[i][j][np.multiply.outer(
                 self.free[j], self.free[i])].reshape(
-            (self.free[j].sum(), self.free[i].sum()))
+                    (self.free[j].sum(), self.free[i].sum()))
             for j in xrange(i + 1)] for i in xrange(n)]
         hess = [[hess[i][j].transpose() for j in xrange(i)] +
-                [hess[j][i] for j in xrange(i, n)]
-                for i in xrange(n)]
+                [hess[j][i] for j in xrange(i, n)] for i in xrange(n)]
         hess_c = [[hess_c[i][j][self.free[j]] for j in xrange(n)]
-                  for i in xrange(m)]
+                  for i in xrange(cstr_len)]
 
         # --------------------------------------------------------------------
         # 4th phase: Consolidate blocks
@@ -373,13 +374,13 @@ class poisson:
         hess_c = np.vstack(map(np.concatenate, hess_c))
         hess = np.vstack([
             np.hstack([np.vstack(map(np.hstack, hess)), hess_c.transpose()]),
-            np.hstack([hess_c, np.zeros((m, m))])])
+            np.hstack([hess_c, np.zeros((cstr_len, cstr_len))])])
 
         # --------------------------------------------------------------------
         # 5th phase: Compute
         # --------------------------------------------------------------------
         u = 1
-        d = -np.linalg.solve(hess, grad)[:-m]
+        d = -np.linalg.solve(hess, grad)[:-cstr_len]
         change = np.linalg.norm(d) / np.linalg.norm(coef)
         for i in xrange(5):
             new_coef = self.__reshape_coef(coef + u * d)
