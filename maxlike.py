@@ -57,10 +57,11 @@ class linear(func):
 
 
 class poisson:
-    def __init__(self, N, X):
-        """
-        Class to model data under a Poisson Regression.
-        """
+    """
+    Class to model data under a Poisson Regression.
+    """
+
+    def __init__(self):
         self.constraint = []
         self.reg = []
 
@@ -85,6 +86,7 @@ class poisson:
         df = df.reindex(pd.MultiIndex.from_product(axis)).fillna(0)
         self.X = df['s'].values.reshape(shape)
         self.N = df['f'].values.reshape(shape)
+        return axis
 
     def set_coef(self, coef_guess, coerc=None):
         """
