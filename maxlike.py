@@ -2,109 +2,6 @@ import numpy as np
 import pandas as pd
 
 
-class func:
-    def __init__(self):
-        self.params = []
-
-    def eval(self, param, *args, **kargs):
-        raise NotImplementedError
-
-    def grad(self, param, *args, **kargs):
-        raise NotImplementedError
-
-    def hess(self, param, *args, **kargs):
-        raise NotImplementedError
-
-    @staticmethod
-    def _wrap(param):
-        if isinstance(param, (tuple, list)):
-            return param
-        else:
-            return [param]
-
-
-class linear(func):
-    def __init__(self):
-        self.weight = []
-        self.level = 0
-
-    def eval(self, param):
-        param = self._wrap(param)
-        return sum([sum(self.weight[i] * param[i])
-                    for i in range(len(param))]) - self.level
-
-    def grad(self, param):
-        param = self._wrap(param)
-        return self.weight
-
-    def hess(self, param):
-        param = func._wrap(param)
-        hess = []
-        for i in xrange(len(self.weight)):
-            hess_line = []
-            for j in xrange(i + 1):
-                hess_line.append(np.multiply.outer(
-                    np.zeros(self.weight[j].shape),
-                    np.zeros(self.weight[i].shape)))
-            hess.append(hess_line)
-        return hess
-
-    def add_feature(self, shape, weight):
-        self.weight.append(weight * np.ones(shape))
-
-    def set_level(self, c):
-        self.level = c
-
-
-class quadratic(func):
-    def __init__(self):
-        self.weight = []
-        self.level = 0
-
-    def eval(self, param):
-        pass
-
-    def grad(self, param):
-        pass
-
-    def hess(self, param):
-        pass
-
-    def add_feature(self, shape, weight):
-        if isinstance(weight, (int, float)):
-            weight *= np.ones(shape)
-        pass
-
-
-class onehot(func):
-    def __init__(self, lenght):
-        self.lenght = lenght
-        pass
-
-    def eval(self, param):
-        return param
-
-    def grad(self, param):
-        pass
-
-    def hess(self, param):
-        pass
-
-
-class dummyLinear(func):
-    def __init__(self, lenght):
-        self.lenght = lenght
-
-    def eval(self, param):
-        return param * np.arange(self.lenght)
-
-    def grad(self, param):
-        return np.arange(self.lenght)
-
-    def hess(self, param):
-        return np.zeros((self.lenght, self.lenght))
-
-
 class poisson:
     """
     Class to model data under a Poisson Regression.
@@ -117,6 +14,7 @@ class poisson:
         self.split_ = [0]
         self.fixed_map = np.array([], np.int)
         self.param_fixed = np.array([])
+        self.factors = []
         self.constraint = []
         self.reg = []
 
@@ -191,36 +89,124 @@ class poisson:
                     fixed.flatten())) + free_size
         ))
 
-    def set_model(self, Y_func):
+    def add_factor(self, param_map, feat_map, new_factor, weight=1):
         """
-        Sets the regression function.
+        Adds a factor to the model.
 
         Parameters
         ----------
-        Y_func : function
-            function with argument 'param'.
+        param_map: int, list
+            index of parameters that 'new_factor' accepts
+        feat_map:
+            index of features that 'new_factor' accepts
+        new_factor: func
+            factor to add to the model
         """
-        if Y_func(self.param).shape != self.N.shape:
-            raise ValueError("""Y_func needs to return an array with the same
-                shape as N and X""")
-        self.Y = Y_func
+        if isinstance(param_map, int):
+            param_map = [param_map]
+        if isinstance(feat_map, int):
+            feat_map = [feat_map]
 
-    def set_L(self, grad_L, hess_L):
-        """
-        Sets the likelihood function gradient and hessian.
-        Both grad_L and hess_L need to accept N, X, Y, param as arguments.
+        self.factors.append((param_map, feat_map, new_factor, weight))
 
-        Parameters
-        ----------
-        grad_L: function
-            function that returns an array of size equal to the number of
-            parameters.
-        hess_L: function
-            function that returns a triangular matrix with width and height
-            equal to the number of parameters.
+    def __slice(self, feat_map):
         """
-        self.grad_L = grad_L
-        self.hess_L = hess_L
+        Returns a slice that induces broadcast accross the dimentions that are
+        not in feat_map
+        """
+        return map(
+            lambda x: slice(None) if x else None,
+            (np.arange(self.N.ndim)[:, None] ==
+                np.array(feat_map)[None, :]).all(1))
+
+    def ln_y(self, params):
+        """
+        Calculates the logarithm of the model
+        """
+        F = np.zeros(self.N.shape)
+        for param_map, feat_map, f, weight in self.factors:
+            F += weight * \
+                f.eval(map(params.__getitem__,
+                           feat_map))[self.__slice(feat_map)]
+        return F
+
+    def G(self, params):
+        """
+        Cost function, to minimize.
+        """
+        ln_y = self.ln_y(params)
+        G = (-self.N * np.exp(ln_y) + self.X * ln_y).sum()
+        for r, param_map, gamma, h in self.reg:
+            G += gamma * h.eval(map(lambda k: params[k], param_map))
+
+        return G
+
+    def __grad_ln_y(self, params):
+        """
+        Calculates the gradient of the model
+        """
+        grad = [np.multiply.outer(np.zeros(self.N.shape), np.zeros(p.shape))
+                for p in self.param]
+
+        for param_map, feat_map, f, weight in self.factors:
+            # since der[k] is going to have shape N.shape x param[k].shape
+            # we need to construct an appropriate slice to expand f.grade()
+            # to have aligned dimentions
+            slc = self.__slice(feat_map) + [Ellipsis]
+
+            # we copy the value of f.grad since we're going to use it
+            # several times.
+            grad_f = f.grad(map(params.__getitem__, feat_map))
+            for i in param_map:
+                grad[i] += weight * grad_f[slc]
+
+        return grad
+
+    def grad_L(self, params):
+        """
+        Calculates the gradient of the log-likelihood function.
+        """
+        delta = self.X - self.N * np.exp(self.ln_y(params))
+        der = self.__grad_ln_y(params)
+        return [(delta[[Ellipsis] + [None] * self.param[i].ndim] *
+                 der[i]).sum(tuple(np.arange(self.N.ndim)))
+                for i in range(len(self.param))]
+
+    def hess_L(self, params):
+        """
+        Calculates the hessian of the log-likelihood function.
+        """
+        hess = []
+        ln_y = self.ln_y(params)
+        delta = self.X - self.N * np.exp(ln_y)
+        grad = self.__grad_ln_y(params)
+        slc = []
+        slc_expd = []
+        slc_feat = [slice(None)] * self.N.ndim
+
+        for i in range(len(self.param)):
+            slc.append([slice(None)] * self.param[i].ndim)
+            slc_expd.append([None] * self.param[i].ndim)
+            hess_line = []
+            for j in range(i + 1):
+                cube = np.zeros(self.N.shape +
+                                self.param[j].shape + self.param[i].shape)
+                for param_map, feat_map, f, weight in self.factors:
+                    if i in param_map and j in param_map:
+                        feat_expd = self.__slice(feat_map)
+                        cube += weight * \
+                            f.hess(map(params.__getitem__, feat_map),
+                                   i, j)[feat_expd + slc[i] + slc[j]]
+                h = -((self.N * np.exp(ln_y)
+                       )[slc_feat + slc_expd[i] + slc_expd[j]] * cube).sum(
+                    tuple(np.arange(self.N.ndim)))
+                h += (delta[slc_feat + slc_expd[i] + slc_expd[j]] *
+                      grad[j][slc_feat + slc[j] + slc_expd[i]] *
+                      grad[i][slc_feat + slc_expd[j] + slc[i]]
+                      ).sum(tuple(np.arange(self.N.ndim)))
+                hess_line.append(h)
+            hess.append(hess_line)
+        return hess
 
     def add_constraint(self, param_map, g):
         """
@@ -235,7 +221,7 @@ class poisson:
         """
         self.constraint.append((len(self.constraint), param_map, 0, g))
 
-    def add_reg(self, param_map, param, h):
+    def add_regularization(self, param_map, gamma, h):
         """
         Adds a regularization factor to the objective function.
 
@@ -243,24 +229,12 @@ class poisson:
         ----------
         param_map : int, list
             index of the parameters to witch f applies
-        param : float
+        gamma : float
             Scale parameter to apply to f
         h : func
             Regularization function
         """
-        self.reg.append((len(self.reg), param_map, param, h))
-
-    def E(self):
-        """
-        Cost / Energy function, to minimize.
-        """
-        E = self.Y_val.sum() - \
-            (np.nan_to_num(self.X * np.ma.log(self.Y_val))).sum()
-
-        for r, param_map, param, h in self.reg:
-            E += param * h.eval(map(lambda k: self.param[k], param_map))
-
-        return E
+        self.reg.append((len(self.reg), param_map, gamma, h))
 
     def Akaine_information_criterion(self):
         """
@@ -327,12 +301,6 @@ class poisson:
 
         return matrix
 
-    def fisher_matrix(self):
-        """
-        Observed Information Matrix.
-        """
-        return self.__reshape_matrix(-self.__flat_hess)
-
     def error_matrix(self):
         """
         Covariance Matrix.
@@ -346,13 +314,6 @@ class poisson:
         return self.__reshape_array(
             np.sqrt(np.diag(-np.linalg.inv(self.__flat_hess))))
 
-    def dispersion(self):
-        """
-        Returns the normalized dispersion of the observed data.
-        Theoretically, it should be 1.
-        """
-        pass
-
     def __step(self):
 
         n = len(self.param)
@@ -361,9 +322,9 @@ class poisson:
         # --------------------------------------------------------------------
         # 1st phase: Evaluate and sum
         # --------------------------------------------------------------------
-        grad = self.grad_L(self.N, self.X, self.Y_val, self.param) + \
+        grad = self.grad_L(self.param) + \
             [0] * len(self.constraint)
-        hess = self.hess_L(self.N, self.X, self.Y_val, self.param)
+        hess = self.hess_L(self.param)
 
         # Add blocks corresponding to constraint variables:
         # Hess_lambda_param = grad_g
@@ -386,16 +347,16 @@ class poisson:
                     for j in xrange(i + 1):
                         hess[idx][param_map[j]] += hess_g[i][j]
 
-        for r, param_map, a, h in self.reg:
+        for r, param_map, gamma, h in self.reg:
             if isinstance(param_map, list):
                 args = map(lambda k: self.param[k], param_map)
                 grad_h = h.grad(args)
                 hess_h = h.hess(args)
                 for i in xrange(len(param_map)):
                     idx = param_map[i]
-                    grad[idx] -= a * grad_h[i]
+                    grad[idx] -= gamma * grad_h[i]
                     for j in xrange(i + 1):
-                        hess[idx][param_map[j]] -= a * hess_h[i][j]
+                        hess[idx][param_map[j]] -= gamma * hess_h[i][j]
 
         # --------------------------------------------------------------------
         # 3rd phase: Reshape and flatten
@@ -440,28 +401,27 @@ class poisson:
         change = np.linalg.norm(d) / np.linalg.norm(param)
         for i in xrange(5):
             new_param = self.__reshape_param(param + u * d)
-            self.Y_val = self.Y(new_param)
-            new_E = self.E()
-            if new_E < self.E_val:
+            new_G = self.G(new_param)
+            if new_G < self.G_val:
                 self.param = new_param
-                self.E_val = new_E
+                self.G_val = new_G
                 self.__flat_hess = hess
                 return change
             else:
                 u *= .75
 
         self.param = new_param
-        self.E_val = new_E
+        self.G_val = new_G
         self.__flat_hess = hess
         return change
 
-    def run(self, e=0.001, max_steps=1000):
+    def run(self, tol=0.001, max_steps=100):
         """
         Run the algorithm to find the best fit.
 
         Parameters
         ----------
-        e : float (optional)
+        tol : float (optional)
             Tolerance for termination.
         max_steps : int (optional)
             Maximum number of steps that the algorithm will perform.
@@ -472,11 +432,10 @@ class poisson:
             Returns True if the algorithm converges, otherwise returns
             False.
         """
-        self.Y_val = self.Y(self.param)
-        self.E_val = self.E()
+        self.G_val = self.G(self.param)
         for i in xrange(max_steps):
-            print i, self.E_val
+            print i, self.G_val
             change = self.__step()
-            if change < e:
+            if change < tol:
                 return True
         return False
