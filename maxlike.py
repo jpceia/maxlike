@@ -132,10 +132,10 @@ class poisson:
 
     def G(self, params):
         """
-        Cost function, to minimize.
+        Likelihood function, to maximize.
         """
         ln_y = self.ln_y(params)
-        G = (-self.N * np.exp(ln_y) + self.X * ln_y).sum()
+        G = (self.X * ln_y - self.N * np.exp(ln_y)).sum()
         for r, param_map, gamma, h in self.reg:
             G += gamma * h.eval(map(lambda k: params[k], param_map))
 
@@ -145,8 +145,7 @@ class poisson:
         """
         Calculates the gradient of the model
         """
-        grad = [np.multiply.outer(np.zeros(self.N.shape), np.zeros(p.shape))
-                for p in self.param]
+        grad = [np.zeros(self.N.shape + p.shape) for p in self.param]
 
         for param_map, feat_map, f, weight in self.factors:
             # since der[k] is going to have shape N.shape x param[k].shape
@@ -169,7 +168,7 @@ class poisson:
         delta = self.X - self.N * np.exp(self.ln_y(params))
         der = self.__grad_ln_y(params)
         return [(delta[[Ellipsis] + [None] * self.param[i].ndim] *
-                 der[i]).sum(tuple(np.arange(self.N.ndim)))
+                 der[i]).sum(tuple(range(self.N.ndim)))
                 for i in range(len(self.param))]
 
     def hess_L(self, params):
@@ -190,20 +189,21 @@ class poisson:
             hess_line = []
             for j in range(i + 1):
                 cube = np.zeros(self.N.shape +
-                                self.param[j].shape + self.param[i].shape)
+                                self.param[j].shape +
+                                self.param[i].shape)
                 for param_map, feat_map, f, weight in self.factors:
                     if i in param_map and j in param_map:
                         feat_expd = self.__slice(feat_map)
                         cube += weight * \
                             f.hess(map(params.__getitem__, feat_map),
-                                   i, j)[feat_expd + slc[i] + slc[j]]
+                                   i, j)[feat_expd + slc[j] + slc[i]]
                 h = -((self.N * np.exp(ln_y)
-                       )[slc_feat + slc_expd[i] + slc_expd[j]] * cube).sum(
-                    tuple(np.arange(self.N.ndim)))
-                h += (delta[slc_feat + slc_expd[i] + slc_expd[j]] *
+                       )[slc_feat + slc_expd[j] + slc_expd[i]] *
                       grad[j][slc_feat + slc[j] + slc_expd[i]] *
                       grad[i][slc_feat + slc_expd[j] + slc[i]]
                       ).sum(tuple(np.arange(self.N.ndim)))
+                h += (delta[slc_feat + slc_expd[j] + slc_expd[i]] * cube).sum(
+                    tuple(np.arange(self.N.ndim)))
                 hess_line.append(h)
             hess.append(hess_line)
         return hess
@@ -314,7 +314,7 @@ class poisson:
         return self.__reshape_array(
             np.sqrt(np.diag(-np.linalg.inv(self.__flat_hess))))
 
-    def __step(self):
+    def __step(self, max_steps=5):
 
         n = len(self.param)
         cstr_len = len(self.constraint)
@@ -398,24 +398,23 @@ class poisson:
         # --------------------------------------------------------------------
         u = 1
         d = -np.linalg.solve(hess, grad)[:-cstr_len]
+
         change = np.linalg.norm(d) / np.linalg.norm(param)
-        for i in xrange(5):
+        for i in xrange(max_steps):
             new_param = self.__reshape_param(param + u * d)
             new_G = self.G(new_param)
-            if new_G < self.G_val:
+            if new_G > self.G_val:
                 self.param = new_param
                 self.G_val = new_G
-                self.__flat_hess = hess
+                self.__flat_hess = hess  # ??? why here and not before
                 return change
             else:
-                u *= .75
+                u *= .5
 
-        self.param = new_param
-        self.G_val = new_G
-        self.__flat_hess = hess
-        return change
+        print """Error: the objective function did non increased after %d
+                 steps""" % max_steps
 
-    def run(self, tol=0.001, max_steps=100):
+    def run(self, tol=1e-3, max_steps=100):
         """
         Run the algorithm to find the best fit.
 
