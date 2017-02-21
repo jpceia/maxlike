@@ -94,19 +94,38 @@ class onehot(func):
             return [[H]]
 
 
-class rangeLinear(func):
-    def __init__(self, lenght):
-        self.lenght = lenght
+class constant(func):
+    def __init__(self, vector):
+        self.vector = np.array(vector)
 
-    def eval(self, param):
-        return param * np.arange(self.lenght)
+    def eval(self, param=None):
+        return self.vector
 
-    def grad(self, param):
-        return np.arange(self.lenght)
+    def grad(self, param=None):
+        return np.zeros(())
 
-    def hess(self, param, i=None, j=None):
-        H = np.zeros((self.lenght))
+    def hess(self, param=None, i=None, j=None):
+        H = np.zeros(())
         if i is not None and j is not None:
             return H
         else:
             return [[H]]
+
+
+class vector(func):
+    def __init__(self, vector):
+        self.vector = np.array(vector)
+
+    def eval(self, param):
+        return param * self.vector
+
+    def grad(self, param):
+        return self.vector
+
+    def hess(self, param, i=None, j=None):
+        H = np.zeros((self.vector.size))
+        if i is not None and j is not None:
+            return H
+        else:
+            return [[H]]
+3

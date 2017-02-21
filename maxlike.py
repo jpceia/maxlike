@@ -117,7 +117,7 @@ class poisson:
         return map(
             lambda x: slice(None) if x else None,
             (np.arange(self.N.ndim)[:, None] ==
-                np.array(feat_map)[None, :]).all(1))
+                np.array(feat_map)[None, :]).any(1))
 
     def ln_y(self, params):
         """
@@ -127,7 +127,7 @@ class poisson:
         for param_map, feat_map, f, weight in self.factors:
             F += weight * \
                 f.eval(map(params.__getitem__,
-                           feat_map))[self.__slice(feat_map)]
+                           param_map))[self.__slice(feat_map)]
         return F
 
     def G(self, params):
@@ -155,7 +155,7 @@ class poisson:
 
             # we copy the value of f.grad since we're going to use it
             # several times.
-            grad_f = f.grad(map(params.__getitem__, feat_map))
+            grad_f = f.grad(map(params.__getitem__, param_map))
             for i in param_map:
                 grad[i] += weight * grad_f[slc]
 
@@ -195,7 +195,7 @@ class poisson:
                     if i in param_map and j in param_map:
                         feat_expd = self.__slice(feat_map)
                         cube += weight * \
-                            f.hess(map(params.__getitem__, feat_map),
+                            f.hess(map(params.__getitem__, param_map),
                                    i, j)[feat_expd + slc[j] + slc[i]]
                 h = -((self.N * np.exp(ln_y)
                        )[slc_feat + slc_expd[j] + slc_expd[i]] *
@@ -301,6 +301,9 @@ class poisson:
 
         return matrix
 
+    def fisher_matrix(self):
+        return self.__reshape_matrix(self.__flat_hess, 0)
+
     def error_matrix(self):
         """
         Covariance Matrix.
@@ -311,10 +314,10 @@ class poisson:
         """
         Standard Deviation Array.
         """
-        return self.__reshape_array(
-            np.sqrt(np.diag(-np.linalg.inv(self.__flat_hess))))
+        return self.__reshape_array(np.sqrt(np.diag(-np.linalg.inv(
+            self.__flat_hess))[:-len(self.constraint)]))
 
-    def __step(self, max_steps=5):
+    def __step(self, max_steps=20):
 
         n = len(self.param)
         cstr_len = len(self.constraint)
@@ -399,22 +402,22 @@ class poisson:
         u = 1
         d = -np.linalg.solve(hess, grad)[:-cstr_len]
 
-        change = np.linalg.norm(d) / np.linalg.norm(param)
+        # change = np.linalg.norm(d) / np.linalg.norm(param)
         for i in xrange(max_steps):
             new_param = self.__reshape_param(param + u * d)
             new_G = self.G(new_param)
-            if new_G > self.G_val:
+            if new_G >= self.G_last:
                 self.param = new_param
-                self.G_val = new_G
-                self.__flat_hess = hess  # ??? why here and not before
-                return change
+                self.G_last = new_G
+                self.__flat_hess = hess
+                return True
             else:
                 u *= .5
 
         print """Error: the objective function did non increased after %d
                  steps""" % max_steps
 
-    def run(self, tol=1e-3, max_steps=100):
+    def run(self, tol=1e-8, max_steps=100):
         """
         Run the algorithm to find the best fit.
 
@@ -431,10 +434,11 @@ class poisson:
             Returns True if the algorithm converges, otherwise returns
             False.
         """
-        self.G_val = self.G(self.param)
+        self.G_last = self.G(self.param)
         for i in xrange(max_steps):
-            print i, self.G_val
-            change = self.__step()
-            if change < tol:
+            new_G = self.G_last
+            self.__step()
+            print i, new_G
+            if abs(new_G / self.G_last) - 1 < tol:
                 return True
         return False
