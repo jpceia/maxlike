@@ -426,7 +426,7 @@ class poisson:
         print """Error: the objective function did non increased after %d
                  steps""" % max_steps
 
-    def run(self, tol=1e-10, max_steps=100):
+    def run(self, tol=1e-8, max_steps=100):
         """
         Run the algorithm to find the best fit.
 
