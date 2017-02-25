@@ -89,7 +89,7 @@ class poisson:
                     fixed.flatten())) + free_size
         ))
 
-    def add_factor(self, param_map, feat_map, new_factor, weight=1):
+    def add_factor(self, param_map, feat_map, new_factor):
         """
         Adds a factor to the model.
 
@@ -107,7 +107,7 @@ class poisson:
         if isinstance(feat_map, int):
             feat_map = [feat_map]
 
-        self.factors.append((param_map, feat_map, new_factor, weight))
+        self.factors.append((param_map, feat_map, new_factor))
 
     def __slice(self, feat_map):
         """
@@ -124,10 +124,9 @@ class poisson:
         Calculates the logarithm of the model
         """
         F = np.zeros(self.N.shape)
-        for param_map, feat_map, f, weight in self.factors:
-            F += weight * \
-                f.eval(map(params.__getitem__,
-                           param_map))[self.__slice(feat_map)]
+        for param_map, feat_map, f in self.factors:
+            F += f.eval(map(params.__getitem__,
+                        param_map))[self.__slice(feat_map)]
         return F
 
     def G(self, params):
@@ -147,7 +146,7 @@ class poisson:
         """
         grad = [np.zeros(self.N.shape + p.shape) for p in self.param]
 
-        for param_map, feat_map, f, weight in self.factors:
+        for param_map, feat_map, f in self.factors:
             # since der[k] is going to have shape N.shape x param[k].shape
             # we need to construct an appropriate slice to expand f.grade()
             # to have aligned dimentions
@@ -156,8 +155,9 @@ class poisson:
             # we copy the value of f.grad since we're going to use it
             # several times.
             grad_f = f.grad(map(params.__getitem__, param_map))
-            for i in param_map:
-                grad[i] += weight * grad_f[slc]
+
+            for idx in range(len(param_map)):
+                grad[param_map[idx]] += grad_f[idx][slc]
 
         return grad
 
@@ -191,12 +191,12 @@ class poisson:
                 cube = np.zeros(self.N.shape +
                                 self.param[j].shape +
                                 self.param[i].shape)
-                for param_map, feat_map, f, weight in self.factors:
+                for param_map, feat_map, f in self.factors:
                     if i in param_map and j in param_map:
+                        idx, jdx = param_map.index(i), param_map.index(j)
                         feat_expd = self.__slice(feat_map)
-                        cube += weight * \
-                            f.hess(map(params.__getitem__, param_map),
-                                   i, j)[feat_expd + slc[j] + slc[i]]
+                        cube += f.hess(map(params.__getitem__, param_map),
+                                       idx, jdx)[feat_expd + slc[j] + slc[i]]
                 h = -((self.N * np.exp(ln_y)
                        )[slc_feat + slc_expd[j] + slc_expd[i]] *
                       grad[j][slc_feat + slc[j] + slc_expd[i]] *
@@ -244,7 +244,8 @@ class poisson:
         # k: # of free parameters
         k = sum([c.size for c in self.param]) - len(self.constraint)
 
-        return 2 * k * (1 + (k - 1) / (self.N.sum() - k - 1)) - 2 * self.E()
+        return 2 * k * (1 + (k - 1) / (self.N.sum() - k - 1)) - \
+            2 * self.G(self.param)
 
     def Baysian_information_criterion(self):
         """
@@ -254,7 +255,7 @@ class poisson:
         # k: # of free parameters
         k = sum([c.size for c in self.param]) - len(self.constraint)
 
-        return k * np.log(self.N.sum()) - 2 * self.E()
+        return k * np.log(self.N.sum()) - 2 * self.G(self.param)
 
     def __reshape_array(self, flat_array, val=0):
         """
@@ -314,8 +315,11 @@ class poisson:
         """
         Standard Deviation Array.
         """
+        cut = -len(self.constraint)
+        if cut == 0:
+            cut = None
         return self.__reshape_array(np.sqrt(np.diag(-np.linalg.inv(
-            self.__flat_hess))[:-len(self.constraint)]))
+            self.__flat_hess))[:cut]))
 
     def __step(self, max_steps=20):
 
@@ -325,8 +329,7 @@ class poisson:
         # --------------------------------------------------------------------
         # 1st phase: Evaluate and sum
         # --------------------------------------------------------------------
-        grad = self.grad_L(self.param) + \
-            [0] * len(self.constraint)
+        grad = self.grad_L(self.param) + [0] * cstr_len
         hess = self.hess_L(self.param)
 
         # Add blocks corresponding to constraint variables:
@@ -391,16 +394,22 @@ class poisson:
         # --------------------------------------------------------------------
         param = np.concatenate(param)
         grad = np.concatenate(grad)
-        hess_c = np.vstack(map(np.concatenate, hess_c))
-        hess = np.vstack([
-            np.hstack([np.vstack(map(np.hstack, hess)), hess_c.transpose()]),
-            np.hstack([hess_c, np.zeros((cstr_len, cstr_len))])])
+        hess = np.vstack(map(np.hstack, hess))
+
+        if cstr_len > 0:
+            hess_c = np.vstack(map(np.concatenate, hess_c))
+            hess = np.vstack([
+                np.hstack([hess, hess_c.transpose()]),
+                np.hstack([hess_c,
+                           np.zeros((cstr_len, cstr_len))])])
 
         # --------------------------------------------------------------------
         # 5th phase: Compute
         # --------------------------------------------------------------------
         u = 1
-        d = -np.linalg.solve(hess, grad)[:-cstr_len]
+        d = -np.linalg.solve(hess, grad)
+        if cstr_len > 0:
+            d = d[:-cstr_len]
 
         # change = np.linalg.norm(d) / np.linalg.norm(param)
         for i in xrange(max_steps):
@@ -417,7 +426,7 @@ class poisson:
         print """Error: the objective function did non increased after %d
                  steps""" % max_steps
 
-    def run(self, tol=1e-8, max_steps=100):
+    def run(self, tol=1e-10, max_steps=100):
         """
         Run the algorithm to find the best fit.
 
