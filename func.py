@@ -25,10 +25,10 @@ class func:
     def __init__(self):
         self.params = []
 
-    def eval(self, param, *args, **kargs):
+    def eval(self, param):
         raise NotImplementedError
 
-    def grad(self, param, i=None):
+    def grad(self, param, i):
         raise NotImplementedError
 
     def hess(self, param, i=None, j=None):
@@ -70,10 +70,53 @@ class affine(func):
 
     @matrix_func
     def hess(self, param, i=None, j=None):
-        if i is not None and j is not None:
-            return self.a * self.base.hess(param, i, j)
+        return self.a * self.base.hess(param, i, j)
+
+
+class power(func):
+    def __init__(self, base, p):
+        if isinstance(base, power):
+            self.base = base.base
+            self.p = p * base.p
         else:
-            return self._hess_matrix(param)
+            self.base = base
+            self.p = p
+
+    def eval(self, param):
+        f = self.base.eval(param)
+        return np.sign(f) * np.power(np.abs(f), self.p)
+
+    @vector_func
+    def grad(self, param, i):
+        f = self.base.eval(param)
+        if self.p == 0:
+            return np.zeros(f.shape + param[i].shape)
+        if self.p == 1:
+            return self.base.grad(param, i)
+        else:
+            return self.p * np.power(np.abs(f), self.p - 1) * \
+                self.base.grad(param, i)
+
+    @matrix_func
+    def hess(self, param, i, j):
+        f = self.base.eval(param)
+        if self.p == 0:
+            return np.zeros(f.shape + param[i].shape + param[j].shape)
+        elif self.p == 1:
+            return self.base.hess(param, i, j)
+        else:
+            slc_feat = [slice(None)] * f.ndim
+            slc_i = [slice(None)] * param[i].ndim
+            slc_j = [slice(None)] * param[j].ndim
+            slc_expd_i = [None] * param[i].ndim
+            slc_expd_j = [None] * param[j].ndim
+            h = (self.p * (self.p - 1) * np.sign(f) *
+                 np.power(np.abs(f), self.p - 2) *
+                 self.base.grad(param, i)[slc_feat + slc_i + slc_expd_j] *
+                 self.base.grad(param, j)[slc_feat + slc_expd_i + slc_j]) - \
+                (self.p * np.power(np.abs(f), self.p - 1) *
+                 self.base.hess(param, i, j))
+            return h
 
 
 class linear(func):

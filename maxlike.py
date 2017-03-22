@@ -19,6 +19,7 @@ class poisson:
         self.reg = []
 
     def fit(self, observations):
+        # feature, labels, weights
         """
         Accepts a Series with a multiIndex - where the values are the labels
         and the multiIndex the features.
@@ -75,12 +76,12 @@ class poisson:
         else:
             raise ValueError("fixed must be None, a boolean or a ndarray")
 
-        # fixed values
+        # Fixed values
         self.param_fixed = np.concatenate((
             self.param_fixed,
             param_guess[fixed]))
 
-        # map to insert fixed values
+        # Map to insert fixed values
         self.free.append(~fixed)
         self.fixed_map = np.concatenate((
             self.fixed_map,
@@ -142,18 +143,18 @@ class poisson:
 
     def __grad_ln_y(self, params):
         """
-        Calculates the gradient of the model
+        Calculates the gradient of the model.
         """
         grad = [np.zeros(self.N.shape + p.shape) for p in self.param]
 
         for param_map, feat_map, f in self.factors:
-            # since der[k] is going to have shape N.shape x param[k].shape
-            # we need to construct an appropriate slice to expand f.grade()
-            # to have aligned dimentions
+            # Since grad[k] is going to have shape N.shape x param[k].shape
+            # we need to construct an appropriate slice to expand f.grad to
+            # have aligned dimentions.
             slc = self.__slice(feat_map) + [Ellipsis]
 
-            # we copy the value of f.grad since we're going to use it
-            # several times.
+            # We copy the value of f.grad since we're going to use it several
+            # times.
             grad_f = f.grad(map(params.__getitem__, param_map))
 
             for idx in range(len(param_map)):
@@ -423,7 +424,7 @@ class poisson:
             else:
                 u *= .5
 
-        print """Error: the objective function did non increased after %d
+        print """Error: the objective function did not increased after %d
                  steps""" % max_steps
 
     def run(self, tol=1e-8, max_steps=100):
