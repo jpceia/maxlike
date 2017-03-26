@@ -2,57 +2,76 @@ import numpy as np
 
 
 def vector_func(g):
-    def wrapper(obj, param=[], i=None):
-        if i is not None:
+    def wrapper(obj, param=None, i=None):
+        if param is None:
+            param = []
+        elif i is not None:
             return g(obj, param, i)
         else:
-            return map(lambda i: g(obj, param, i), range(len(param)))
+            return map(lambda k: g(obj, param, k), range(len(param)))
     return wrapper
 
 
 def matrix_func(h):
-    def wrapper(obj, param=[], i=None, j=None):
+    def wrapper(obj, param=None, i=None, j=None):
+        if param is None:
+            param = []
         if i is not None and j is not None:
             return h(obj, param, i, j)
         else:
-            return map(lambda i:
-                       map(lambda j: h(obj, param, i, j), range(i + 1)),
+            return map(lambda k:
+                       map(lambda l: h(obj, param, k, l), range(k + 1)),
                        range(len(param)))
     return wrapper
 
 
-class func:
-    def __init__(self):
-        self.params = []
+class cache_result:
+    def __init__(self, foo):
+        self.foo = foo
+        self.cache = None
 
+    def __caller__(self, *args,  **kwargs):
+        is_cached = True
+        if not hasattr(self, 'args') or self.args != args:
+            is_cached = False
+            self.args = copy(args)
+        if not hasattr(self, 'kwargs') or self.kwargs != kwargs:
+            is_cached = False
+            self.kwargs = copy(kwargs)
+        if not is_cached:
+            self.cache = self.foo(*args, **kwargs)
+        return self.cache
+
+
+class Func:
     def eval(self, param):
         raise NotImplementedError
 
     def grad(self, param, i):
         raise NotImplementedError
 
-    def hess(self, param, i=None, j=None):
+    def hess(self, param, i, j):
         raise NotImplementedError
 
     def __add__(self, b):
-        return affine(self, 1, b)
+        return Affine(self, 1, b)
 
     def __sub__(self, b):
-        return affine(self, 1, -b)
+        return Affine(self, 1, -b)
 
     def __neg__(self):
-        return affine(self, -1, 0)
+        return Affine(self, -1, 0)
 
     def __mul__(self, a):
-        return affine(self, a, 0)
+        return Affine(self, a, 0)
 
     def __div__(self, a):
-        return affine(self, 1.0 / a, 0)
+        return Affine(self, 1.0 / a, 0)
 
 
-class affine(func):
+class Affine(Func):
     def __init__(self, base, a, b):
-        if isinstance(base, affine):
+        if isinstance(base, Affine):
             self.base = base.base
             self.a = a * base.a
             self.b = a * base.b + b
@@ -73,56 +92,11 @@ class affine(func):
         return self.a * self.base.hess(param, i, j)
 
 
-class power(func):
-    def __init__(self, base, p):
-        if isinstance(base, power):
-            self.base = base.base
-            self.p = p * base.p
-        else:
-            self.base = base
-            self.p = p
-
-    def eval(self, param):
-        f = self.base.eval(param)
-        return np.sign(f) * np.power(np.abs(f), self.p)
-
-    @vector_func
-    def grad(self, param, i):
-        f = self.base.eval(param)
-        if self.p == 0:
-            return np.zeros(f.shape + param[i].shape)
-        if self.p == 1:
-            return self.base.grad(param, i)
-        else:
-            return self.p * np.power(np.abs(f), self.p - 1) * \
-                self.base.grad(param, i)
-
-    @matrix_func
-    def hess(self, param, i, j):
-        f = self.base.eval(param)
-        if self.p == 0:
-            return np.zeros(f.shape + param[i].shape + param[j].shape)
-        elif self.p == 1:
-            return self.base.hess(param, i, j)
-        else:
-            slc_feat = [slice(None)] * f.ndim
-            slc_i = [slice(None)] * param[i].ndim
-            slc_j = [slice(None)] * param[j].ndim
-            slc_expd_i = [None] * param[i].ndim
-            slc_expd_j = [None] * param[j].ndim
-            h = (self.p * (self.p - 1) * np.sign(f) *
-                 np.power(np.abs(f), self.p - 2) *
-                 self.base.grad(param, i)[slc_feat + slc_i + slc_expd_j] *
-                 self.base.grad(param, j)[slc_feat + slc_expd_i + slc_j]) - \
-                (self.p * np.power(np.abs(f), self.p - 1) *
-                 self.base.hess(param, i, j))
-            return h
-
-
-class linear(func):
+class Linear(Func):
     def __init__(self):
         self.weight = []
 
+    @cache_result
     def eval(self, param):
         if not isinstance(param, (tuple, list)):
             return sum(param * self.weight[0])
@@ -135,19 +109,16 @@ class linear(func):
         return self.weight[i]
 
     @matrix_func
-    def hess(self, param, i=None, j=None):
-        if i is not None and j is not None:
-            return np.multiply.outer(
-                np.zeros(self.weight[j].shape),
-                np.zeros(self.weight[i].shape))
-        else:
-            return self._hess_matrix(param)
+    def hess(self, param, i, j):
+        return np.multiply.outer(
+            np.zeros(self.weight[j].shape),
+            np.zeros(self.weight[i].shape))
 
     def add_feature(self, shape, weight):
         self.weight.append(weight * np.ones(shape))
 
 
-class onehot(func):
+class OneHot(Func):
     def __init__(self):
         pass
 
@@ -163,7 +134,7 @@ class onehot(func):
         return np.zeros(param[0].shape * 3)
 
 
-class constant(func):
+class Constant(Func):
     def __init__(self, vector):
         self.vector = np.array(vector)
 
@@ -172,14 +143,14 @@ class constant(func):
 
     @vector_func
     def grad(self, param, i):
-        return np.zeros()
+        return np.zeros(())
 
     @matrix_func
     def hess(self, param, i, j):
-        return np.zeros()
+        return np.zeros(())
 
 
-class vector(func):
+class Vector(Func):
     def __init__(self, vector):
         self.vector = np.array(vector)
 
@@ -192,4 +163,4 @@ class vector(func):
 
     @matrix_func
     def hess(self, param, i, j):
-        return np.zeros((self.vector.size))
+        return np.zeros(self.vector.size)

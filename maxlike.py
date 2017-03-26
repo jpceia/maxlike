@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 
-class poisson:
+class Poisson:
     """
     Class to model data under a Poisson Regression.
     """
@@ -17,6 +17,11 @@ class poisson:
         self.factors = []
         self.constraint = []
         self.reg = []
+        self.features_names = []
+        self.g_last = None
+        self.N = None
+
+        self.X = None
 
     def fit(self, observations):
         # feature, labels, weights
@@ -118,28 +123,28 @@ class poisson:
         return map(
             lambda x: slice(None) if x else None,
             (np.arange(self.N.ndim)[:, None] ==
-                np.array(feat_map)[None, :]).any(1))
+             np.array(feat_map)[None, :]).any(1))
 
     def ln_y(self, params):
         """
         Calculates the logarithm of the model
         """
-        F = np.zeros(self.N.shape)
+        val = np.zeros(self.N.shape)
         for param_map, feat_map, f in self.factors:
-            F += f.eval(map(params.__getitem__,
-                        param_map))[self.__slice(feat_map)]
-        return F
+            val += f.eval(map(params.__getitem__,
+                              param_map))[self.__slice(feat_map)]
+        return val
 
-    def G(self, params):
+    def g(self, params):
         """
         Likelihood function, to maximize.
         """
         ln_y = self.ln_y(params)
-        G = (self.X * ln_y - self.N * np.exp(ln_y)).sum()
+        g = (self.X * ln_y - self.N * np.exp(ln_y)).sum()
         for r, param_map, gamma, h in self.reg:
-            G += gamma * h.eval(map(lambda k: params[k], param_map))
+            g += gamma * h.eval(map(lambda k: params[k], param_map))
 
-        return G
+        return g
 
     def __grad_ln_y(self, params):
         """
@@ -162,7 +167,7 @@ class poisson:
 
         return grad
 
-    def grad_L(self, params):
+    def grad_like(self, params):
         """
         Calculates the gradient of the log-likelihood function.
         """
@@ -172,7 +177,7 @@ class poisson:
                  der[i]).sum(tuple(range(self.N.ndim)))
                 for i in range(len(self.param))]
 
-    def hess_L(self, params):
+    def hess_like(self, params):
         """
         Calculates the hessian of the log-likelihood function.
         """
@@ -220,7 +225,7 @@ class poisson:
         g : func
             Constraint function.
         """
-        self.constraint.append((len(self.constraint), param_map, 0, g))
+        self.constraint.append((param_map, 0, g))
 
     def add_regularization(self, param_map, gamma, h):
         """
@@ -235,9 +240,9 @@ class poisson:
         h : func
             Regularization function
         """
-        self.reg.append((len(self.reg), param_map, gamma, h))
+        self.reg.append((param_map, gamma, h))
 
-    def Akaine_information_criterion(self):
+    def akaine_information_criterion(self):
         """
         Akaike information criterion.
         (The best model is that which minimizes it)
@@ -246,9 +251,9 @@ class poisson:
         k = sum([c.size for c in self.param]) - len(self.constraint)
 
         return 2 * k * (1 + (k - 1) / (self.N.sum() - k - 1)) - \
-            2 * self.G(self.param)
+               2 * self.g(self.param)
 
-    def Baysian_information_criterion(self):
+    def baysian_information_criterion(self):
         """
         Bayesian information criterion.
         (The best model is that which minimizes it)
@@ -256,7 +261,7 @@ class poisson:
         # k: # of free parameters
         k = sum([c.size for c in self.param]) - len(self.constraint)
 
-        return k * np.log(self.N.sum()) - 2 * self.G(self.param)
+        return k * np.log(self.N.sum()) - 2 * self.g(self.param)
 
     def __reshape_array(self, flat_array, val=0):
         """
@@ -273,7 +278,7 @@ class poisson:
         """
         return [np.insert(flat_array, self.fixed_map, val)[
                 self.split_[i]:self.split_[i + 1]].
-                reshape(self.param[i].shape)
+                    reshape(self.param[i].shape)
                 for i in xrange(len(self.param))]
 
     def __reshape_param(self, param_free):
@@ -293,12 +298,12 @@ class poisson:
 
         # Split by blocks
         matrix = [[matrix[self.split_[i]:self.split_[i + 1],
-                          self.split_[j]:self.split_[j + 1]]
+                   self.split_[j]:self.split_[j + 1]]
                    for j in xrange(n)] for i in xrange(n)]
 
         # Reshape each block accordingly
         matrix = [[matrix[i][j].reshape(np.concatenate((
-                   self.param[i].shape, self.param[j].shape)))
+            self.param[i].shape, self.param[j].shape)))
                    for j in xrange(n)] for i in xrange(n)]
 
         return matrix
@@ -325,23 +330,25 @@ class poisson:
     def __step(self, max_steps=20):
 
         n = len(self.param)
-        cstr_len = len(self.constraint)
+        c_len = len(self.constraint)
 
         # --------------------------------------------------------------------
         # 1st phase: Evaluate and sum
         # --------------------------------------------------------------------
-        grad = self.grad_L(self.param) + [0] * cstr_len
-        hess = self.hess_L(self.param)
+        grad = self.grad_like(self.param) + [0] * c_len
+        hess = self.hess_like(self.param)
 
         # Add blocks corresponding to constraint variables:
         # Hess_lambda_param = grad_g
         hess_c = [[np.zeros(self.param[j].shape)
-                   for j in xrange(n)] for i in xrange(cstr_len)]
+                   for j in xrange(n)] for i in xrange(c_len)]
 
         # --------------------------------------------------------------------
         # 2nd phase: Add constraints / regularization to grad and hess
         # --------------------------------------------------------------------
-        for c, param_map, gamma, g in self.constraint:
+        count = -1
+        for param_map, gamma, g in self.constraint:
+            count += 1
             if isinstance(param_map, list):
                 args = map(lambda k: self.param[k], param_map)
                 grad_g = g.grad(args)
@@ -349,12 +356,12 @@ class poisson:
                 for i in xrange(len(param_map)):
                     idx = param_map[i]
                     grad[idx] += grad_g[i]
-                    grad[n + c] = np.array([g.eval(args)])
-                    hess_c[c][idx] += grad_g[i]
+                    grad[n + count] = np.array([g.eval(args)])
+                    hess_c[count][idx] += grad_g[i]
                     for j in xrange(i + 1):
                         hess[idx][param_map[j]] += hess_g[i][j]
 
-        for r, param_map, gamma, h in self.reg:
+        for param_map, gamma, h in self.reg:
             if isinstance(param_map, list):
                 args = map(lambda k: self.param[k], param_map)
                 grad_h = h.grad(args)
@@ -382,13 +389,13 @@ class poisson:
         # then hess[i][j].shape = shape[j] x shape[i]
 
         hess = [[hess[i][j][np.multiply.outer(
-                self.free[j], self.free[i])].reshape(
-                    (self.free[j].sum(), self.free[i].sum()))
-            for j in xrange(i + 1)] for i in xrange(n)]
+            self.free[j], self.free[i])].reshape(
+            (self.free[j].sum(), self.free[i].sum()))
+                 for j in xrange(i + 1)] for i in xrange(n)]
         hess = [[hess[i][j].transpose() for j in xrange(i)] +
                 [hess[j][i] for j in xrange(i, n)] for i in xrange(n)]
         hess_c = [[hess_c[i][j][self.free[j]] for j in xrange(n)]
-                  for i in xrange(cstr_len)]
+                  for i in xrange(c_len)]
 
         # --------------------------------------------------------------------
         # 4th phase: Consolidate blocks
@@ -397,28 +404,28 @@ class poisson:
         grad = np.concatenate(grad)
         hess = np.vstack(map(np.hstack, hess))
 
-        if cstr_len > 0:
+        if c_len > 0:
             hess_c = np.vstack(map(np.concatenate, hess_c))
             hess = np.vstack([
                 np.hstack([hess, hess_c.transpose()]),
                 np.hstack([hess_c,
-                           np.zeros((cstr_len, cstr_len))])])
+                           np.zeros((c_len, c_len))])])
 
         # --------------------------------------------------------------------
         # 5th phase: Compute
         # --------------------------------------------------------------------
         u = 1
         d = -np.linalg.solve(hess, grad)
-        if cstr_len > 0:
-            d = d[:-cstr_len]
+        if c_len > 0:
+            d = d[:-c_len]
 
         # change = np.linalg.norm(d) / np.linalg.norm(param)
         for i in xrange(max_steps):
             new_param = self.__reshape_param(param + u * d)
-            new_G = self.G(new_param)
-            if new_G >= self.G_last:
+            new_g = self.g(new_param)
+            if new_g >= self.g_last:
                 self.param = new_param
-                self.G_last = new_G
+                self.g_last = new_g
                 self.__flat_hess = hess
                 return True
             else:
@@ -444,11 +451,11 @@ class poisson:
             Returns True if the algorithm converges, otherwise returns
             False.
         """
-        self.G_last = self.G(self.param)
+        self.g_last = self.g(self.param)
         for i in xrange(max_steps):
-            new_G = self.G_last
+            new_g = self.g_last
             self.__step()
-            print i, new_G
-            if abs(new_G / self.G_last) - 1 < tol:
+            print i, new_g
+            if abs(new_g / self.g_last) - 1 < tol:
                 return True
         return False
