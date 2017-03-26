@@ -20,6 +20,7 @@ class Poisson:
         self.features_names = []
         self.g_last = None
         self.N = None
+        self.verbose = False
 
         self.X = None
 
@@ -251,7 +252,7 @@ class Poisson:
         k = sum([c.size for c in self.param]) - len(self.constraint)
 
         return 2 * k * (1 + (k - 1) / (self.N.sum() - k - 1)) - \
-               2 * self.g(self.param)
+            2 * self.g(self.param)
 
     def baysian_information_criterion(self):
         """
@@ -278,7 +279,7 @@ class Poisson:
         """
         return [np.insert(flat_array, self.fixed_map, val)[
                 self.split_[i]:self.split_[i + 1]].
-                    reshape(self.param[i].shape)
+                reshape(self.param[i].shape)
                 for i in xrange(len(self.param))]
 
     def __reshape_param(self, param_free):
@@ -304,7 +305,7 @@ class Poisson:
         # Reshape each block accordingly
         matrix = [[matrix[i][j].reshape(np.concatenate((
             self.param[i].shape, self.param[j].shape)))
-                   for j in xrange(n)] for i in xrange(n)]
+            for j in xrange(n)] for i in xrange(n)]
 
         return matrix
 
@@ -391,7 +392,7 @@ class Poisson:
         hess = [[hess[i][j][np.multiply.outer(
             self.free[j], self.free[i])].reshape(
             (self.free[j].sum(), self.free[i].sum()))
-                 for j in xrange(i + 1)] for i in xrange(n)]
+            for j in xrange(i + 1)] for i in xrange(n)]
         hess = [[hess[i][j].transpose() for j in xrange(i)] +
                 [hess[j][i] for j in xrange(i, n)] for i in xrange(n)]
         hess_c = [[hess_c[i][j][self.free[j]] for j in xrange(n)]
@@ -430,9 +431,9 @@ class Poisson:
                 return True
             else:
                 u *= .5
-
-        print """Error: the objective function did not increased after %d
-                 steps""" % max_steps
+        if self.verbose:
+            print """Error: the objective function did not increased after %d
+                     steps""" % max_steps
 
     def run(self, tol=1e-8, max_steps=100):
         """
@@ -455,7 +456,8 @@ class Poisson:
         for i in xrange(max_steps):
             new_g = self.g_last
             self.__step()
-            print i, new_g
+            if self.verbose:
+                print i, new_g
             if abs(new_g / self.g_last) - 1 < tol:
                 return True
         return False

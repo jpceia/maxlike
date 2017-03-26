@@ -25,24 +25,6 @@ def matrix_func(h):
     return wrapper
 
 
-class cache_result:
-    def __init__(self, foo):
-        self.foo = foo
-        self.cache = None
-
-    def __caller__(self, *args,  **kwargs):
-        is_cached = True
-        if not hasattr(self, 'args') or self.args != args:
-            is_cached = False
-            self.args = copy(args)
-        if not hasattr(self, 'kwargs') or self.kwargs != kwargs:
-            is_cached = False
-            self.kwargs = copy(kwargs)
-        if not is_cached:
-            self.cache = self.foo(*args, **kwargs)
-        return self.cache
-
-
 class Func:
     def eval(self, param):
         raise NotImplementedError
@@ -96,7 +78,6 @@ class Linear(Func):
     def __init__(self):
         self.weight = []
 
-    @cache_result
     def eval(self, param):
         if not isinstance(param, (tuple, list)):
             return sum(param * self.weight[0])
