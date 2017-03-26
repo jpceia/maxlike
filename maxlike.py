@@ -96,26 +96,6 @@ class Poisson:
                     fixed.flatten())) + free_size
         ))
 
-    def add_factor(self, param_map, feat_map, new_factor):
-        """
-        Adds a factor to the model.
-
-        Parameters
-        ----------
-        param_map: int, list
-            index of parameters that 'new_factor' accepts
-        feat_map:
-            index of features that 'new_factor' accepts
-        new_factor: func
-            factor to add to the model
-        """
-        if isinstance(param_map, int):
-            param_map = [param_map]
-        if isinstance(feat_map, int):
-            feat_map = [feat_map]
-
-        self.factors.append((param_map, feat_map, new_factor))
-
     def __slice(self, feat_map):
         """
         Returns a slice that induces broadcast accross the dimentions that are

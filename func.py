@@ -74,6 +74,87 @@ class Affine(Func):
         return self.a * self.base.hess(param, i, j)
 
 
+class FuncSum(Func):
+    class Atom(Func):
+        def __init__(self, ndim, param_map, feat_map, foo):
+            if isinstance(param_map, int):
+                self.param_map = [param_map]
+            if isinstance(feat_map, int):
+                self.feat_map = [feat_map]
+            assert isinstance(foo, Func)
+            assert min(feat_map) >= 0
+            assert max(feat_map) <= ndim
+            self.ndim = ndim
+            self.foo = foo
+            self.__slice = map(
+                lambda x: slice(None) if x else None,
+                (np.arange(self.ndim)[:, None] ==
+                 np.array(self.feat_map)[None, :]).any(1))
+
+        def eval(self, param):
+            return self.foo.eval(map(param.__getitem__,
+                                     self.param_map))[self.__slice]
+
+        @vector_func
+        def grad(self, param, i):
+            grad = [np.zeros(a.shape)[[None] * self.ndim + [Ellipsis]]
+                    for a in param]
+            flt_param = map(param.__getitem__, self.param_map)
+            for i in range(len(self.param_map)):
+                grad[self.param_map[i]] = \
+                    self.foo.grad(flt_param, i)[self.__slice + [Ellipsis]]  # precisa de ser corrigido
+            return grad
+
+        @matrix_func
+        def hess(self, param, i, j):
+            hess = [[np.zeros(param[i].shape + param[j].shape)
+                     [[None] * self.ndim + [Ellipsis]]
+                    for j in range(i + 1)] for i in range(len(param))]
+            for i in range(len(self.param_map)):
+                for j in range(i+1):
+                    hess[self.param_map[i]][self.param_map[j]] = 0
+            return hess
+
+    def __init__(self, ndim):
+        self.atoms = []
+        self.ndim = ndim
+        self.b = 0
+
+    def add(self, param_map, feat_map, foo, weight=1.0):
+        """
+        Adds a factor to FuncSum object.
+
+        Parameters
+        ----------
+        param_map: int, list
+            index of parameters that 'foo' accepts.
+        feat_map:
+            index of features that 'foo' returns.
+        foo: Func
+            function to add to the FuncSum object.
+        weight: double
+            value to multiply for.
+        """
+        if isinstance(foo, Affine):
+            self.b += foo.b
+            self.add(param_map, feat_map, foo.base, weight * foo.a)
+        elif isinstance(foo, FuncSum):
+            self.b += foo.b
+            # do more stuff, be carefull with param and feat_map
+        else:
+            self.atoms.append((weight, self.Atom(param_map, feat_map, foo)))
+
+    def eval(self, param):
+        return sum([weight * atom.eval(param)
+                    for weight, atom in self.atoms]) + self.b
+
+    def grad(self, param, i):
+        pass
+
+    def hess(self, param, i, j):
+        pass
+
+
 class Linear(Func):
     def __init__(self):
         self.weight = []
