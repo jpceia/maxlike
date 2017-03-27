@@ -97,23 +97,26 @@ class FuncSum(Func):
 
         @vector_func
         def grad(self, param, i):
-            grad = [np.zeros(a.shape)[[None] * self.ndim + [Ellipsis]]
-                    for a in param]
-            flt_param = map(param.__getitem__, self.param_map)
-            for i in range(len(self.param_map)):
-                grad[self.param_map[i]] = \
-                    self.foo.grad(flt_param, i)[self.__slice + [Ellipsis]]  # precisa de ser corrigido
-            return grad
+            if i in self.param_map:
+                filt_param = map(param.__getitem__, self.param_map)
+                idx = self.param_map.index(i)
+                return self.foo.grad(filt_param, idx)[
+                    self.__slice + [Ellipsis]]
+            else:
+                return np.zeros(param[i].shape)[
+                    [None] * self.ndim + [Ellipsis]]
 
         @matrix_func
         def hess(self, param, i, j):
-            hess = [[np.zeros(param[i].shape + param[j].shape)
-                     [[None] * self.ndim + [Ellipsis]]
-                    for j in range(i + 1)] for i in range(len(param))]
-            for i in range(len(self.param_map)):
-                for j in range(i+1):
-                    hess[self.param_map[i]][self.param_map[j]] = 0
-            return hess
+            if i in self.param_map and j in self.param_map:
+                filt_param = map(param.__getitem__, self.param_map)
+                idx = self.param_map.index(i)
+                jdx = self.param_map.index(j)
+                return self.foo.hess(filt_param, idx, jdx)[
+                    self.__slice + [Ellipsis]]
+            else:
+                return np.zeros(param[i].shape + param[j].shape)[
+                    [None] * self.ndim + [Ellipsis]]
 
     def __init__(self, ndim):
         self.atoms = []
@@ -140,19 +143,24 @@ class FuncSum(Func):
             self.add(param_map, feat_map, foo.base, weight * foo.a)
         elif isinstance(foo, FuncSum):
             self.b += foo.b
-            # do more stuff, be carefull with param and feat_map
+            for w, atom in foo.atoms:
+                self.add(
+                    map(param_map.__getitem__, atom.param_map),
+                    map(feat_map.__getitem__, atom.feat_map),
+                    atom.foo,
+                    w * weight)
         else:
-            self.atoms.append((weight, self.Atom(param_map, feat_map, foo)))
+            self.atoms.append((
+                weight, self.Atom(self.ndim, param_map, feat_map, foo)))
 
     def eval(self, param):
-        return sum([weight * atom.eval(param)
-                    for weight, atom in self.atoms]) + self.b
+        return sum([w * atom.eval(param) for w, atom in self.atoms]) + self.b
 
     def grad(self, param, i):
-        pass
+        return sum([w * atom.grad(param, i) for w, atom in self.atoms])
 
     def hess(self, param, i, j):
-        pass
+        return sum([w * atom.hess(param, i, j) for w, atom in self.atoms])
 
 
 class Linear(Func):
@@ -181,9 +189,6 @@ class Linear(Func):
 
 
 class OneHot(Func):
-    def __init__(self):
-        pass
-
     def eval(self, param):
         return np.array(param)[0]
 

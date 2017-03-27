@@ -77,10 +77,9 @@ class Poisson:
             fixed *= np.ones(shape, np.bool)
         elif isinstance(fixed, np.ndarray):
             if not fixed.shape == shape:
-                raise ValueError("""If fixed is a ndarray, it needs to have
-                    the same shapes as param elements""")
+                raise ValueError("shape mismatch")
         else:
-            raise ValueError("fixed must be None, a boolean or a ndarray")
+            raise TypeError
 
         # Fixed values
         self.param_fixed = np.concatenate((
@@ -118,12 +117,11 @@ class Poisson:
 
     def g(self, params):
         """
-        Likelihood function, to maximize.
+        Objective function, to maximize.
         """
-        ln_y = self.ln_y(params)
-        g = (self.X * ln_y - self.N * np.exp(ln_y)).sum()
+        g = self.like(params)
         for r, param_map, gamma, h in self.reg:
-            g += gamma * h.eval(map(lambda k: params[k], param_map))
+            g += gamma * h.eval(map(params.__getitem__, param_map))
 
         return g
 
@@ -147,6 +145,13 @@ class Poisson:
                 grad[param_map[idx]] += grad_f[idx][slc]
 
         return grad
+
+    def like(self, params):
+        """
+        Likelihood function.
+        """
+        ln_y = self.ln_y(params)
+        return (self.X * ln_y - self.N * np.exp(ln_y)).sum()
 
     def grad_like(self, params):
         """
@@ -234,7 +239,7 @@ class Poisson:
         return 2 * k * (1 + (k - 1) / (self.N.sum() - k - 1)) - \
             2 * self.g(self.param)
 
-    def baysian_information_criterion(self):
+    def bayesian_information_criterion(self):
         """
         Bayesian information criterion.
         (The best model is that which minimizes it)
@@ -260,7 +265,7 @@ class Poisson:
         return [np.insert(flat_array, self.fixed_map, val)[
                 self.split_[i]:self.split_[i + 1]].
                 reshape(self.param[i].shape)
-                for i in xrange(len(self.param))]
+                for i in range(len(self.param))]
 
     def __reshape_param(self, param_free):
         return self.__reshape_array(param_free, self.param_fixed)
@@ -280,12 +285,12 @@ class Poisson:
         # Split by blocks
         matrix = [[matrix[self.split_[i]:self.split_[i + 1],
                    self.split_[j]:self.split_[j + 1]]
-                   for j in xrange(n)] for i in xrange(n)]
+                   for j in range(n)] for i in range(n)]
 
         # Reshape each block accordingly
         matrix = [[matrix[i][j].reshape(np.concatenate((
             self.param[i].shape, self.param[j].shape)))
-            for j in xrange(n)] for i in xrange(n)]
+            for j in range(n)] for i in range(n)]
 
         return matrix
 
@@ -322,7 +327,7 @@ class Poisson:
         # Add blocks corresponding to constraint variables:
         # Hess_lambda_param = grad_g
         hess_c = [[np.zeros(self.param[j].shape)
-                   for j in xrange(n)] for i in xrange(c_len)]
+                   for j in range(n)] for i in range(c_len)]
 
         # --------------------------------------------------------------------
         # 2nd phase: Add constraints / regularization to grad and hess
@@ -331,33 +336,33 @@ class Poisson:
         for param_map, gamma, g in self.constraint:
             count += 1
             if isinstance(param_map, list):
-                args = map(lambda k: self.param[k], param_map)
+                args = map(self.params.__getitem__, param_map)
                 grad_g = g.grad(args)
                 hess_g = g.hess(args)
-                for i in xrange(len(param_map)):
+                for i in range(len(param_map)):
                     idx = param_map[i]
                     grad[idx] += grad_g[i]
                     grad[n + count] = np.array([g.eval(args)])
                     hess_c[count][idx] += grad_g[i]
-                    for j in xrange(i + 1):
+                    for j in range(i + 1):
                         hess[idx][param_map[j]] += hess_g[i][j]
 
         for param_map, gamma, h in self.reg:
             if isinstance(param_map, list):
-                args = map(lambda k: self.param[k], param_map)
+                args = map(self.params.__getitem__, param_map)
                 grad_h = h.grad(args)
                 hess_h = h.hess(args)
-                for i in xrange(len(param_map)):
+                for i in range(len(param_map)):
                     idx = param_map[i]
                     grad[idx] -= gamma * grad_h[i]
-                    for j in xrange(i + 1):
+                    for j in range(i + 1):
                         hess[idx][param_map[j]] -= gamma * hess_h[i][j]
 
         # --------------------------------------------------------------------
         # 3rd phase: Reshape and flatten
         # --------------------------------------------------------------------
-        param = [self.param[i][self.free[i]] for i in xrange(n)]
-        grad = [grad[i][self.free[i]] for i in xrange(n)] + grad[n:]
+        param = [self.param[i][self.free[i]] for i in range(n)]
+        grad = [grad[i][self.free[i]] for i in range(n)] + grad[n:]
 
         # ------
         # | aa |
@@ -372,11 +377,11 @@ class Poisson:
         hess = [[hess[i][j][np.multiply.outer(
             self.free[j], self.free[i])].reshape(
             (self.free[j].sum(), self.free[i].sum()))
-            for j in xrange(i + 1)] for i in xrange(n)]
-        hess = [[hess[i][j].transpose() for j in xrange(i)] +
-                [hess[j][i] for j in xrange(i, n)] for i in xrange(n)]
-        hess_c = [[hess_c[i][j][self.free[j]] for j in xrange(n)]
-                  for i in xrange(c_len)]
+            for j in range(i + 1)] for i in range(n)]
+        hess = [[hess[i][j].transpose() for j in range(i)] +
+                [hess[j][i] for j in range(i, n)] for i in range(n)]
+        hess_c = [[hess_c[i][j][self.free[j]] for j in range(n)]
+                  for i in range(c_len)]
 
         # --------------------------------------------------------------------
         # 4th phase: Consolidate blocks
@@ -401,7 +406,7 @@ class Poisson:
             d = d[:-c_len]
 
         # change = np.linalg.norm(d) / np.linalg.norm(param)
-        for i in xrange(max_steps):
+        for i in range(max_steps):
             new_param = self.__reshape_param(param + u * d)
             new_g = self.g(new_param)
             if new_g >= self.g_last:
@@ -412,8 +417,8 @@ class Poisson:
             else:
                 u *= .5
         if self.verbose:
-            print """Error: the objective function did not increased after %d
-                     steps""" % max_steps
+            print("""Error: the objective function did not increased after %d
+                     steps""" % max_steps)
 
     def run(self, tol=1e-8, max_steps=100):
         """
@@ -433,11 +438,11 @@ class Poisson:
             False.
         """
         self.g_last = self.g(self.param)
-        for i in xrange(max_steps):
+        for i in range(max_steps):
             new_g = self.g_last
             self.__step()
             if self.verbose:
-                print i, new_g
+                print(i, new_g)
             if abs(new_g / self.g_last) - 1 < tol:
                 return True
         return False
