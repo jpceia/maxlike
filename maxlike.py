@@ -4,18 +4,26 @@ import pandas as pd
 
 class MaxLike:
     def __init__(self):
+        # atomic param related
         self.param = []
         self.free = []
         self.label = []
+        self.param_fixed = np.array([])
+
+        # whole param related
         self.split_ = [0]
         self.fixed_map = np.array([], np.int)
-        self.param_fixed = np.array([])
+
+        # model related
         self.factors = []
+
         self.constraint = []
         self.reg = []
+
         self.features_names = []
-        self.g_last = None
         self.N = None
+
+        self.g_last = None
         self.verbose = False
 
     def fit(self, observations):
@@ -35,18 +43,18 @@ class MaxLike:
         Objective function, to maximize.
         """
         g = self.like(params)
-        for r, param_map, gamma, h in self.reg:
+        for param_map, gamma, h in self.reg:
             g += gamma * h.eval(map(params.__getitem__, param_map))
 
         return g
 
-    def add_param(self, param_guess, fixed=None, label=''):
+    def add_param(self, values, fixed=None, label=''):
         """
         Adds a new parameter.
 
         Parameters
         ----------
-        param_guess: list
+        values: list
             Initial guess for the parameter.
         fixed: list (optional)
             Boolean arrays with value = True if the parameter has a
@@ -54,29 +62,31 @@ class MaxLike:
         label: string (optional)
             label for that parameter.
         """
-        if isinstance(param_guess, (int, float, tuple, list)):
-            param_guess = np.array(param_guess)
-
-        shape = param_guess.shape
-        free_size = sum([el.size for el in self.free])
-        self.param.append(param_guess)
-        self.label.append(label)
-        self.split_.append(self.split_[-1] + param_guess.size)
+        if isinstance(values, (int, float, tuple, list)):
+            values = np.array(values)
+        elif not isinstance(values, np.ndarray):
+            raise TypeError
 
         if fixed is None:
-            fixed = np.zeros(shape, np.bool)
+            fixed = np.zeros(values.shape, np.bool)
         elif isinstance(fixed, bool):
-            fixed *= np.ones(shape, np.bool)
-        elif isinstance(fixed, np.ndarray):
-            if not fixed.shape == shape:
-                raise ValueError("shape mismatch")
-        else:
+            fixed *= np.ones(values.shape, np.bool)
+        elif isinstance(fixed, (tuple, list)):
+            fixed = np.array(fixed)
+        elif not isinstance(fixed, np.ndarray):
             raise TypeError
+
+        if not fixed.shape == values.shape:
+            raise ValueError("shape mismatch")
+
+        n_el = sum([el.size for el in self.free])
+        self.param.append(values)
+        self.label.append(label)
+        self.split_.append(self.split_[-1] + values.size)
 
         # Fixed values
         self.param_fixed = np.concatenate((
-            self.param_fixed,
-            param_guess[fixed]))
+            self.param_fixed, values[fixed]))
 
         # Map to insert fixed values
         self.free.append(~fixed)
@@ -84,7 +94,7 @@ class MaxLike:
             self.fixed_map,
             (lambda x: x - np.arange(x.size))(
                 (lambda x: np.arange(x.size)[x])(
-                    fixed.flatten())) + free_size))
+                    fixed.flatten())) + n_el))
 
     def add_factor(self, param_map, feat_map, new_factor):
         """
@@ -178,9 +188,9 @@ class MaxLike:
 
     def __reshape_matrix(self, matrix, value=np.NaN):
         if matrix.ndim != 2:
-            raise ValueError("'matrix' needs to have two axis")
+            raise ValueError("matrix.ndim != 2")
         elif matrix.shape[0] != matrix.shape[1]:
-            raise ValueError("'matrix' needs to be a square")
+            raise ValueError("matrix.shape[0] != matrix.shape[1]")
 
         n = len(self.param)
 
