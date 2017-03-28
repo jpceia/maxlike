@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 
-class ParamMap(list):
+class IndexMap(list):
     def __init__(self, indexes):
         if isinstance(indexes, int):
             indexes = [indexes]
@@ -118,7 +118,7 @@ class MaxLike(object):
         g : func
             Constraint function.
         """
-        self.constraint.append((ParamMap(param_map), 0, g))
+        self.constraint.append((IndexMap(param_map), 0, g))
 
     def add_regularization(self, param_map, gamma, h):
         """
@@ -133,7 +133,7 @@ class MaxLike(object):
         h : func
             Regularization function
         """
-        self.reg.append((ParamMap(param_map), gamma, h))
+        self.reg.append((IndexMap(param_map), gamma, h))
 
     def akaine_information_criterion(self):
         """

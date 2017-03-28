@@ -32,7 +32,7 @@ def matrix_func(h):
     return wrapper
 
 
-class ParamMap(list):
+class IndexMap(list):
     def __init__(self, indexes):
         if isinstance(indexes, int):
             indexes = [indexes]
@@ -96,13 +96,12 @@ class Affine(Func):
 class FuncSum(Func):
     class Atom(Func):
         def __init__(self, ndim, param_map, feat_map, foo):
-            if isinstance(feat_map, int):
-                feat_map = [feat_map]
+            param_map = IndexMap(param_map)
+            feat_map = IndexMap(feat_map)
             assert isinstance(foo, Func)
-            assert min(feat_map) >= 0
             assert max(feat_map) <= ndim
             self.ndim = ndim
-            self.param_map = ParamMap(param_map)
+            self.param_map = param_map
             self.feat_map = feat_map
             self.foo = foo
             self.__slice = map(
@@ -162,7 +161,7 @@ class FuncSum(Func):
             for w, atom in foo.atoms:
                 self.add(
                     atom.param_map(param_map),
-                    map(feat_map.__getitem__, atom.feat_map),
+                    atom.feat_map(feat_map),
                     atom.foo,
                     w * weight)
         else:
