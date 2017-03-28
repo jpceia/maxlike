@@ -377,16 +377,6 @@ class Poisson(MaxLike):
         self.N = df['N'].values.reshape(shape)
         return axis
 
-    def __slice(self, feat_map):
-        """
-        Returns a slice that induces broadcast accross the dimentions that are
-        not in feat_map
-        """
-        return map(
-            lambda x: slice(None) if x else None,
-            (np.arange(self.N.ndim)[:, None] ==
-             np.array(feat_map)[None, :]).any(1))
-
     def like(self, params):
         """
         Likelihood function.
@@ -423,7 +413,7 @@ class Poisson(MaxLike):
             for j in range(i + 1):
                 cube = self.model.hess(params, i, j)
                 h = -((self.N * np.exp(ln_y)
-                       )[slc_feat + slc_bdct[j] + slc_bdct[i]] *  # testar se pode ser eliminado
+                       )[slc_feat + slc_bdct[j] + slc_bdct[i]] *
                       grad[j][slc_feat + slc_asis[j] + slc_bdct[i]] *
                       grad[i][slc_feat + slc_bdct[j] + slc_asis[i]]
                       ).sum(tuple(np.arange(self.N.ndim)))

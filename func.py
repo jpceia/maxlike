@@ -1,38 +1,45 @@
 import numpy as np
 
 
+def eval_func(f):
+    def wrapper(obj, params=None, expand=None):
+        if params is None:
+            params = []
+        return f(obj, params)
+    return wrapper
+
+
 def vector_func(g):
-    def wrapper(obj, param=None, i=None):
-        if param is None:
-            param = []
-        elif i is not None:
-            return g(obj, param, i)
+    def wrapper(obj, params=None, i=None, expand=None):
+        if params is None:
+            params = []
+        if i is not None:
+            return g(obj, params, i)
         else:
-            return map(lambda k: g(obj, param, k), range(len(param)))
+            return map(lambda k: g(obj, params, k), range(len(params)))
     return wrapper
 
 
 def matrix_func(h):
-    def wrapper(obj, param=None, i=None, j=None):
-        if param is None:
-            param = []
+    def wrapper(obj, params=None, i=None, j=None, expand=None):
+        if params is None:
+            params = []
         if i is not None and j is not None:
-            return h(obj, param, i, j)
+            return h(obj, params, i, j)
         else:
-            return map(lambda k:
-                       map(lambda l: h(obj, param, k, l), range(k + 1)),
-                       range(len(param)))
+            return map(lambda k: map(lambda l: h(obj, params, k, l),
+                       range(k + 1)), range(len(params)))
     return wrapper
 
 
 class Func:
-    def eval(self, param):
+    def eval(self, params):
         raise NotImplementedError
 
-    def grad(self, param, i):
+    def grad(self, params, i):
         raise NotImplementedError
 
-    def hess(self, param, i, j):
+    def hess(self, params, i, j):
         raise NotImplementedError
 
     def __add__(self, b):
@@ -62,16 +69,17 @@ class Affine(Func):
             self.a = a
             self.b = b
 
-    def eval(self, param):
-        return self.a * self.base.eval(param) + self.b
+    @eval_func
+    def eval(self, params):
+        return self.a * self.base.eval(params) + self.b
 
     @vector_func
-    def grad(self, param, i):
-        return self.a * self.base.grad(param, i)
+    def grad(self, params, i):
+        return self.a * self.base.grad(params, i)
 
     @matrix_func
-    def hess(self, param, i=None, j=None):
-        return self.a * self.base.hess(param, i, j)
+    def hess(self, params, i=None, j=None):
+        return self.a * self.base.hess(params, i, j)
 
 
 class FuncSum(Func):
@@ -93,29 +101,29 @@ class FuncSum(Func):
                 (np.arange(self.ndim)[:, None] ==
                  np.array(self.feat_map)[None, :]).any(1))
 
-        def eval(self, param):
-            return self.foo.eval(map(param.__getitem__,
+        def eval(self, params):
+            return self.foo.eval(map(params.__getitem__,
                                      self.param_map))[self.__slice]
 
-        def grad(self, param, i):
+        def grad(self, params, i):
             if i in self.param_map:
-                filt_param = map(param.__getitem__, self.param_map)
+                filt_params = map(params.__getitem__, self.param_map)
                 idx = self.param_map.index(i)
-                return self.foo.grad(filt_param, idx)[
+                return self.foo.grad(filt_params, idx)[
                     self.__slice + [Ellipsis]]
             else:
-                return np.zeros(param[i].shape)[
+                return np.zeros(params[i].shape)[
                     [None] * self.ndim + [Ellipsis]]
 
-        def hess(self, param, i, j):
+        def hess(self, params, i, j):
             if i in self.param_map and j in self.param_map:
-                filt_param = map(param.__getitem__, self.param_map)
+                filt_params = map(params.__getitem__, self.param_map)
                 idx = self.param_map.index(i)
                 jdx = self.param_map.index(j)
-                return self.foo.hess(filt_param, idx, jdx)[
+                return self.foo.hess(filt_params, idx, jdx)[
                     self.__slice + [Ellipsis]]
             else:
-                return np.zeros(param[i].shape + param[j].shape)[
+                return np.zeros(params[i].shape + params[j].shape)[
                     [None] * self.ndim + [Ellipsis]]
 
     def __init__(self, ndim):
@@ -153,35 +161,37 @@ class FuncSum(Func):
             self.atoms.append((
                 weight, self.Atom(self.ndim, param_map, feat_map, foo)))
 
-    def eval(self, param):
-        return sum([w * atom.eval(param) for w, atom in self.atoms]) + self.b
+    @eval_func
+    def eval(self, params):
+        return sum([w * atom.eval(params) for w, atom in self.atoms]) + self.b
 
     @vector_func
-    def grad(self, param, i):
-        return sum([w * atom.grad(param, i) for w, atom in self.atoms])
+    def grad(self, params, i):
+        return sum([w * atom.grad(params, i) for w, atom in self.atoms])
 
     @matrix_func
-    def hess(self, param, i, j):
-        return sum([w * atom.hess(param, i, j) for w, atom in self.atoms])
+    def hess(self, params, i, j):
+        return sum([w * atom.hess(params, i, j) for w, atom in self.atoms])
 
 
 class Linear(Func):
     def __init__(self):
         self.weight = []
 
-    def eval(self, param):
-        if not isinstance(param, (tuple, list)):
-            return sum(param * self.weight[0])
+    @eval_func
+    def eval(self, params):
+        if not isinstance(params, (tuple, list)):
+            return sum(params * self.weight[0])
         else:
-            return sum([sum(param[i] * self.weight[i])
-                        for i in range(len(param))])
+            return sum([sum(params[i] * self.weight[i])
+                        for i in range(len(params))])
 
     @vector_func
-    def grad(self, param, i):
+    def grad(self, params, i):
         return self.weight[i]
 
     @matrix_func
-    def hess(self, param, i, j):
+    def hess(self, params, i, j):
         return np.multiply.outer(
             np.zeros(self.weight[j].shape),
             np.zeros(self.weight[i].shape))
@@ -191,31 +201,33 @@ class Linear(Func):
 
 
 class OneHot(Func):
-    def eval(self, param):
-        return np.array(param)[0]
+    @eval_func
+    def eval(self, params):
+        return np.array(params)[0]
 
     @vector_func
-    def grad(self, param, i):
-        return np.diag(np.ones(param[0].size)).reshape(param[0].shape * 2)
+    def grad(self, params, i):
+        return np.diag(np.ones(params[0].size)).reshape(params[0].shape * 2)
 
     @matrix_func
-    def hess(self, param, i, j):
-        return np.zeros(param[0].shape * 3)
+    def hess(self, params, i, j):
+        return np.zeros(params[0].shape * 3)
 
 
 class Constant(Func):
     def __init__(self, vector):
         self.vector = np.array(vector)
 
-    def eval(self, param=None):
+    @eval_func
+    def eval(self, params):
         return self.vector
 
     @vector_func
-    def grad(self, param, i):
+    def grad(self, params, i):
         return np.zeros(())
 
     @matrix_func
-    def hess(self, param, i, j):
+    def hess(self, params, i, j):
         return np.zeros(())
 
 
@@ -223,13 +235,14 @@ class Vector(Func):
     def __init__(self, vector):
         self.vector = np.array(vector)
 
-    def eval(self, param):
-        return param * self.vector
+    @eval_func
+    def eval(self, params):
+        return params * self.vector
 
     @vector_func
-    def grad(self, param, i):
+    def grad(self, params, i):
         return self.vector
 
     @matrix_func
-    def hess(self, param, i, j):
+    def hess(self, params, i, j):
         return np.zeros(self.vector.size)
