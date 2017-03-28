@@ -55,7 +55,7 @@ class MaxLike(object):
         """
         g = self.like(params)
         for param_map, gamma, h in self.reg:
-            g += gamma * h.eval(param_map(params))
+            g += gamma * h(param_map(params))
 
         return g
 
@@ -248,7 +248,7 @@ class MaxLike(object):
             for i in range(len(param_map)):
                 idx = param_map[i]
                 grad[idx] += gamma * grad_g[i]
-                grad[n + count] = np.array([g.eval(args)])
+                grad[n + count] = np.array([g(args)])
                 hess_c[count][idx] += grad_g[i]
                 for j in range(i + 1):
                     hess[idx][param_map[j]] += gamma * hess_g[i][j]
@@ -390,14 +390,14 @@ class Poisson(MaxLike):
         """
         Likelihood function.
         """
-        ln_y = self.model.eval(params)
+        ln_y = self.model(params)
         return (self.X * ln_y - self.N * np.exp(ln_y)).sum()
 
     def grad_like(self, params):
         """
         Calculates the gradient of the log-likelihood function.
         """
-        delta = self.X - self.N * np.exp(self.model.eval(params))
+        delta = self.X - self.N * np.exp(self.model(params))
         der = self.model.grad(params)
         return [(delta[[Ellipsis] + [None] * self.params[i].ndim] *
                  der[i]).sum(tuple(range(self.N.ndim)))
@@ -408,7 +408,7 @@ class Poisson(MaxLike):
         Calculates the hessian of the log-likelihood function.
         """
         hess = []
-        ln_y = self.model.eval(params)
+        ln_y = self.model(params)
         delta = self.X - self.N * np.exp(ln_y)
         grad = self.model.grad(params)
         slc_asis = []

@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def eval_func(f):
+def call_func(f):
     def wrapper(obj, params=None, expand=None):
         if params is None:
             params = []
@@ -44,7 +44,7 @@ class ParamMap(list):
 
 
 class Func:
-    def eval(self, params):
+    def __call__(self, params):
         raise NotImplementedError
 
     def grad(self, params, i):
@@ -80,9 +80,9 @@ class Affine(Func):
             self.a = a
             self.b = b
 
-    @eval_func
-    def eval(self, params):
-        return self.a * self.base.eval(params) + self.b
+    @call_func
+    def __call__(self, params):
+        return self.a * self.base(params) + self.b
 
     @vector_func
     def grad(self, params, i):
@@ -110,8 +110,8 @@ class FuncSum(Func):
                 (np.arange(self.ndim)[:, None] ==
                  np.array(self.feat_map)[None, :]).any(1))
 
-        def eval(self, params):
-            return self.foo.eval(self.param_map(params))[self.__slice]
+        def __call__(self, params):
+            return self.foo(self.param_map(params))[self.__slice]
 
         def grad(self, params, i):
             if i in self.param_map:
@@ -169,9 +169,9 @@ class FuncSum(Func):
             self.atoms.append((
                 weight, self.Atom(self.ndim, param_map, feat_map, foo)))
 
-    @eval_func
-    def eval(self, params):
-        return sum([w * atom.eval(params) for w, atom in self.atoms]) + self.b
+    @call_func
+    def __call__(self, params):
+        return sum([w * atom(params) for w, atom in self.atoms]) + self.b
 
     @vector_func
     def grad(self, params, i):
@@ -186,8 +186,8 @@ class Linear(Func):
     def __init__(self):
         self.weight = []
 
-    @eval_func
-    def eval(self, params):
+    @call_func
+    def __call__(self, params):
         if not isinstance(params, (tuple, list)):
             return sum(params * self.weight[0])
         else:
@@ -209,8 +209,8 @@ class Linear(Func):
 
 
 class OneHot(Func):
-    @eval_func
-    def eval(self, params):
+    @call_func
+    def __call__(self, params):
         return np.array(params)[0]
 
     @vector_func
@@ -226,8 +226,8 @@ class Constant(Func):
     def __init__(self, vector):
         self.vector = np.array(vector)
 
-    @eval_func
-    def eval(self, params):
+    @call_func
+    def __call__(self, params):
         return self.vector
 
     @vector_func
@@ -243,8 +243,8 @@ class Vector(Func):
     def __init__(self, vector):
         self.vector = np.array(vector)
 
-    @eval_func
-    def eval(self, params):
+    @call_func
+    def __call__(self, params):
         return params * self.vector
 
     @vector_func
