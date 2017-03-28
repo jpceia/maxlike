@@ -2,13 +2,13 @@ import numpy as np
 import pandas as pd
 
 
-class MaxLike:
+class MaxLike(object):
     def __init__(self):
         # atomic param related
-        self.param = []
+        self.params = []
         self.free = []
         self.label = []
-        self.param_fixed = np.array([])
+        self.params_fixed = np.array([])
 
         # whole param related
         self.split_ = [0]
@@ -80,13 +80,13 @@ class MaxLike:
             raise ValueError("shape mismatch")
 
         n_el = sum([el.size for el in self.free])
-        self.param.append(values)
+        self.params.append(values)
         self.label.append(label)
         self.split_.append(self.split_[-1] + values.size)
 
         # Fixed values
-        self.param_fixed = np.concatenate((
-            self.param_fixed, values[fixed]))
+        self.params_fixed = np.concatenate((
+            self.params_fixed, values[fixed]))
 
         # Map to insert fixed values
         self.free.append(~fixed)
@@ -150,10 +150,10 @@ class MaxLike:
         (The best model is that which minimizes it)
         """
         # k: # of free parameters
-        k = sum([c.size for c in self.param]) - len(self.constraint)
+        k = sum([c.size for c in self.params]) - len(self.constraint)
 
         return 2 * k * (1 + (k - 1) / (self.N.sum() - k - 1)) - \
-            2 * self.g(self.param)
+            2 * self.g(self.params)
 
     def bayesian_information_criterion(self):
         """
@@ -161,13 +161,13 @@ class MaxLike:
         (The best model is that which minimizes it)
         """
         # k: # of free parameters
-        k = sum([c.size for c in self.param]) - len(self.constraint)
+        k = sum([c.size for c in self.params]) - len(self.constraint)
 
-        return k * np.log(self.N.sum()) - 2 * self.g(self.param)
+        return k * np.log(self.N.sum()) - 2 * self.g(self.params)
 
     def __reshape_array(self, flat_array, val=0):
         """
-        Reshapes as array in order to have the same format as self.param
+        Reshapes as array in order to have the same format as self.params
 
         Parameters
         ----------
@@ -180,11 +180,11 @@ class MaxLike:
         """
         return [np.insert(flat_array, self.fixed_map, val)[
                 self.split_[i]:self.split_[i + 1]].
-                reshape(self.param[i].shape)
-                for i in range(len(self.param))]
+                reshape(self.params[i].shape)
+                for i in range(len(self.params))]
 
-    def __reshape_param(self, param_free):
-        return self.__reshape_array(param_free, self.param_fixed)
+    def __reshape_params(self, params_free):
+        return self.__reshape_array(params_free, self.params_fixed)
 
     def __reshape_matrix(self, matrix, value=np.NaN):
         if matrix.ndim != 2:
@@ -192,7 +192,7 @@ class MaxLike:
         elif matrix.shape[0] != matrix.shape[1]:
             raise ValueError("matrix.shape[0] != matrix.shape[1]")
 
-        n = len(self.param)
+        n = len(self.params)
 
         # Insert columns and rows ith fixed values
         matrix = np.insert(matrix, self.fixed_map, value, axis=0)
@@ -205,7 +205,7 @@ class MaxLike:
 
         # Reshape each block accordingly
         matrix = [[matrix[i][j].reshape(np.concatenate((
-            self.param[i].shape, self.param[j].shape)))
+            self.params[i].shape, self.params[j].shape)))
             for j in range(n)] for i in range(n)]
 
         return matrix
@@ -231,18 +231,18 @@ class MaxLike:
 
     def __step(self, max_steps=20):
 
-        n = len(self.param)
+        n = len(self.params)
         c_len = len(self.constraint)
 
         # --------------------------------------------------------------------
         # 1st phase: Evaluate and sum
         # --------------------------------------------------------------------
-        grad = self.grad_like(self.param) + [0] * c_len
-        hess = self.hess_like(self.param)
+        grad = self.grad_like(self.params) + [0] * c_len
+        hess = self.hess_like(self.params)
 
         # Add blocks corresponding to constraint variables:
-        # Hess_lambda_param = grad_g
-        hess_c = [[np.zeros(self.param[j].shape)
+        # Hess_lambda_params = grad_g
+        hess_c = [[np.zeros(self.params[j].shape)
                    for j in range(n)] for i in range(c_len)]
 
         # --------------------------------------------------------------------
@@ -257,11 +257,11 @@ class MaxLike:
                 hess_g = g.hess(args)
                 for i in range(len(param_map)):
                     idx = param_map[i]
-                    grad[idx] += grad_g[i]
+                    grad[idx] += gamma * grad_g[i]
                     grad[n + count] = np.array([g.eval(args)])
                     hess_c[count][idx] += grad_g[i]
                     for j in range(i + 1):
-                        hess[idx][param_map[j]] += hess_g[i][j]
+                        hess[idx][param_map[j]] += gamma * hess_g[i][j]
 
         for param_map, gamma, h in self.reg:
             if isinstance(param_map, list):
@@ -277,7 +277,7 @@ class MaxLike:
         # --------------------------------------------------------------------
         # 3rd phase: Reshape and flatten
         # --------------------------------------------------------------------
-        param = [self.param[i][self.free[i]] for i in range(n)]
+        params = [self.params[i][self.free[i]] for i in range(n)]
         grad = [grad[i][self.free[i]] for i in range(n)] + grad[n:]
 
         # ------
@@ -302,7 +302,7 @@ class MaxLike:
         # --------------------------------------------------------------------
         # 4th phase: Consolidate blocks
         # --------------------------------------------------------------------
-        param = np.concatenate(param)
+        params = np.concatenate(params)
         grad = np.concatenate(grad)
         hess = np.vstack(map(np.hstack, hess))
 
@@ -321,12 +321,12 @@ class MaxLike:
         if c_len > 0:
             d = d[:-c_len]
 
-        # change = np.linalg.norm(d) / np.linalg.norm(param)
+        # change = np.linalg.norm(d) / np.linalg.norm(params)
         for i in range(max_steps):
-            new_param = self.__reshape_param(param + u * d)
-            new_g = self.g(new_param)
+            new_params = self.__reshape_params(params + u * d)
+            new_g = self.g(new_params)
             if new_g >= self.g_last:
-                self.param = new_param
+                self.params = new_params
                 self.g_last = new_g
                 self.__flat_hess = hess
                 return True
@@ -353,7 +353,7 @@ class MaxLike:
             Returns True if the algorithm converges, otherwise returns
             False.
         """
-        self.g_last = self.g(self.param)
+        self.g_last = self.g(self.params)
         for i in range(max_steps):
             new_g = self.g_last
             self.__step()
@@ -421,10 +421,10 @@ class Poisson(MaxLike):
         """
         Calculates the gradient of the model.
         """
-        grad = [np.zeros(self.N.shape + p.shape) for p in self.param]
+        grad = [np.zeros(self.N.shape + p.shape) for p in self.params]
 
         for param_map, feat_map, f in self.factors:
-            # Since grad[k] is going to have shape N.shape x param[k].shape
+            # Since grad[k] is going to have shape N.shape x params[k].shape
             # we need to construct an appropriate slice to expand f.grad to
             # have aligned dimentions.
             slc = self.__slice(feat_map) + [Ellipsis]
@@ -451,9 +451,9 @@ class Poisson(MaxLike):
         """
         delta = self.X - self.N * np.exp(self.ln_y(params))
         der = self.__grad_ln_y(params)
-        return [(delta[[Ellipsis] + [None] * self.param[i].ndim] *
+        return [(delta[[Ellipsis] + [None] * self.params[i].ndim] *
                  der[i]).sum(tuple(range(self.N.ndim)))
-                for i in range(len(self.param))]
+                for i in range(len(self.params))]
 
     def hess_like(self, params):
         """
@@ -463,30 +463,32 @@ class Poisson(MaxLike):
         ln_y = self.ln_y(params)
         delta = self.X - self.N * np.exp(ln_y)
         grad = self.__grad_ln_y(params)
-        slc = []
-        slc_expd = []
+        slc_asis = []
+        slc_bdct = []
         slc_feat = [slice(None)] * self.N.ndim
 
-        for i in range(len(self.param)):
-            slc.append([slice(None)] * self.param[i].ndim)
-            slc_expd.append([None] * self.param[i].ndim)
+        for i in range(len(self.params)):
+            slc_asis.append([slice(None)] * self.params[i].ndim)
+            slc_bdct.append([None] * self.params[i].ndim)
             hess_line = []
             for j in range(i + 1):
                 cube = np.zeros(self.N.shape +
-                                self.param[j].shape +
-                                self.param[i].shape)
+                                self.params[j].shape +
+                                self.params[i].shape)
                 for param_map, feat_map, f in self.factors:
                     if i in param_map and j in param_map:
                         idx, jdx = param_map.index(i), param_map.index(j)
-                        feat_expd = self.__slice(feat_map)
+                        feat_bdct = self.__slice(feat_map)
                         cube += f.hess(map(params.__getitem__, param_map),
-                                       idx, jdx)[feat_expd + slc[j] + slc[i]]
+                                       idx, jdx)[feat_bdct +
+                                                 slc_asis[j] +
+                                                 slc_asis[i]]
                 h = -((self.N * np.exp(ln_y)
-                       )[slc_feat + slc_expd[j] + slc_expd[i]] *
-                      grad[j][slc_feat + slc[j] + slc_expd[i]] *
-                      grad[i][slc_feat + slc_expd[j] + slc[i]]
+                       )[slc_feat + slc_bdct[j] + slc_bdct[i]] *
+                      grad[j][slc_feat + slc_asis[j] + slc_bdct[i]] *
+                      grad[i][slc_feat + slc_bdct[j] + slc_asis[i]]
                       ).sum(tuple(np.arange(self.N.ndim)))
-                h += (delta[slc_feat + slc_expd[j] + slc_expd[i]] * cube).sum(
+                h += (delta[slc_feat + slc_bdct[j] + slc_bdct[i]] * cube).sum(
                     tuple(np.arange(self.N.ndim)))
                 hess_line.append(h)
             hess.append(hess_line)
