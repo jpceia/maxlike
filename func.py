@@ -2,7 +2,7 @@ import numpy as np
 
 
 def call_func(f):
-    def wrapper(obj, params=None, expand=None):
+    def wrapper(obj, params=None):
         if params is None:
             params = []
         return f(obj, params)
@@ -10,7 +10,7 @@ def call_func(f):
 
 
 def vector_func(g):
-    def wrapper(obj, params=None, i=None, expand=None):
+    def wrapper(obj, params=None, i=None, expand=False):
         if params is None:
             params = []
         if i is not None:
@@ -21,7 +21,7 @@ def vector_func(g):
 
 
 def matrix_func(h):
-    def wrapper(obj, params=None, i=None, j=None, expand=None):
+    def wrapper(obj, params=None, i=None, j=None):
         if params is None:
             params = []
         if i is not None and j is not None:

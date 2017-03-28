@@ -13,6 +13,34 @@ class IndexMap(list):
         return map(params.__getitem__, self)
 
 
+class Param(np.ndarray):
+    def __init__(self, values, fixed=None, label=''):
+        if isinstance(values, (int, float, tuple, list)):
+            values = np.array(values)
+        elif not isinstance(values, np.ndarray):
+            raise TypeError
+
+        if fixed is None:
+            fixed = np.zeros(values.shape, np.bool)
+        elif isinstance(fixed, bool):
+            fixed *= np.ones(values.shape, np.bool)
+        elif isinstance(fixed, (tuple, list)):
+            fixed = np.array(fixed)
+        elif not isinstance(fixed, np.ndarray):
+            raise TypeError
+
+        if not fixed.shape == values.shape:
+            raise ValueError("shape mismatch")
+
+        super(Param, self).__init__(values.shape)
+
+        self.free = ~fixed
+        self.label = label
+
+    def fixed_values(self):
+        return self[~self.free]
+
+
 class MaxLike(object):
     def __init__(self):
         # atomic param related
