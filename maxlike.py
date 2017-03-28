@@ -15,7 +15,7 @@ class MaxLike(object):
         self.fixed_map = np.array([], np.int)
 
         # model related
-        self.factors = []
+        self.model = None
 
         self.constraint = []
         self.reg = []
@@ -95,26 +95,6 @@ class MaxLike(object):
             (lambda x: x - np.arange(x.size))(
                 (lambda x: np.arange(x.size)[x])(
                     fixed.flatten())) + n_el))
-
-    def add_factor(self, param_map, feat_map, new_factor):
-        """
-        Adds a factor to the model.
-
-        Parameters
-        ----------
-        param_map: int, list
-            index of parameters that 'new_factor' accepts
-        feat_map:
-            index of features that 'new_factor' accepts
-        new_factor: func
-            factor to add to the model
-        """
-        if isinstance(param_map, int):
-            param_map = [param_map]
-        if isinstance(feat_map, int):
-            feat_map = [feat_map]
-
-        self.factors.append((param_map, feat_map, new_factor))
 
     def add_constraint(self, param_map, g):
         """
@@ -407,50 +387,19 @@ class Poisson(MaxLike):
             (np.arange(self.N.ndim)[:, None] ==
              np.array(feat_map)[None, :]).any(1))
 
-    def ln_y(self, params):
-        """
-        Calculates the logarithm of the model
-        """
-        val = np.zeros(self.N.shape)
-        for param_map, feat_map, f in self.factors:
-            val += f.eval(map(params.__getitem__,
-                              param_map))[self.__slice(feat_map)]
-        return val
-
-    def __grad_ln_y(self, params):
-        """
-        Calculates the gradient of the model.
-        """
-        grad = [np.zeros(self.N.shape + p.shape) for p in self.params]
-
-        for param_map, feat_map, f in self.factors:
-            # Since grad[k] is going to have shape N.shape x params[k].shape
-            # we need to construct an appropriate slice to expand f.grad to
-            # have aligned dimentions.
-            slc = self.__slice(feat_map) + [Ellipsis]
-
-            # We copy the value of f.grad since we're going to use it several
-            # times.
-            grad_f = f.grad(map(params.__getitem__, param_map))
-
-            for idx in range(len(param_map)):
-                grad[param_map[idx]] += grad_f[idx][slc]
-
-        return grad
-
     def like(self, params):
         """
         Likelihood function.
         """
-        ln_y = self.ln_y(params)
+        ln_y = self.model.eval(params)
         return (self.X * ln_y - self.N * np.exp(ln_y)).sum()
 
     def grad_like(self, params):
         """
         Calculates the gradient of the log-likelihood function.
         """
-        delta = self.X - self.N * np.exp(self.ln_y(params))
-        der = self.__grad_ln_y(params)
+        delta = self.X - self.N * np.exp(self.model.eval(params))
+        der = self.model.grad(params)
         return [(delta[[Ellipsis] + [None] * self.params[i].ndim] *
                  der[i]).sum(tuple(range(self.N.ndim)))
                 for i in range(len(self.params))]
@@ -460,9 +409,9 @@ class Poisson(MaxLike):
         Calculates the hessian of the log-likelihood function.
         """
         hess = []
-        ln_y = self.ln_y(params)
+        ln_y = self.model.eval(params)
         delta = self.X - self.N * np.exp(ln_y)
-        grad = self.__grad_ln_y(params)
+        grad = self.model.grad(params)
         slc_asis = []
         slc_bdct = []
         slc_feat = [slice(None)] * self.N.ndim
@@ -472,19 +421,9 @@ class Poisson(MaxLike):
             slc_bdct.append([None] * self.params[i].ndim)
             hess_line = []
             for j in range(i + 1):
-                cube = np.zeros(self.N.shape +
-                                self.params[j].shape +
-                                self.params[i].shape)
-                for param_map, feat_map, f in self.factors:
-                    if i in param_map and j in param_map:
-                        idx, jdx = param_map.index(i), param_map.index(j)
-                        feat_bdct = self.__slice(feat_map)
-                        cube += f.hess(map(params.__getitem__, param_map),
-                                       idx, jdx)[feat_bdct +
-                                                 slc_asis[j] +
-                                                 slc_asis[i]]
+                cube = self.model.hess(params, i, j)
                 h = -((self.N * np.exp(ln_y)
-                       )[slc_feat + slc_bdct[j] + slc_bdct[i]] *
+                       )[slc_feat + slc_bdct[j] + slc_bdct[i]] *  # testar se pode ser eliminado
                       grad[j][slc_feat + slc_asis[j] + slc_bdct[i]] *
                       grad[i][slc_feat + slc_bdct[j] + slc_asis[i]]
                       ).sum(tuple(np.arange(self.N.ndim)))

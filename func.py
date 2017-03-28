@@ -78,13 +78,15 @@ class FuncSum(Func):
     class Atom(Func):
         def __init__(self, ndim, param_map, feat_map, foo):
             if isinstance(param_map, int):
-                self.param_map = [param_map]
+                param_map = [param_map]
             if isinstance(feat_map, int):
-                self.feat_map = [feat_map]
+                feat_map = [feat_map]
             assert isinstance(foo, Func)
             assert min(feat_map) >= 0
             assert max(feat_map) <= ndim
             self.ndim = ndim
+            self.param_map = param_map
+            self.feat_map = feat_map
             self.foo = foo
             self.__slice = map(
                 lambda x: slice(None) if x else None,
@@ -95,7 +97,6 @@ class FuncSum(Func):
             return self.foo.eval(map(param.__getitem__,
                                      self.param_map))[self.__slice]
 
-        @vector_func
         def grad(self, param, i):
             if i in self.param_map:
                 filt_param = map(param.__getitem__, self.param_map)
@@ -106,7 +107,6 @@ class FuncSum(Func):
                 return np.zeros(param[i].shape)[
                     [None] * self.ndim + [Ellipsis]]
 
-        @matrix_func
         def hess(self, param, i, j):
             if i in self.param_map and j in self.param_map:
                 filt_param = map(param.__getitem__, self.param_map)
@@ -156,9 +156,11 @@ class FuncSum(Func):
     def eval(self, param):
         return sum([w * atom.eval(param) for w, atom in self.atoms]) + self.b
 
+    @vector_func
     def grad(self, param, i):
         return sum([w * atom.grad(param, i) for w, atom in self.atoms])
 
+    @matrix_func
     def hess(self, param, i, j):
         return sum([w * atom.hess(param, i, j) for w, atom in self.atoms])
 
