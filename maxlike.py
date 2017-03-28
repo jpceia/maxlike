@@ -37,8 +37,11 @@ class Param(np.ndarray):
         self.free = ~fixed
         self.label = label
 
-    def fixed_values(self):
+    def flat_fixed(self):
         return self[~self.free]
+
+    def flat_free(self):
+        return self[self.free]
 
 
 class MaxLike(object):
@@ -169,7 +172,7 @@ class MaxLike(object):
         (The best model is that which minimizes it)
         """
         # k: # of free parameters
-        k = sum([c.size for c in self.params]) - len(self.constraint)
+        k = sum([c.size for c in self.params]) - len(self.constraint)       ## corrigir - deve usar c.free.sum()
 
         return 2 * k * (1 + (k - 1) / (self.N.sum() - k - 1)) - \
             2 * self.g(self.params)
@@ -180,7 +183,7 @@ class MaxLike(object):
         (The best model is that which minimizes it)
         """
         # k: # of free parameters
-        k = sum([c.size for c in self.params]) - len(self.constraint)
+        k = sum([c.size for c in self.params]) - len(self.constraint)       ## corrigir - deve usar c.free.sum()
 
         return k * np.log(self.N.sum()) - 2 * self.g(self.params)
 
