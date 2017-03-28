@@ -32,6 +32,17 @@ def matrix_func(h):
     return wrapper
 
 
+class ParamMap(list):
+    def __init__(self, indexes):
+        if isinstance(indexes, int):
+            indexes = [indexes]
+        assert min(indexes) >= 0
+        self.extend(indexes)
+
+    def __call__(self, params):
+        return map(params.__getitem__, self)
+
+
 class Func:
     def eval(self, params):
         raise NotImplementedError
@@ -85,15 +96,13 @@ class Affine(Func):
 class FuncSum(Func):
     class Atom(Func):
         def __init__(self, ndim, param_map, feat_map, foo):
-            if isinstance(param_map, int):
-                param_map = [param_map]
             if isinstance(feat_map, int):
                 feat_map = [feat_map]
             assert isinstance(foo, Func)
             assert min(feat_map) >= 0
             assert max(feat_map) <= ndim
             self.ndim = ndim
-            self.param_map = param_map
+            self.param_map = ParamMap(param_map)
             self.feat_map = feat_map
             self.foo = foo
             self.__slice = map(
@@ -102,14 +111,13 @@ class FuncSum(Func):
                  np.array(self.feat_map)[None, :]).any(1))
 
         def eval(self, params):
-            return self.foo.eval(map(params.__getitem__,
-                                     self.param_map))[self.__slice]
+            return self.foo.eval(self.param_map(params))[self.__slice]
 
         def grad(self, params, i):
             if i in self.param_map:
-                filt_params = map(params.__getitem__, self.param_map)
-                idx = self.param_map.index(i)
-                return self.foo.grad(filt_params, idx)[
+                return self.foo.grad(
+                    self.param_map(params),
+                    self.param_map.index(i))[
                     self.__slice + [Ellipsis]]
             else:
                 return np.zeros(params[i].shape)[
@@ -117,10 +125,10 @@ class FuncSum(Func):
 
         def hess(self, params, i, j):
             if i in self.param_map and j in self.param_map:
-                filt_params = map(params.__getitem__, self.param_map)
-                idx = self.param_map.index(i)
-                jdx = self.param_map.index(j)
-                return self.foo.hess(filt_params, idx, jdx)[
+                return self.foo.hess(
+                    self.param_map(params),
+                    self.param_map.index(i),
+                    self.param_map.index(j))[
                     self.__slice + [Ellipsis]]
             else:
                 return np.zeros(params[i].shape + params[j].shape)[
@@ -153,7 +161,7 @@ class FuncSum(Func):
             self.b += foo.b
             for w, atom in foo.atoms:
                 self.add(
-                    map(param_map.__getitem__, atom.param_map),
+                    atom.param_map(param_map),
                     map(feat_map.__getitem__, atom.feat_map),
                     atom.foo,
                     w * weight)

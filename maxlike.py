@@ -2,6 +2,17 @@ import numpy as np
 import pandas as pd
 
 
+class ParamMap(list):
+    def __init__(self, indexes):
+        if isinstance(indexes, int):
+            indexes = [indexes]
+        assert min(indexes) >= 0
+        self.extend(indexes)
+
+    def __call__(self, params):
+        return map(params.__getitem__, self)
+
+
 class MaxLike(object):
     def __init__(self):
         # atomic param related
@@ -44,7 +55,7 @@ class MaxLike(object):
         """
         g = self.like(params)
         for param_map, gamma, h in self.reg:
-            g += gamma * h.eval(map(params.__getitem__, param_map))
+            g += gamma * h.eval(param_map(params))
 
         return g
 
@@ -107,7 +118,7 @@ class MaxLike(object):
         g : func
             Constraint function.
         """
-        self.constraint.append((param_map, 0, g))
+        self.constraint.append((ParamMap(param_map), 0, g))
 
     def add_regularization(self, param_map, gamma, h):
         """
@@ -122,7 +133,7 @@ class MaxLike(object):
         h : func
             Regularization function
         """
-        self.reg.append((param_map, gamma, h))
+        self.reg.append((ParamMap(param_map), gamma, h))
 
     def akaine_information_criterion(self):
         """
@@ -231,28 +242,26 @@ class MaxLike(object):
         count = -1
         for param_map, gamma, g in self.constraint:
             count += 1
-            if isinstance(param_map, list):
-                args = map(self.params.__getitem__, param_map)
-                grad_g = g.grad(args)
-                hess_g = g.hess(args)
-                for i in range(len(param_map)):
-                    idx = param_map[i]
-                    grad[idx] += gamma * grad_g[i]
-                    grad[n + count] = np.array([g.eval(args)])
-                    hess_c[count][idx] += grad_g[i]
-                    for j in range(i + 1):
-                        hess[idx][param_map[j]] += gamma * hess_g[i][j]
+            args = param_map(self.params)
+            grad_g = g.grad(args)
+            hess_g = g.hess(args)
+            for i in range(len(param_map)):
+                idx = param_map[i]
+                grad[idx] += gamma * grad_g[i]
+                grad[n + count] = np.array([g.eval(args)])
+                hess_c[count][idx] += grad_g[i]
+                for j in range(i + 1):
+                    hess[idx][param_map[j]] += gamma * hess_g[i][j]
 
         for param_map, gamma, h in self.reg:
-            if isinstance(param_map, list):
-                args = map(self.params.__getitem__, param_map)
-                grad_h = h.grad(args)
-                hess_h = h.hess(args)
-                for i in range(len(param_map)):
-                    idx = param_map[i]
-                    grad[idx] -= gamma * grad_h[i]
-                    for j in range(i + 1):
-                        hess[idx][param_map[j]] -= gamma * hess_h[i][j]
+            args = param_map(self.params)
+            grad_h = h.grad(args)
+            hess_h = h.hess(args)
+            for i in range(len(param_map)):
+                idx = param_map[i]
+                grad[idx] -= gamma * grad_h[i]
+                for j in range(i + 1):
+                    hess[idx][param_map[j]] -= gamma * hess_h[i][j]
 
         # --------------------------------------------------------------------
         # 3rd phase: Reshape and flatten
