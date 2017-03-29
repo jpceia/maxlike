@@ -1,52 +1,11 @@
 import numpy as np
 import pandas as pd
-
-
-class IndexMap(list):
-    def __init__(self, indexes):
-        if isinstance(indexes, int):
-            indexes = [indexes]
-        assert min(indexes) >= 0
-        self.extend(indexes)
-
-    def __call__(self, params):
-        return map(params.__getitem__, self)
-
-
-class Param(np.ndarray):
-    def __init__(self, values, fixed=None, label=''):
-        if isinstance(values, (int, float, tuple, list)):
-            values = np.array(values)
-        elif not isinstance(values, np.ndarray):
-            raise TypeError
-
-        if fixed is None:
-            fixed = np.zeros(values.shape, np.bool)
-        elif isinstance(fixed, bool):
-            fixed *= np.ones(values.shape, np.bool)
-        elif isinstance(fixed, (tuple, list)):
-            fixed = np.array(fixed)
-        elif not isinstance(fixed, np.ndarray):
-            raise TypeError
-
-        if not fixed.shape == values.shape:
-            raise ValueError("shape mismatch")
-
-        super(Param, self).__init__(values.shape)
-
-        self.free = ~fixed
-        self.label = label
-
-    def flat_fixed(self):
-        return self[~self.free]
-
-    def flat_free(self):
-        return self[self.free]
+from common import IndexMap
 
 
 class MaxLike(object):
     def __init__(self):
-        # atomic param related
+        # single param related
         self.params = []
         self.free = []
         self.label = []
@@ -172,7 +131,7 @@ class MaxLike(object):
         (The best model is that which minimizes it)
         """
         # k: # of free parameters
-        k = sum([c.size for c in self.params]) - len(self.constraint)       ## corrigir - deve usar c.free.sum()
+        k = sum([f.sum() for f in self.free]) - len(self.constraint)
 
         return 2 * k * (1 + (k - 1) / (self.N.sum() - k - 1)) - \
             2 * self.g(self.params)
@@ -183,7 +142,7 @@ class MaxLike(object):
         (The best model is that which minimizes it)
         """
         # k: # of free parameters
-        k = sum([c.size for c in self.params]) - len(self.constraint)       ## corrigir - deve usar c.free.sum()
+        k = sum([f.sum() for f in self.free]) - len(self.constraint)
 
         return k * np.log(self.N.sum()) - 2 * self.g(self.params)
 
@@ -202,8 +161,8 @@ class MaxLike(object):
         """
         return [np.insert(flat_array, self.fixed_map, val)[
                 self.split_[i]:self.split_[i + 1]].
-                reshape(self.params[i].shape)
-                for i in range(len(self.params))]
+                reshape(self.free[i].shape)
+                for i in range(len(self.free))]
 
     def __reshape_params(self, params_free):
         return self.__reshape_array(params_free, self.params_fixed)
@@ -214,7 +173,7 @@ class MaxLike(object):
         elif matrix.shape[0] != matrix.shape[1]:
             raise ValueError("matrix.shape[0] != matrix.shape[1]")
 
-        n = len(self.params)
+        n = len(self.free)
 
         # Insert columns and rows ith fixed values
         matrix = np.insert(matrix, self.fixed_map, value, axis=0)
@@ -227,7 +186,7 @@ class MaxLike(object):
 
         # Reshape each block accordingly
         matrix = [[matrix[i][j].reshape(np.concatenate((
-            self.params[i].shape, self.params[j].shape)))
+            self.free[i].shape, self.free[j].shape)))
             for j in range(n)] for i in range(n)]
 
         return matrix
@@ -253,7 +212,7 @@ class MaxLike(object):
 
     def __step(self, max_steps=20):
 
-        n = len(self.params)
+        n = len(self.free)
         c_len = len(self.constraint)
 
         # --------------------------------------------------------------------
@@ -264,7 +223,7 @@ class MaxLike(object):
 
         # Add blocks corresponding to constraint variables:
         # Hess_lambda_params = grad_g
-        hess_c = [[np.zeros(self.params[j].shape)
+        hess_c = [[np.zeros(self.free[j].shape)
                    for j in range(n)] for i in range(c_len)]
 
         # --------------------------------------------------------------------
@@ -430,9 +389,9 @@ class Poisson(MaxLike):
         """
         delta = self.X - self.N * np.exp(self.model(params))
         der = self.model.grad(params)
-        return [(delta[[Ellipsis] + [None] * self.params[i].ndim] *
+        return [(delta[[Ellipsis] + [None] * self.free[i].ndim] *
                  der[i]).sum(tuple(range(self.N.ndim)))
-                for i in range(len(self.params))]
+                for i in range(len(self.free))]
 
     def hess_like(self, params):
         """
@@ -442,13 +401,14 @@ class Poisson(MaxLike):
         ln_y = self.model(params)
         delta = self.X - self.N * np.exp(ln_y)
         grad = self.model.grad(params)
+        #grad_T = self.model.grad(params, expanded=True)
         slc_asis = []
         slc_bdct = []
         slc_feat = [slice(None)] * self.N.ndim
 
-        for i in range(len(self.params)):
-            slc_asis.append([slice(None)] * self.params[i].ndim)
-            slc_bdct.append([None] * self.params[i].ndim)
+        for i in range(len(self.free)):
+            slc_asis.append([slice(None)] * self.free[i].ndim)
+            slc_bdct.append([None] * self.free[i].ndim)
             hess_line = []
             for j in range(i + 1):
                 cube = self.model.hess(params, i, j)
