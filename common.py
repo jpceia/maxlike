@@ -8,7 +8,7 @@ def call_func(f):
 
 
 def vector_func(g):
-    def wrapper(obj, params=None, i=None, expand=False):
+    def wrapper(obj, params=None, i=None):
         if params is None:
             params = []
         if i is not None:
@@ -28,6 +28,13 @@ def matrix_func(h):
             return map(lambda k: map(lambda l: h(obj, params, k, l),
                        range(k + 1)), range(len(params)))
     return wrapper
+
+
+def transpose(result, params, i, j):
+    slc = [slice(None)] * params[i].ndim
+    slc += [None] * params[j].ndim
+    slc += [Ellipsis]
+    return result[i][slc]
 
 
 class IndexMap(list):

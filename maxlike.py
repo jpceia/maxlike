@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from common import IndexMap
+from common import IndexMap, transpose
 
 
 class MaxLike(object):
@@ -28,15 +28,34 @@ class MaxLike(object):
         self.verbose = False
 
     def fit(self, observations):
+        # feature, labels, weights
+        """
+        Accepts a Series with a multiIndex - where the values are the labels
+        and the multiIndex the features.
+
+        Parameters
+        ----------
+        observations : Series
+            Observation list.
+        """
         raise NotImplementedError
 
     def like(self, params):
+        """
+        Likelihood function.
+        """
         raise NotImplementedError
 
     def grad_like(self, params):
+        """
+        Calculates the gradient of the log-likelihood function.
+        """
         raise NotImplementedError
 
     def hess_like(self, params):
+        """
+        Calculates the hessian of the log-likelihood function.
+        """
         raise NotImplementedError
 
     def g(self, params):
@@ -132,7 +151,6 @@ class MaxLike(object):
         """
         # k: # of free parameters
         k = sum([f.sum() for f in self.free]) - len(self.constraint)
-
         return 2 * k * (1 + (k - 1) / (self.N.sum() - k - 1)) - \
             2 * self.g(self.params)
 
@@ -143,7 +161,6 @@ class MaxLike(object):
         """
         # k: # of free parameters
         k = sum([f.sum() for f in self.free]) - len(self.constraint)
-
         return k * np.log(self.N.sum()) - 2 * self.g(self.params)
 
     def __reshape_array(self, flat_array, val=0):
@@ -160,8 +177,7 @@ class MaxLike(object):
             needs to have the same size as fixed_map.
         """
         return [np.insert(flat_array, self.fixed_map, val)[
-                self.split_[i]:self.split_[i + 1]].
-                reshape(self.free[i].shape)
+                self.split_[i]:self.split_[i + 1]].reshape(self.free[i].shape)
                 for i in range(len(self.free))]
 
     def __reshape_params(self, params_free):
@@ -269,10 +285,10 @@ class MaxLike(object):
         #
         # then hess[i][j].shape = shape[j] x shape[i]
 
-        hess = [[hess[i][j][np.multiply.outer(
-            self.free[j], self.free[i])].reshape(
-            (self.free[j].sum(), self.free[i].sum()))
-            for j in range(i + 1)] for i in range(n)]
+        hess = [[hess[j][i][np.multiply.outer(
+            self.free[i], self.free[j])].reshape(
+            (self.free[i].sum(), self.free[j].sum()))
+            for i in range(j + 1)] for j in range(n)]
         hess = [[hess[i][j].transpose() for j in range(i)] +
                 [hess[j][i] for j in range(i, n)] for i in range(n)]
         hess_c = [[hess_c[i][j][self.free[j]] for j in range(n)]
@@ -353,16 +369,6 @@ class Poisson(MaxLike):
         self.X = None
 
     def fit(self, observations):
-        # feature, labels, weights
-        """
-        Accepts a Series with a multiIndex - where the values are the labels
-        and the multiIndex the features.
-
-        Parameters
-        ----------
-        observations : Series
-            Observation list.
-        """
         axis = [level.sort_values().values for level in
                 observations.index.levels]
         self.features_names = list(observations.index.names)
@@ -377,48 +383,49 @@ class Poisson(MaxLike):
         return axis
 
     def like(self, params):
-        """
-        Likelihood function.
-        """
         ln_y = self.model(params)
         return (self.X * ln_y - self.N * np.exp(ln_y)).sum()
 
     def grad_like(self, params):
-        """
-        Calculates the gradient of the log-likelihood function.
-        """
         delta = self.X - self.N * np.exp(self.model(params))
         der = self.model.grad(params)
-        return [(delta[[Ellipsis] + [None] * self.free[i].ndim] *
-                 der[i]).sum(tuple(range(self.N.ndim)))
-                for i in range(len(self.free))]
+        return [(delta * der[i]).sum(
+                tuple(-np.arange(self.N.ndim))) for i in range(len(self.free))]
 
     def hess_like(self, params):
-        """
-        Calculates the hessian of the log-likelihood function.
-        """
-        hess = []
-        ln_y = self.model(params)
-        delta = self.X - self.N * np.exp(ln_y)
+        Y = self.N * np.exp(self.model(params))
+        delta = self.X - Y
         grad = self.model.grad(params)
-        #grad_T = self.model.grad(params, expanded=True)
-        slc_asis = []
-        slc_bdct = []
-        slc_feat = [slice(None)] * self.N.ndim
+        return [[(delta * self.model.hess(params, i, j) -
+                 Y * transpose(grad, params, j, i) * grad[i]).sum(
+                 tuple(-np.arange(self.N.ndim)))
+                 for j in range(i + 1)] for i in range(len(self.free))]
 
-        for i in range(len(self.free)):
-            slc_asis.append([slice(None)] * self.free[i].ndim)
-            slc_bdct.append([None] * self.free[i].ndim)
-            hess_line = []
-            for j in range(i + 1):
-                cube = self.model.hess(params, i, j)
-                h = -((self.N * np.exp(ln_y)
-                       )[slc_feat + slc_bdct[j] + slc_bdct[i]] *
-                      grad[j][slc_feat + slc_asis[j] + slc_bdct[i]] *
-                      grad[i][slc_feat + slc_bdct[j] + slc_asis[i]]
-                      ).sum(tuple(np.arange(self.N.ndim)))
-                h += (delta[slc_feat + slc_bdct[j] + slc_bdct[i]] * cube).sum(
-                    tuple(np.arange(self.N.ndim)))
-                hess_line.append(h)
-            hess.append(hess_line)
-        return hess
+
+class Normal(MaxLike):
+    """
+    Class to model data under a Normal Distribution Regression.
+    """
+
+    def __init__(self):
+        super(Normal, self).__init__()
+        self.vol_model = None
+        self.U = None
+        self.S = None
+
+    def fit(self, observations):
+        axis = [level.sort_values().values for level in
+                observations.index.levels]
+        self.features_names = list(observations.index.names)
+        shape = map(len, axis)
+        df = observations.to_frame('X')
+        df['N'] = 1  # frequency
+        df['U'] = df.groupby(df.index)['X'].mean()
+        df['e2'] = np.squared(df['X'] - df['U'])
+        # sum repeated occurrences for the same index entry
+        df = df.groupby(df.index).sum()
+        df = df.reindex(pd.MultiIndex.from_product(axis)).fillna(0)
+        self.U = df['U'].values.reshape(shape)
+        self.S = df['S'].values.reshape(shape)
+        self.N = df['N'].values.reshape(shape)
+        return axis

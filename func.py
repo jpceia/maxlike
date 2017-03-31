@@ -76,10 +76,10 @@ class FuncSum(Func):
                 return self.foo.grad(
                     self.param_map(params),
                     self.param_map.index(i))[
-                    self.__slice + [Ellipsis]]
+                    [Ellipsis] + self.__slice]
             else:
                 return np.zeros(params[i].shape)[
-                    [None] * self.ndim + [Ellipsis]]
+                    [Ellipsis] + [None] * self.ndim]
 
         def hess(self, params, i, j):
             if i in self.param_map and j in self.param_map:
@@ -87,10 +87,10 @@ class FuncSum(Func):
                     self.param_map(params),
                     self.param_map.index(i),
                     self.param_map.index(j))[
-                    self.__slice + [Ellipsis]]
+                    [Ellipsis] + self.__slice]
             else:
                 return np.zeros(params[i].shape + params[j].shape)[
-                    [None] * self.ndim + [Ellipsis]]
+                    [Ellipsis] + [None] * self.ndim]
 
     def __init__(self, ndim):
         self.atoms = []
@@ -141,35 +141,36 @@ class FuncSum(Func):
 
 
 class Linear(Func):
-    def __init__(self):
-        self.weight = []
+    def __init__(self, weight_list=None):
+        if weight_list is None:
+            weight_list = []
+        elif not isinstance(weight_list, (list, tuple)):
+            weight_list = [weight_list]
+        self.weight = weight_list
 
     @call_func
     def __call__(self, params):
-        if not isinstance(params, (tuple, list)):
-            return sum(params * self.weight[0])
-        else:
-            return sum([sum(params[i] * self.weight[i])
-                        for i in range(len(params))])
+        return sum([sum(params[i] * self.weight[i])
+                    for i in range(len(params))])
 
     @vector_func
     def grad(self, params, i):
-        return self.weight[i]
+        return self.weight[i] * np.ones(params[i].shape)
 
     @matrix_func
     def hess(self, params, i, j):
         return np.multiply.outer(
-            np.zeros(self.weight[j].shape),
-            np.zeros(self.weight[i].shape))
+            np.zeros(params[j].shape),
+            np.zeros(params[i].shape))
 
-    def add_feature(self, shape, weight):
-        self.weight.append(weight * np.ones(shape))
+    def add_feature(self, weight):
+        self.weight.append(weight)
 
 
 class OneHot(Func):
     @call_func
     def __call__(self, params):
-        return np.array(params)[0]
+        return np.array(params[0])
 
     @vector_func
     def grad(self, params, i):
