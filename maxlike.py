@@ -321,7 +321,6 @@ class MaxLike(object):
         for i in range(max_steps):
             new_params = self.__reshape_params(params + u * d)
             new_g = self.g(new_params)
-            print i, new_g
             if new_g >= self.g_last:
                 self.params = new_params
                 self.g_last = new_g
@@ -355,7 +354,7 @@ class MaxLike(object):
             old_g = self.g_last
             self.__step()
             if self.verbose:
-                print(i, self.g_last)
+                print i, self.g_last
             if abs(old_g / self.g_last - 1) < tol:
                 return True
         return False
@@ -393,7 +392,8 @@ class Poisson(MaxLike):
         delta = self.X - self.N * np.exp(self.model(params))
         der = self.model.grad(params)
         return [(delta * der[i]).sum(
-                tuple(-np.arange(self.N.ndim))) for i in range(len(self.free))]
+                tuple(-np.arange(self.N.ndim) - 1))
+                for i in range(len(self.free))]
 
     def hess_like(self, params):
         Y = self.N * np.exp(self.model(params))
@@ -401,7 +401,7 @@ class Poisson(MaxLike):
         grad = self.model.grad(params)
         return [[(delta * self.model.hess(params, i, j) -
                   Y * transpose(grad, params, i, j) * grad[j]).sum(
-                 tuple(-np.arange(self.N.ndim)))
+                 tuple(-np.arange(self.N.ndim) - 1))
                  for j in range(i + 1)] for i in range(len(self.free))]
 
 
