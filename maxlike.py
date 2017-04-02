@@ -67,7 +67,7 @@ class MaxLike(object):
         for param_map, gamma, h in self.reg:
             g += gamma * h(param_map(params))
 
-        return g
+        return g / self.N.sum()
 
     def add_param(self, values, fixed=None, label=''):
         """
@@ -164,6 +164,9 @@ class MaxLike(object):
         k = sum([f.sum() for f in self.free]) - len(self.constraint)
         return k * np.log(self.N.sum()) - 2 * self.g(self.params)
 
+    def _sum_feat(self):
+        return tuple(-np.arange(self.N.ndim) - 1)
+
     def __reshape_array(self, flat_array, val=0):
         """
         Reshapes as array in order to have the same format as self.params
@@ -179,7 +182,7 @@ class MaxLike(object):
         """
         return [np.insert(flat_array, self.fixed_map, val)[
                 self.split_[i]:self.split_[i + 1]].reshape(self.free[i].shape)
-                for i in range(len(self.free))]
+                for i in range(len(self.params))]
 
     def __reshape_params(self, params_free):
         return self.__reshape_array(params_free, self.params_fixed)
@@ -190,7 +193,7 @@ class MaxLike(object):
         elif matrix.shape[0] != matrix.shape[1]:
             raise ValueError("matrix.shape[0] != matrix.shape[1]")
 
-        n = len(self.free)
+        n = len(self.params)
 
         # Insert columns and rows ith fixed values
         matrix = np.insert(matrix, self.fixed_map, value, axis=0)
@@ -229,7 +232,7 @@ class MaxLike(object):
 
     def __step(self, max_steps=20):
 
-        n = len(self.free)
+        n = len(self.params)
         c_len = len(self.constraint)
 
         # --------------------------------------------------------------------
@@ -374,10 +377,9 @@ class Poisson(MaxLike):
                 observations.index.levels]
         self.features_names = list(observations.index.names)
         shape = map(len, axis)
-        df = observations.to_frame('X')
-        df['N'] = 1  # frequency
-        # sum repeated occurrences for the same index entry
-        df = df.groupby(df.index).sum()
+        df = observations.groupby(observations.index).agg({
+            'N': np.size,
+            'X': np.sum})
         df = df.reindex(pd.MultiIndex.from_product(axis)).fillna(0)
         self.X = df['X'].values.reshape(shape)
         self.N = df['N'].values.reshape(shape)
@@ -391,9 +393,8 @@ class Poisson(MaxLike):
     def grad_like(self, params):
         delta = self.X - self.N * np.exp(self.model(params))
         der = self.model.grad(params)
-        return [(delta * der[i]).sum(
-                tuple(-np.arange(self.N.ndim) - 1))
-                for i in range(len(self.free))]
+        return [(delta * der[i]).sum(self._sum_feat())
+                for i in range(len(self.params))]
 
     def hess_like(self, params):
         Y = self.N * np.exp(self.model(params))
@@ -401,8 +402,8 @@ class Poisson(MaxLike):
         grad = self.model.grad(params)
         return [[(delta * self.model.hess(params, i, j) -
                   Y * transpose(grad, params, i, j) * grad[j]).sum(
-                 tuple(-np.arange(self.N.ndim) - 1))
-                 for j in range(i + 1)] for i in range(len(self.free))]
+                 self._sum_feat())
+                 for j in range(i + 1)] for i in range(len(self.params))]
 
 
 class Normal(MaxLike):
@@ -421,7 +422,6 @@ class Normal(MaxLike):
                 observations.index.levels]
         self.features_names = list(observations.index.names)
         shape = map(len, axis)
-
         df = observations.groupby(observations.index).agg(
             {'N': np.size,
              'U': np.mean,
@@ -440,7 +440,7 @@ class Normal(MaxLike):
                  np.square(self.U - self.model(params)))).sum()
 
     def grad_like(self, params):
-        # dLdv :  -1 + exp(-2v)*(x-u)^2
+        # dLdv :  (-1 + exp(-2v)*(x-u)^2)
         # dLdu : exp(-2v)*(x-u)
         # grad_L = dLdv*grad_v + dLdu*grad_u
         u = self.model(params)
@@ -448,28 +448,31 @@ class Normal(MaxLike):
         return ((-1 + np.exp(-2 * v) * (self.U - u)) *
                 self.vol_model.grad(params) +
                 np.exp(-2 * v) * (self.U - u) * self.model.grad(params)
-                ).sum(tuple(-np.arange(self.N.ndim)))
+                ).sum(self._sum_feat())
 
     def hess_like(self, params):
         # dv2 : -2*exp(-2v)*(x-u)^2
         # dudv: -2*exp(-2v)*(x-u)
         # du2 : -exp(-2v)
-        # hess_L = dv * hess_v - 2*exp(-2v) * \
-        #   ((x-u)^2 * grad_v_T * grad_v
+        # hess_L = (-1 + exp(-2v)*(x-u)^2) * hess_v -
+        #           2*exp(-2v) * (
+        #    (x-u)^2 * grad_v_T * grad_v
         #  + (x-u) * (grad_u_T * grad_v + grad_v_T * grad_u - .5 * hess_u)
         #  + .5 * grad_u_T * grad_u )
         u = self.model(params)
         v = self.vol_model(params)
         grad_u = self.model.grad(params)
         grad_v = self.vol_model.grad(params)
-        return [[(-1 + np.exp(-2 * v) * np.square(self.U - u)) *
-                 self.vol_model.hess(params, i, j) -
-                 2 * np.exp(-2 * v) * (
-                 (np.square(self.S) + np.square(self.U - u)) *
-                     transpose(grad_v[i], params, i, j) * grad_v[j] +
-                 (self.U - u) * (
-                     transpose(grad_u, params, i, j) * grad_v[j] +
-                     transpose(grad_v, params, i, j) * grad_u[j] -
-                     .5 * self.model.hess(params, i, j)) +
-                 .5 * transpose(grad_u, params, i, j) * grad_u[j])
-                 for j in range(i + 1)] for i in range(len(self.free))]
+        return [[((-1 + np.exp(-2 * v) *
+                   (np.square(self.S) + np.square(self.U - u))) *
+                  self.vol_model.hess(params, i, j) -
+                  2 * np.exp(-2 * v) * (
+                  (np.square(self.S) + np.square(self.U - u)) *
+                      transpose(grad_v[i], params, i, j) * grad_v[j] +
+                  (self.U - u) * (
+                      transpose(grad_u, params, i, j) * grad_v[j] +
+                      transpose(grad_v, params, i, j) * grad_u[j] -
+                      .5 * self.model.hess(params, i, j)) +
+                  .5 * transpose(grad_u, params, i, j) * grad_u[j])).sum(
+                 self._sum_feat())
+                 for j in range(i + 1)] for i in range(len(self.params))]
