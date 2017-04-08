@@ -324,7 +324,7 @@ class MaxLike(object):
         for i in range(max_steps):
             new_params = self.__reshape_params(params + u * d)
             new_g = self.g(new_params)
-            if new_g >= self.g_last:
+            if new_g - self.g_last >= 0:
                 self.params = new_params
                 self.g_last = new_g
                 self.__flat_hess = hess
@@ -401,78 +401,6 @@ class Poisson(MaxLike):
         delta = self.X - Y
         grad = self.model.grad(params)
         return [[(delta * self.model.hess(params, i, j) -
-                  Y * transpose(grad, params, i, j) * grad[j]).sum(
-                 self._sum_feat())
-                 for j in range(i + 1)] for i in range(len(self.params))]
-
-
-class Normal(MaxLike):
-    """
-    Class to model data under a Normal Distribution Regression.
-    """
-
-    def __init__(self):
-        super(Normal, self).__init__()
-        self.vol_model = None
-        self.U = None
-        self.S = None
-
-    def fit(self, observations):
-        axis = [level.sort_values().values for level in
-                observations.index.levels]
-        self.features_names = list(observations.index.names)
-        shape = map(len, axis)
-        df = observations.groupby(observations.index).agg(
-            {'N': np.size,
-             'U': np.mean,
-             'S': np.stdev})
-        df = df.reindex(pd.MultiIndex.from_product(axis)).fillna(np.nan)
-        df['N'] = df['N'].fillna(0)
-        self.N = df['N'].values.reshape(shape)
-        self.U = df['U'].values.reshape(shape)
-        self.S = df['S'].values.reshape(shape)
-        return axis
-
-    def like(self, params):
-        # L: -v -.5*exp(-2v)*(x-u)^2
-        v = self.vol_model(params)
-        return -(v + .5 * np.exp(-2 * v) * (np.square(self.S) +
-                 np.square(self.U - self.model(params)))).sum()
-
-    def grad_like(self, params):
-        # dLdv :  (-1 + exp(-2v)*(x-u)^2)
-        # dLdu : exp(-2v)*(x-u)
-        # grad_L = dLdv*grad_v + dLdu*grad_u
-        u = self.model(params)
-        v = self.vol_model(params)
-        return ((-1 + np.exp(-2 * v) * (self.U - u)) *
-                self.vol_model.grad(params) +
-                np.exp(-2 * v) * (self.U - u) * self.model.grad(params)
-                ).sum(self._sum_feat())
-
-    def hess_like(self, params):
-        # dv2 : -2*exp(-2v)*(x-u)^2
-        # dudv: -2*exp(-2v)*(x-u)
-        # du2 : -exp(-2v)
-        # hess_L = (-1 + exp(-2v)*(x-u)^2) * hess_v -
-        #           2*exp(-2v) * (
-        #    (x-u)^2 * grad_v_T * grad_v
-        #  + (x-u) * (grad_u_T * grad_v + grad_v_T * grad_u - .5 * hess_u)
-        #  + .5 * grad_u_T * grad_u )
-        u = self.model(params)
-        v = self.vol_model(params)
-        grad_u = self.model.grad(params)
-        grad_v = self.vol_model.grad(params)
-        return [[((-1 + np.exp(-2 * v) *
-                   (np.square(self.S) + np.square(self.U - u))) *
-                  self.vol_model.hess(params, i, j) -
-                  2 * np.exp(-2 * v) * (
-                  (np.square(self.S) + np.square(self.U - u)) *
-                      transpose(grad_v[i], params, i, j) * grad_v[j] +
-                  (self.U - u) * (
-                      transpose(grad_u, params, i, j) * grad_v[j] +
-                      transpose(grad_v, params, i, j) * grad_u[j] -
-                      .5 * self.model.hess(params, i, j)) +
-                  .5 * transpose(grad_u, params, i, j) * grad_u[j])).sum(
+                  Y * transpose(grad, params, j, i) * grad[i]).sum(
                  self._sum_feat())
                  for j in range(i + 1)] for i in range(len(self.params))]
