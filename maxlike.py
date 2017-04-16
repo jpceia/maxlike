@@ -6,15 +6,7 @@ from scipy.misc import factorial
 
 class MaxLike(object):
     def __init__(self):
-        # single param related
-        self.params = []
-        self.free = []
-        self.label = []
-        self.params_fixed = np.array([])
-
-        # whole param related
-        self.split_ = [0]
-        self.fixed_map = np.array([], np.int)
+        self.delete_param()
 
         # model related
         self.model = None
@@ -68,6 +60,19 @@ class MaxLike(object):
             g += gamma * h(param_map(params))
 
         return g / self.N.sum()
+
+    def delete_param(self, position=None):
+        if position is None:
+            self.params = []
+            self.free = []
+            self.label = []
+            self.params_fixed = np.array([])
+
+            # whole param related
+            self.split_ = [0]
+            self.fixed_map = np.array([], np.int)
+        else:
+            raise NotImplementedError
 
     def add_param(self, values, fixed=None, label=''):
         """
@@ -331,9 +336,8 @@ class MaxLike(object):
                 return True
             else:
                 u *= .5
-        if self.verbose:
-            print("""Error: the objective function did not increased after %d
-                     steps""" % max_steps)
+        raise RuntimeError("Error: the objective function did not increased",
+                           "after %d steps" % max_steps)
 
     def run(self, tol=1e-8, max_steps=100):
         """
@@ -401,6 +405,6 @@ class Poisson(MaxLike):
         delta = self.X - Y
         grad = self.model.grad(params)
         return [[(delta * self.model.hess(params, i, j) -
-                  Y * transpose(grad, params, j, i) * grad[i]).sum(
+                  Y * grad[i] * transpose(grad, params, j, i)).sum(
                  self._sum_feat())
                  for j in range(i + 1)] for i in range(len(self.params))]
