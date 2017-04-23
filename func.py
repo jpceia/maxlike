@@ -212,4 +212,4 @@ class Vector(Func):
 
     @matrix_func
     def hess(self, params, i, j):
-        return np.zeros(self.vector.size)
+        return np.zeros(self.vector.shape)

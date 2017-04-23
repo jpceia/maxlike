@@ -1,5 +1,8 @@
+from functools import wraps
+
 
 def call_func(f):
+    @wraps(f)
     def wrapper(obj, params=None):
         if params is None:
             params = []
@@ -8,6 +11,7 @@ def call_func(f):
 
 
 def vector_func(g):
+    @wraps(g)
     def wrapper(obj, params=None, i=None):
         if params is None:
             params = []
@@ -19,6 +23,7 @@ def vector_func(g):
 
 
 def matrix_func(h):
+    @wraps(h)
     def wrapper(obj, params=None, i=None, j=None):
         if params is None:
             params = []
