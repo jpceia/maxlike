@@ -6,7 +6,7 @@ from scipy.misc import factorial
 
 class MaxLike(object):
     def __init__(self):
-        self.delete_param()
+        self.format_params()
 
         # model related
         self.model = None
@@ -61,18 +61,10 @@ class MaxLike(object):
 
         return g / self.N.sum()
 
-    def delete_param(self, position=None):
-        if position is None:
-            self.params = []
-            self.free = []
-            self.label = []
-            self.params_fixed = np.array([])
-
-            # whole param related
-            self.split_ = [0]
-            self.fixed_map = np.array([], np.int)
-        else:
-            raise NotImplementedError
+    def format_params(self):
+        self.params = []
+        self.free = []
+        self.label = []
 
     def add_param(self, values, fixed=None, label=''):
         """
@@ -105,22 +97,9 @@ class MaxLike(object):
         if not fixed.shape == values.shape:
             raise ValueError("shape mismatch")
 
-        n_el = sum([el.size for el in self.free])
         self.params.append(values)
-        self.label.append(label)
-        self.split_.append(self.split_[-1] + values.size)
-
-        # Fixed values
-        self.params_fixed = np.concatenate((
-            self.params_fixed, values[fixed]))
-
-        # Map to insert fixed values
         self.free.append(~fixed)
-        self.fixed_map = np.concatenate((
-            self.fixed_map,
-            (lambda x: x - np.arange(x.size))(
-                (lambda x: np.arange(x.size)[x])(
-                    fixed.flatten())) + n_el))
+        self.label.append(label)
 
     def add_constraint(self, param_map, g):
         """
@@ -182,17 +161,44 @@ class MaxLike(object):
             Array with one axis with the same lenght as the number of free
             parameters.
         val: float, ndarray (optional)
-            Value(s) to fill in fixed_map places. If it is a ndarray it
-            needs to have the same size as fixed_map.
         """
-        return [np.insert(flat_array, self.fixed_map, val)[
-                self.split_[i]:self.split_[i + 1]].reshape(self.free[i].shape)
-                for i in range(len(self.params))]
+        def fix_map(arr):
+            return (lambda x: x - np.arange(x.size))(
+                (lambda x: np.arange(x.size)[x])(arr))
+
+        shaped_array = []
+        s_0 = 0
+
+        # val is a scalar
+        if isinstance(val, (int, float)):
+            for i in range(len(self.params)):
+                s_1 = s_0 + self.free[i].sum()
+                shaped_array.append(np.insert(
+                    flat_array[s_0:s_1],
+                    fix_map((~self.free[i]).flatten()),
+                    val).reshape(self.free[i].shape))
+                s_0 = s_1
+        # val is an array
+        else:
+            f_0 = 0
+            for i in range(len(self.params)):
+                s_1 = s_0 + self.free[i].sum()
+                f_1 = f_0 + (~self.free[i]).sum()
+                shaped_array.append(np.insert(
+                    flat_array[s_0:s_1],
+                    fix_map((~self.free[i]).flatten()),
+                    val[f_0:f_1]).reshape(self.free[i].shape))
+                s_0 = s_1
+                f_0 = f_1
+        return shaped_array
 
     def __reshape_params(self, params_free):
-        return self.__reshape_array(params_free, self.params_fixed)
+        return self.__reshape_array(
+            params_free,
+            np.concatenate([self.params[i][~self.free[i]]
+                            for i in range(len(self.free))]))
 
-    def __reshape_matrix(self, matrix, value=np.NaN):
+    def __reshape_matrix(self, matrix, val=np.NaN):
         if matrix.ndim != 2:
             raise ValueError("matrix.ndim != 2")
         elif matrix.shape[0] != matrix.shape[1]:
@@ -200,20 +206,23 @@ class MaxLike(object):
 
         n = len(self.params)
 
-        # Insert columns and rows ith fixed values
-        matrix = np.insert(matrix, self.fixed_map, value, axis=0)
-        matrix = np.insert(matrix, self.fixed_map, value, axis=1)
-
         # Split by blocks
-        matrix = [[matrix[self.split_[i]:self.split_[i + 1],
-                          self.split_[j]:self.split_[j + 1]]
+        s_ = [0]
+        f_ = [0]
+        val_map = []
+        for i in range(n):
+            s_.append(s_[-1] + self.free[i].size)
+            f_.append(f_[-1] + (~self.free[i]).sum())
+            val_map.append((lambda x: x - np.arange(x.size))(
+                (lambda x: np.arange(x.size)[x])(
+                    (~self.free[i]).flatten())))
+
+        matrix = [[np.insert(np.insert(
+                       matrix[s_[i]:s_[i + 1], s_[j]:s_[j + 1]],
+                       val_map[i], val[f_[i]:f_[i + 1]]),
+                   val_map[j], val[f_[j]:f_[j + 1]]).reshape(
+                   np.concatenate(self.free[i].shape, self.free[j].shape))
                    for j in range(n)] for i in range(n)]
-
-        # Reshape each block accordingly
-        matrix = [[matrix[i][j].reshape(np.concatenate((
-            self.free[i].shape, self.free[j].shape)))
-            for j in range(n)] for i in range(n)]
-
         return matrix
 
     def fisher_matrix(self):
@@ -361,7 +370,7 @@ class MaxLike(object):
             old_g = self.g_last
             self.__step()
             if self.verbose:
-                print i, self.g_last
+                print(i, self.g_last)
             if abs(old_g / self.g_last - 1) < tol:
                 return True
         return False
@@ -401,10 +410,10 @@ class Poisson(MaxLike):
                 for i in range(len(self.params))]
 
     def hess_like(self, params):
-        Y = self.N * np.exp(self.model(params))
-        delta = self.X - Y
+        y = self.N * np.exp(self.model(params))
+        delta = self.X - y
         grad = self.model.grad(params)
         return [[(delta * self.model.hess(params, i, j) -
-                  Y * grad[i] * transpose(grad, params, j, i)).sum(
+                  y * grad[i] * transpose(grad, params, j, i)).sum(
                  self._sum_feat())
                  for j in range(i + 1)] for i in range(len(self.params))]

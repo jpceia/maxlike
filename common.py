@@ -12,26 +12,29 @@ def call_func(f):
 
 def vector_func(g):
     @wraps(g)
-    def wrapper(obj, params=None, i=None):
+    def wrapper(obj, params=None, i=None, diag=False):
         if params is None:
             params = []
         if i is not None:
-            return g(obj, params, i)
+            return g(obj, params, i, diag=diag)
         else:
-            return map(lambda k: g(obj, params, k), range(len(params)))
+            return map(lambda k: g(obj, params, k, diag=diag),
+                       range(len(params)))
     return wrapper
 
 
 def matrix_func(h):
     @wraps(h)
-    def wrapper(obj, params=None, i=None, j=None):
+    def wrapper(obj, params=None, i=None, j=None, diag_i=False, diag_j=False):
         if params is None:
             params = []
         if i is not None and j is not None:
-            return h(obj, params, i, j)
+            return h(obj, params, i, j, diag_i=diag_i, diag_j=diag_j)
         else:
-            return map(lambda k: map(lambda l: h(obj, params, k, l),
-                       range(k + 1)), range(len(params)))
+            return map(lambda k:
+                       map(lambda l:
+                           h(obj, params, k, l, diag_i=diag_i, diag_j=diag_j),
+                           range(k + 1)), range(len(params)))
     return wrapper
 
 
