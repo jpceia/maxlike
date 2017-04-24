@@ -142,15 +142,13 @@ class FuncSum(Func):
             for p, f in foo.param_feat.iteritems():
                 if param_map.index(p) in self.params:
                     raise IndexError
-                    # An exceptional case would be when there is a total match
-                    # between two param_feat and IndexMap(param_map),
-                    # IndexMap(feat_map)
+                    # as alternative, just send a warning and
+                    # loose the diag property
             for p, f in self.param_feat.iteritems():
                 if p in param_map:
                     raise IndexError
-                    # An exceptional case would be when there is a total match
-                    # between two param_feat and IndexMap(param_map),
-                    # IndexMap(feat_map)
+                    # as alternative, just send a warning and
+                    # loose the diag property
             for p, f in foo.param_feat.iteritems():
                 self.param_feat[param_map.index(p)] = IndexMap(feat_map)(f)
             self.atoms.append((
