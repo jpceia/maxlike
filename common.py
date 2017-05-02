@@ -1,6 +1,34 @@
 from functools import wraps
 
 
+class CacheWrap:
+    def __init__(self, foo):
+        self.foo = foo
+        self.params = None
+        self.args = []
+        self.kwargs = dict()
+
+    def __call__(self, params):
+        n = len(params)
+        cached = True
+        if self.params is None:
+            cached = False
+        elif len(self.params) != n:
+            cached = False
+        else:
+            for k in range(n):
+                if not cached:
+                    break
+                if self.params[k].shape != params[k].shape:
+                    cached = False
+                elif any(self.params[k] != params[k]):
+                    cached = False
+        if not cached:
+            self.params = list(params)
+            self.cached_result = self.foo(params)
+        return self.cached_result
+
+
 def call_func(f):
     @wraps(f)
     def wrapper(obj, params=None):
@@ -49,7 +77,7 @@ class IndexMap(list):
     def __init__(self, indexes):
         if isinstance(indexes, int):
             indexes = [indexes]
-        assert min(indexes) >= 0
+        # assert min(indexes) >= 0
         self.extend(indexes)
 
     def __call__(self, params):

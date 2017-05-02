@@ -6,7 +6,7 @@ from scipy.misc import factorial
 
 class MaxLike(object):
     def __init__(self):
-        self.format_params()
+        self.reset_params()
 
         # model related
         self.model = None
@@ -21,7 +21,6 @@ class MaxLike(object):
         self.verbose = False
 
     def fit(self, observations):
-        # feature, labels, weights
         """
         Accepts a Series with a multiIndex - where the values are the labels
         and the multiIndex the features.
@@ -61,7 +60,7 @@ class MaxLike(object):
 
         return g / self.N.sum()
 
-    def format_params(self):
+    def reset_params(self):
         self.params = []
         self.free = []
         self.label = []
@@ -218,8 +217,8 @@ class MaxLike(object):
                     (~self.free[i]).flatten())))
 
         matrix = [[np.insert(np.insert(
-                       matrix[s_[i]:s_[i + 1], s_[j]:s_[j + 1]],
-                       val_map[i], val[f_[i]:f_[i + 1]]),
+                   matrix[s_[i]:s_[i + 1], s_[j]:s_[j + 1]],
+                   val_map[i], val[f_[i]:f_[i + 1]]),
                    val_map[j], val[f_[j]:f_[j + 1]]).reshape(
                    np.concatenate(self.free[i].shape, self.free[j].shape))
                    for j in range(n)] for i in range(n)]
@@ -342,7 +341,7 @@ class MaxLike(object):
                 self.params = new_params
                 self.g_last = new_g
                 self.__flat_hess = hess
-                return True
+                return None
             else:
                 u *= .5
         raise RuntimeError("Error: the objective function did not increased",
@@ -372,8 +371,9 @@ class MaxLike(object):
             if self.verbose:
                 print(i, self.g_last)
             if abs(old_g / self.g_last - 1) < tol:
-                return True
-        return False
+                return None
+        raise RuntimeError("Error: the objective function did not converged",
+                           "after %d steps" % max_steps)
 
 
 class Poisson(MaxLike):
@@ -382,10 +382,10 @@ class Poisson(MaxLike):
     """
 
     def __init__(self):
-        super(Poisson, self).__init__()
+        MaxLike.__init__(self)
         self.X = None
 
-    def fit(self, observations):
+    def fit(self, observations):  # N, X
         axis = [level.sort_values().values for level in
                 observations.index.levels]
         self.features_names = list(observations.index.names)
@@ -394,6 +394,7 @@ class Poisson(MaxLike):
             'N': np.size,
             'X': np.sum})
         df = df.reindex(pd.MultiIndex.from_product(axis)).fillna(0)
+        # assert N.shape == X.shape
         self.X = df['X'].values.reshape(shape)
         self.N = df['N'].values.reshape(shape)
         return axis
@@ -406,14 +407,78 @@ class Poisson(MaxLike):
     def grad_like(self, params):
         delta = self.X - self.N * np.exp(self.model(params))
         der = self.model.grad(params)
-        return [(delta * der[i]).sum(self._sum_feat())
+        return [self.model.vector_sum(delta * der[i], i)
                 for i in range(len(self.params))]
 
     def hess_like(self, params):
         y = self.N * np.exp(self.model(params))
         delta = self.X - y
-        grad = self.model.grad(params)
-        return [[(delta * self.model.hess(params, i, j) -
-                  y * grad[i] * transpose(grad, params, j, i)).sum(
-                 self._sum_feat())
+        der = self.model.grad(params)
+        return [[self.model.matrix_sum(delta * self.model.hess(params, i, j) -
+                 y * der[i] * transpose(der, params, j, i), i, j)
+                 for j in range(i + 1)] for i in range(len(self.params))]
+
+
+class Logistic(MaxLike):
+    """
+    Class to model under a Logistic Regression
+    """
+
+    def __init__(self):
+        MaxLike.__init__(self)
+
+    def fit(self, N, P):
+        assert N.shape == P.shape
+        self.N = N
+        self.P = P
+
+    def like(self, params):
+        y = self.model(params)
+        return -(self.N * np.log(1 + np.exp(-y)) + (self.N - self.P) * y).sum()
+
+    def grad_like(self, params):
+        der = self.model.grad(params)
+        delta = self.P - (self.N / (1 + np.exp(-self.model(params))))
+        return [self.model.vector_sum(delta * der[i], i)
+                for i in range(len(self.params))]
+
+    def hess_like(self, params):
+        p = 1 / (1 + np.exp(-self.model(params)))
+        der = self.model.grad(params)
+        delta = self.P - p * self.N
+        delta2 = - p * (1 - p) * self.N
+        return[[self.model.matrix_sum(delta * self.model.hess(params, i, j) +
+                delta2 * der[i] * transpose(der, params, j, i), i, j)
+                for j in range(i + 1)] for i in range(len(self.params))]
+
+
+class Finite(MaxLike):
+    """
+    Class to model an probabilistic regression under an arbitrary
+    Discrete Finite Distribution
+    """
+
+    def __init__(self):
+        MaxLike.__init__(self)
+
+    def fit(self, N):
+        self.N = N
+
+    def like(self, params):
+        # N * ln p
+        return (self.N * np.log(self.model(params))).sum()
+
+    def grad_like(self, params):
+        p = self.model(params)
+        der = self.model.grad(params)
+        delta = self.N / p
+        return [self.model.vector_sum(delta * der[i])
+                for i in range(len(self.params))]
+
+    def hess_like(self, params):
+        p = self.model(params)
+        der = self.model.grad(params)
+        delta = self.N / p
+        return [[self.model.matrix_sum(delta * (self.model.hess(params, i, j) -
+                 der[i] * transpose(der, params, j, i) / p))
                  for j in range(i + 1)] for i in range(len(self.params))]

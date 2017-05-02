@@ -5,7 +5,7 @@ from common import *
 
 class Func:
     def __init__(self):
-        self.param_feat = defaultdict(list)
+        self.param2feat = defaultdict(list)
 
     def __call__(self, params, **kwargs):
         raise NotImplementedError
@@ -44,8 +44,8 @@ class Affine(Func):
             self.b = b
 
     @property
-    def param_feat(self):
-        return self.base.param_feat
+    def param2feat(self):
+        return self.base.param2feat
 
     @call_func
     def __call__(self, params, **kwargs):
@@ -66,7 +66,7 @@ class FuncSum(Func):
             param_map = IndexMap(param_map)
             feat_map = IndexMap(feat_map)
             assert isinstance(foo, Func)
-            assert max(feat_map) <= ndim
+            # assert max(feat_map) <= ndim
             self.ndim = ndim
             self.param_map = param_map
             self.feat_map = feat_map
@@ -80,9 +80,9 @@ class FuncSum(Func):
             return self.foo(self.param_map(params))[self.__slice]
 
         @property
-        def param_feat(self):
+        def param2feat(self):
             return {self.param_map(p)[0]: self.feat_map(f)
-                    for p, f in self.foo.param_feat.iteritems()}
+                    for p, f in self.foo.param2feat.iteritems()}
 
         def grad(self, params, i, **kwargs):
             if i in self.param_map:
@@ -91,8 +91,7 @@ class FuncSum(Func):
                     self.param_map.index(i),
                     **kwargs)[[Ellipsis] + self.__slice]
             else:
-                return np.zeros(params[i].shape)[
-                    [Ellipsis] + [None] * self.ndim]
+                return np.zeros(())
 
         def hess(self, params, i, j, **kwargs):
             if i in self.param_map and j in self.param_map:
@@ -102,13 +101,12 @@ class FuncSum(Func):
                     self.param_map.index(j),
                     **kwargs)[[Ellipsis] + self.__slice]
             else:
-                return np.zeros(params[i].shape + params[j].shape)[
-                    [Ellipsis] + [None] * self.ndim]
+                return np.zeros(())
 
     def __init__(self, ndim):
         Func.__init__(self)
         self.atoms = []
-        self.param_feat = defaultdict(list)
+        self.param2feat = defaultdict(list)
         self.ndim = ndim
         self.b = 0
 
@@ -127,6 +125,11 @@ class FuncSum(Func):
         weight: double
             value to multiply for.
         """
+        if isinstance(param_map, int):
+            param_map = [param_map]
+        if isinstance(feat_map, int):
+            feat_map = [feat_map]
+
         if isinstance(foo, Affine):
             self.b += foo.b
             self.add(param_map, feat_map, foo.base, weight * foo.a)
@@ -139,49 +142,51 @@ class FuncSum(Func):
                     atom.foo,
                     w * weight)
         else:
-            for p, f in foo.param_feat.iteritems():
-                if param_map.index(p) in self.params:
+            for p, f in foo.param2feat.iteritems():
+                if param_map[p] in self.params:
                     raise IndexError
                     # as alternative, just send a warning and
                     # loose the diag property
-            for p, f in self.param_feat.iteritems():
+            for p, f in self.param2feat.iteritems():
                 if p in param_map:
                     raise IndexError
                     # as alternative, just send a warning and
                     # loose the diag property
-            for p, f in foo.param_feat.iteritems():
-                self.param_feat[param_map.index(p)] = IndexMap(feat_map)(f)
+            for p, f in foo.param2feat.iteritems():
+                self.param2feat[param_map[p]] = IndexMap(f)(feat_map)
             self.atoms.append((
                 weight, self.Atom(self.ndim, param_map, feat_map, foo)))
 
     @property
     def params(self):
-        return set([p for atom in self.atoms for p in atom.param_map])
+        return set([p for w, atom in self.atoms for p in atom.param_map])
 
-    def sum_grad(self, model_grad, i):
-        param_feat = self.param_feat.get(i, [])
-        for k in range(len(param_feat)):
-            model_grad.swap(k, param_feat[k] - self.ndim)
-        return model_grad.sum(tuple(-np.arange(self.ndim) - 1))
+    def vector_sum(self, vector, i):
+        param2feat = self.param2feat.get(i, [])
+        for k in range(len(param2feat)):
+            vector = vector.swapaxes(k, param2feat[k] - self.ndim)
+        return vector.sum(tuple(-np.arange(self.ndim) - 1))
 
-    def sum_hess(self, model_hess, i, j):
-        param_feat_i = self.param_feat.get(i, [])
-        param_feat_j = self.param_feat.get(j, [])
-        pdim_i = len(param_feat_i)
-        pdim_j = len(param_feat_j)
+    def matrix_sum(self, matrix, i, j):
+        param2feat_i = self.param2feat.get(i, [])
+        param2feat_j = self.param2feat.get(j, [])
+        pdim_i = len(param2feat_i)
+        pdim_j = len(param2feat_j)
         for k in range(pdim_i):
-            model_hess.swap(k, param_feat_i[k] - self.ndim)
+            matrix = matrix.swapaxes(
+                k - pdim_i - self.ndim,
+                param2feat_i[k] - self.ndim)
         for k in range(pdim_j):
-            f = param_feat_j[k]
-            if f in param_feat_i:
+            f = param2feat_j[k]
+            if f in param2feat_i:
                 idx = np.zeros(pdim_i + pdim_j + self.ndim, dtype=np.bool)
-                idx[f] = True
-                idx[pdim_i + param_feat_i.index(f)] = True
-                idx = map(lambda b: None if b else slice(None), idx)
-                model_hess *= np.eye(model_hess.shape[f])[idx]
+                idx[param2feat_j.index(f)] = True
+                idx[pdim_j + k] = True
+                idx = map(lambda b: slice(None) if b else None, idx)
+                matrix = matrix * np.eye(matrix.shape[pdim_j + k])[idx]
             else:
-                model_hess.swap(k - self.ndim - pdim_j, f - self.ndim)
-        return model_hess.sum(tuple(-np.arange(self.ndim) - 1))
+                matrix = matrix.swapaxes(k, f - self.ndim)
+        return matrix.sum(tuple(-np.arange(self.ndim) - 1))
 
     @call_func
     def __call__(self, params, **kwargs):
@@ -189,13 +194,13 @@ class FuncSum(Func):
 
     @vector_func
     def grad(self, params, i, **kwargs):
-        diag_param = self.param_feat.keys()
+        diag_param = self.param2feat.keys()
         return sum([w * atom.grad(params, i, diag=(i in diag_param))
                     for w, atom in self.atoms])
 
     @matrix_func
     def hess(self, params, i, j, **kwargs):
-        diag_param = self.param_feat.keys()
+        diag_param = self.param2feat.keys()
         diag_i = i in diag_param
         diag_j = j in diag_param
         return sum([w * atom.hess(params, i, j, diag_i=diag_i, diag_j=diag_j)
@@ -230,9 +235,29 @@ class Linear(Func):
         self.weight.append(weight)
 
 
-class OneHot(Func):
-    def __init__(self):
+class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
+    def __init__(self, weight=None):
         Func.__init__(self)
+        self.weight = weight
+
+    @call_func
+    def __call__(self, params, **kwargs):
+        return ((self.weight * params[0]) * (self.weight * params[0])).sum()
+
+    @vector_func
+    def grad(self, params, i, **kwargs):
+        return 2 * self.weight * self.weight * params[0]
+
+    @matrix_func
+    def hess(self, params, i, j, **kwargs):
+        return 2 * np.diag(np.ones(params[0].size)) * self.weight * self.weight
+
+
+class OneHot(Func):
+    def __init__(self, diag=True):
+        Func.__init__(self)
+        if diag:
+            self.param2feat[0].append(0)
 
     @call_func
     def __call__(self, params, **kwargs):
