@@ -80,7 +80,7 @@ class MaxLike(object):
             label for that parameter.
         """
         if isinstance(values, (int, float, tuple, list)):
-            values = np.array(values)
+            values = np.asarray(values)
         elif not isinstance(values, np.ndarray):
             raise TypeError
 
@@ -89,7 +89,7 @@ class MaxLike(object):
         elif isinstance(fixed, bool):
             fixed *= np.ones(values.shape, np.bool)
         elif isinstance(fixed, (tuple, list)):
-            fixed = np.array(fixed)
+            fixed = np.asarray(fixed)
         elif not isinstance(fixed, np.ndarray):
             raise TypeError
 
@@ -271,7 +271,7 @@ class MaxLike(object):
             for i in range(len(param_map)):
                 idx = param_map[i]
                 grad[idx] += gamma * grad_g[i]
-                grad[n + count] = np.array([g(args)])
+                grad[n + count] = np.asarray([g(args)])
                 hess_c[count][idx] += grad_g[i]
                 for j in range(i + 1):
                     hess[idx][param_map[j]] += gamma * hess_g[i][j]
@@ -537,7 +537,6 @@ class Finite(MaxLike):
     Class to model an probabilistic regression under an arbitrary
     Discrete Finite Distribution
     """
-
     def __init__(self):
         MaxLike.__init__(self)
 
