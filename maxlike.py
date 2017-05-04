@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from common import IndexMap, transpose
+from common import IndexMap, transpose, vector_sum, matrix_sum
 from scipy.misc import factorial
 
 
@@ -219,9 +219,9 @@ class MaxLike(object):
         matrix = [[np.insert(np.insert(
                    matrix[s_[i]:s_[i + 1], s_[j]:s_[j + 1]],
                    val_map[i], val[f_[i]:f_[i + 1]]),
-                   val_map[j], val[f_[j]:f_[j + 1]]).reshape(
-                   np.concatenate(self.free[i].shape, self.free[j].shape))
-                   for j in range(n)] for i in range(n)]
+            val_map[j], val[f_[j]:f_[j + 1]]).reshape(
+            np.concatenate(self.free[i].shape, self.free[j].shape))
+            for j in range(n)] for i in range(n)]
         return matrix
 
     def fisher_matrix(self):
@@ -407,16 +407,20 @@ class Poisson(MaxLike):
     def grad_like(self, params):
         delta = self.X - self.N * np.exp(self.model(params))
         der = self.model.grad(params)
-        return [self.model.vector_sum(delta * der[i], i)
-                for i in range(len(self.params))]
+        return [vector_sum(
+                delta * der[i],
+                params, self.model.param_feat, i)
+                for i in range(len(params))]
 
     def hess_like(self, params):
         y = self.N * np.exp(self.model(params))
         delta = self.X - y
         der = self.model.grad(params)
-        return [[self.model.matrix_sum(delta * self.model.hess(params, i, j) -
-                 y * der[i] * transpose(der, params, j, i), i, j)
-                 for j in range(i + 1)] for i in range(len(self.params))]
+        return [[matrix_sum(
+                 delta * self.model.hess(params, i, j) -
+                 y * der[i] * transpose(der, params, j, i),
+                 params, self.model.param_feat, i, j)
+                 for j in range(i + 1)] for i in range(len(params))]
 
 
 class Logistic(MaxLike):
@@ -439,17 +443,93 @@ class Logistic(MaxLike):
     def grad_like(self, params):
         der = self.model.grad(params)
         delta = self.P - (self.N / (1 + np.exp(-self.model(params))))
-        return [self.model.vector_sum(delta * der[i], i)
-                for i in range(len(self.params))]
+        return [vector_sum(delta * der[i],
+                params, self.model.param_feat, i)
+                for i in range(len(params))]
 
     def hess_like(self, params):
         p = 1 / (1 + np.exp(-self.model(params)))
         der = self.model.grad(params)
         delta = self.P - p * self.N
         delta2 = - p * (1 - p) * self.N
-        return[[self.model.matrix_sum(delta * self.model.hess(params, i, j) +
-                delta2 * der[i] * transpose(der, params, j, i), i, j)
-                for j in range(i + 1)] for i in range(len(self.params))]
+        return[[matrix_sum(
+                delta * self.model.hess(params, i, j) +
+                delta2 * der[i] * transpose(der, params, j, i),
+                params, self.model.param_feat, i, j)
+                for j in range(i + 1)] for i in range(len(params))]
+
+
+class Normal(MaxLike):
+    """
+    Class to model data under a Normal Distribution Regression.
+    """
+
+    def __init__(self):
+        super(Normal, self).__init__()
+        self.vol_model = None
+        self.U = None
+        self.S = None
+
+    def fit(self, observations):
+        axis = [level.sort_values() for level in observations.index.levels]
+        shape = map(len, axis)
+        df = observations.groupby(observations.index).agg(
+            {'N': np.size,
+             'U': np.mean,
+             'S': np.stdev})
+        df = df.reindex(pd.MultiIndex.from_product(axis)).fillna(np.nan)
+        df['N'] = df['N'].fillna(0)
+        self.N = df['N'].values.reshape(shape)
+        self.U = df['U'].values.reshape(shape)
+        self.S = df['S'].values.reshape(shape)
+        return axis
+
+    def like(self, params):
+        # L: -v -.5*exp(-2v)*(x-u)^2
+        v = self.vol_model(params)
+        return -(v + .5 * np.exp(-2 * v) *
+                 (np.square(self.S) +
+                  np.square(self.U - self.model(params)))).sum()
+
+    def grad_like(self, params):
+        # dLdv :  (-1 + exp(-2v)*(x-u)^2)
+        # dLdu : exp(-2v)*(x-u)
+        u = self.model(params)
+        v = self.vol_model(params)
+        grad_u = self.model.grad(params)
+        grad_v = self.vol_model.grad(params)
+        return [vector_sum((-1 + np.exp(-2 * v) * (self.U - u)) * grad_v[i] +
+                np.exp(-2 * v) * (self.U - u) * grad_u[i],
+                params, self.model.param_feat, i)
+                for i in range(len(params))]
+
+    def hess_like(self, params):
+        # dv2 : -2*exp(-2v)*(x-u)^2
+        # dudv: -2*exp(-2v)*(x-u)
+        # du2 : -exp(-2v)
+        # hess_L = (-1 + exp(-2v)*(x-u)^2) * hess_v -
+        #           2*exp(-2v) * (
+        #    (x-u)^2 * grad_v_T * grad_v
+        #  + (x-u) * (grad_u_T * grad_v + grad_v_T * grad_u - .5 * hess_u)
+        #  + .5 * grad_u_T * grad_u )
+        u = self.model(params)
+        v = self.vol_model(params)
+        grad_u = self.model.grad(params)
+        grad_v = self.vol_model.grad(params)
+        return [[matrix_sum(
+                 (-1 + np.exp(-2 * v) *
+                     (np.square(self.S) + np.square(self.U - u))
+                  ) * self.vol_model.hess(params, i, j) -
+                 2 * np.exp(-2 * v) * (
+                     (np.square(self.S) + np.square(self.U - u)) *
+                     grad_v[i] * transpose(grad_v, params, j, i) +
+                     (self.U - u) * (
+                         grad_v[i] * transpose(grad_u, params, j, i) +
+                         grad_u[i] * transpose(grad_v, params, j, i) -
+                         .5 * self.model.hess(params, i, j)
+                     ) + .5 * grad_u[i] * transpose(grad_u, params, j, i)),
+                 params, self.model.param_feat, i, j)
+                 for j in range(i + 1)] for i in range(len(params))]
 
 
 class Finite(MaxLike):
@@ -472,13 +552,15 @@ class Finite(MaxLike):
         p = self.model(params)
         der = self.model.grad(params)
         delta = self.N / p
-        return [self.model.vector_sum(delta * der[i])
-                for i in range(len(self.params))]
+        return [vector_sum(delta * der[i], params, self.model.param_feat, i)
+                for i in range(len(params))]
 
     def hess_like(self, params):
         p = self.model(params)
         der = self.model.grad(params)
         delta = self.N / p
-        return [[self.model.matrix_sum(delta * (self.model.hess(params, i, j) -
-                 der[i] * transpose(der, params, j, i) / p))
-                 for j in range(i + 1)] for i in range(len(self.params))]
+        return [[matrix_sum(delta *
+                 (self.model.hess(params, i, j) -
+                  der[i] * transpose(der, params, j, i) / p),
+                 params, self.model.params_feat, i, j)
+                 for j in range(i + 1)] for i in range(len(params))]
