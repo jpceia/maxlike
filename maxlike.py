@@ -1,6 +1,5 @@
 import numpy as np
-import pandas as pd
-from common import IndexMap, transpose, vector_sum, matrix_sum
+from .common import IndexMap, transpose, vector_sum, matrix_sum
 from scipy.misc import factorial
 
 
@@ -19,18 +18,6 @@ class MaxLike(object):
 
         self.g_last = None
         self.verbose = False
-
-    def fit(self, observations):
-        """
-        Accepts a Series with a multiIndex - where the values are the labels
-        and the multiIndex the features.
-
-        Parameters
-        ----------
-        observations : Series
-            Observation list.
-        """
-        raise NotImplementedError
 
     def like(self, params):
         """
@@ -56,7 +43,7 @@ class MaxLike(object):
         """
         g = self.like(params)
         for param_map, gamma, h in self.reg:
-            g += gamma * h(param_map(params))
+            g -= gamma * h(param_map(params))
 
         return g / self.N.sum()
 
@@ -243,8 +230,8 @@ class MaxLike(object):
         return self.__reshape_array(np.sqrt(np.diag(-np.linalg.inv(
             self.__flat_hess))[:cut]))
 
-    def __step(self, max_steps=20):
-
+    def __step(self):
+        max_steps = 20
         n = len(self.params)
         c_len = len(self.constraint)
 
@@ -347,7 +334,7 @@ class MaxLike(object):
         raise RuntimeError("Error: the objective function did not increased",
                            "after %d steps" % max_steps)
 
-    def run(self, tol=1e-8, max_steps=100):
+    def run(self, tol=1e-8, max_steps=100, **kwargs):
         """
         Run the algorithm to find the best fit.
 
@@ -364,6 +351,9 @@ class MaxLike(object):
             Returns True if the algorithm converges, otherwise returns
             False.
         """
+        for k, v in kwargs.items():
+            self.__dict__[k] = v
+
         self.g_last = self.g(self.params)
         for i in range(max_steps):
             old_g = self.g_last
@@ -384,20 +374,6 @@ class Poisson(MaxLike):
     def __init__(self):
         MaxLike.__init__(self)
         self.X = None
-
-    def fit(self, observations):  # N, X
-        axis = [level.sort_values().values for level in
-                observations.index.levels]
-        self.features_names = list(observations.index.names)
-        shape = map(len, axis)
-        df = observations.groupby(observations.index).agg({
-            'N': np.size,
-            'X': np.sum})
-        df = df.reindex(pd.MultiIndex.from_product(axis)).fillna(0)
-        # assert N.shape == X.shape
-        self.X = df['X'].values.reshape(shape)
-        self.N = df['N'].values.reshape(shape)
-        return axis
 
     def like(self, params):
         ln_y = self.model(params)
@@ -431,11 +407,6 @@ class Logistic(MaxLike):
     def __init__(self):
         MaxLike.__init__(self)
 
-    def fit(self, N, P):
-        assert N.shape == P.shape
-        self.N = N
-        self.P = P
-
     def like(self, params):
         y = self.model(params)
         return -(self.N * np.log(1 + np.exp(-y)) + (self.N - self.P) * y).sum()
@@ -444,7 +415,7 @@ class Logistic(MaxLike):
         der = self.model.grad(params)
         delta = self.P - (self.N / (1 + np.exp(-self.model(params))))
         return [vector_sum(delta * der[i],
-                params, self.model.param_feat, i)
+                           params, self.model.param_feat, i)
                 for i in range(len(params))]
 
     def hess_like(self, params):
@@ -465,68 +436,47 @@ class Normal(MaxLike):
     """
 
     def __init__(self):
-        super(Normal, self).__init__()
+        MaxLike.__init__(self)
         self.vol_model = None
         self.U = None
-        self.S = None
-
-    def fit(self, observations):
-        axis = [level.sort_values() for level in observations.index.levels]
-        shape = map(len, axis)
-        df = observations.groupby(observations.index).agg(
-            {'N': np.size,
-             'U': np.mean,
-             'S': np.stdev})
-        df = df.reindex(pd.MultiIndex.from_product(axis)).fillna(np.nan)
-        df['N'] = df['N'].fillna(0)
-        self.N = df['N'].values.reshape(shape)
-        self.U = df['U'].values.reshape(shape)
-        self.S = df['S'].values.reshape(shape)
-        return axis
+        self.V = None
 
     def like(self, params):
         # L: -v -.5*exp(-2v)*(x-u)^2
-        v = self.vol_model(params)
-        return -(v + .5 * np.exp(-2 * v) *
-                 (np.square(self.S) +
-                  np.square(self.U - self.model(params)))).sum()
+        u = self.model(params, k=0)
+        v = self.model(params, k=1)
+        return -(v / np.square(self.N) + .5 * np.exp(-2 * v) *
+                 (np.square(self.V) + np.square(self.U - u))).sum()
 
     def grad_like(self, params):
         # dLdv :  (-1 + exp(-2v)*(x-u)^2)
         # dLdu : exp(-2v)*(x-u)
-        u = self.model(params)
-        v = self.vol_model(params)
-        grad_u = self.model.grad(params)
-        grad_v = self.vol_model.grad(params)
-        return [vector_sum((-1 + np.exp(-2 * v) * (self.U - u)) * grad_v[i] +
-                np.exp(-2 * v) * (self.U - u) * grad_u[i],
-                params, self.model.param_feat, i)
+        u = self.model(params, k=0)
+        v = self.model(params, k=1)
+        grad_u = self.model.grad(params, k=0)
+        grad_v = self.model.grad(params, k=1)
+        dLdv = -1 / np.square(self.N) + np.exp(-2 * v) * \
+            (np.square(self.V) + np.square(self.U - u))
+        return [vector_sum(dLdv * grad_v[i] +
+                           np.exp(-2 * v) * (self.U - u) * grad_u[i],
+                           params, self.model.param_feat, i)
                 for i in range(len(params))]
 
     def hess_like(self, params):
-        # dv2 : -2*exp(-2v)*(x-u)^2
-        # dudv: -2*exp(-2v)*(x-u)
-        # du2 : -exp(-2v)
-        # hess_L = (-1 + exp(-2v)*(x-u)^2) * hess_v -
-        #           2*exp(-2v) * (
-        #    (x-u)^2 * grad_v_T * grad_v
-        #  + (x-u) * (grad_u_T * grad_v + grad_v_T * grad_u - .5 * hess_u)
-        #  + .5 * grad_u_T * grad_u )
-        u = self.model(params)
-        v = self.vol_model(params)
-        grad_u = self.model.grad(params)
-        grad_v = self.vol_model.grad(params)
-        return [[matrix_sum(
-                 (-1 + np.exp(-2 * v) *
-                     (np.square(self.S) + np.square(self.U - u))
-                  ) * self.vol_model.hess(params, i, j) -
+        u = self.model(params, k=0)
+        v = self.model(params, k=1)
+        grad_u = self.model.grad(params, k=0)
+        grad_v = self.model.grad(params, k=1)
+        dLdv = -1 / np.square(self.N) + np.exp(-2 * v) * \
+            (np.square(self.V) + np.square(self.U - u))
+        return [[matrix_sum(dLdv * self.model.hess(params, i, j, k=1) -
                  2 * np.exp(-2 * v) * (
-                     (np.square(self.S) + np.square(self.U - u)) *
+                     (np.square(self.V) + np.square(self.U - u)) *
                      grad_v[i] * transpose(grad_v, params, j, i) +
                      (self.U - u) * (
                          grad_v[i] * transpose(grad_u, params, j, i) +
                          grad_u[i] * transpose(grad_v, params, j, i) -
-                         .5 * self.model.hess(params, i, j)
+                         .5 * self.model.hess(params, i, j, k=0)
                      ) + .5 * grad_u[i] * transpose(grad_u, params, j, i)),
                  params, self.model.param_feat, i, j)
                  for j in range(i + 1)] for i in range(len(params))]
@@ -537,11 +487,9 @@ class Finite(MaxLike):
     Class to model an probabilistic regression under an arbitrary
     Discrete Finite Distribution
     """
+
     def __init__(self):
         MaxLike.__init__(self)
-
-    def fit(self, N):
-        self.N = N
 
     def like(self, params):
         # N * ln p
@@ -559,7 +507,7 @@ class Finite(MaxLike):
         der = self.model.grad(params)
         delta = self.N / p
         return [[matrix_sum(delta *
-                 (self.model.hess(params, i, j) -
-                  der[i] * transpose(der, params, j, i) / p),
-                 params, self.model.params_feat, i, j)
+                            (self.model.hess(params, i, j) -
+                             der[i] * transpose(der, params, j, i) / p),
+                            params, self.model.params_feat, i, j)
                  for j in range(i + 1)] for i in range(len(params))]
