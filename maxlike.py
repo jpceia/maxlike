@@ -334,7 +334,7 @@ class MaxLike(object):
         raise RuntimeError("Error: the objective function did not increased",
                            "after %d steps" % max_steps)
 
-    def run(self, tol=1e-8, max_steps=100, **kwargs):
+    def fit(self, tol=1e-8, max_steps=100, **kwargs):
         """
         Run the algorithm to find the best fit.
 

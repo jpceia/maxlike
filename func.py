@@ -1,5 +1,5 @@
 import numpy as np
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 from .common import *
 
 
