@@ -1,6 +1,6 @@
 import numpy as np
-from collections import defaultdict
-from common import *
+from collections import defaultdict, namedtuple
+from .common import *
 
 
 class Func:
@@ -53,7 +53,7 @@ class Atom(Func):
     @property
     def param_feat(self):
         return {self.param_map(p)[0]: self.feat_map(f)
-                for p, f in self.foo.param_feat.iteritems()}
+                for p, f in self.foo.param_feat.items()}
 
     def grad(self, params, i, **kwargs):
         if i in self.param_map:
@@ -103,17 +103,15 @@ class Affine(Func):
         return self.a * self.base.hess(params, i, j, **kwargs)
 
 
-class FuncSum(Func):
+class Ensemble(Func):
     def __init__(self, ndim):
-        Func.__init__(self)
         self.atoms = []
         self.param_feat = defaultdict(list)
         self.ndim = ndim
-        self.b = 0
 
     def add(self, param_map, feat_map, foo, weight=1.0):
         """
-        Adds a factor to FuncSum object.
+        Adds a factor to Ensemble object.
 
         Parameters
         ----------
@@ -124,13 +122,52 @@ class FuncSum(Func):
         foo: Func
             function to add to the FuncSum object.
         weight: double
-            value to multiply for.
+            weight
         """
         if isinstance(param_map, int):
             param_map = [param_map]
         if isinstance(feat_map, int):
             feat_map = [feat_map]
+        for p, f in foo.param_feat.items():
+            if param_map[p] in [p for w, atom in self.atoms
+                                for p in atom.param_map]:
+                raise IndexError
+                # as alternative, just send a warning and
+                # loose the diag property
+        for p, f in self.param_feat.items():
+            if p in param_map:
+                raise IndexError
+                # as alternative, just send a warning and
+                # loose the diag property
+        for p, f in foo.param_feat.items():
+            self.param_feat[param_map[p]] = IndexMap(f)(feat_map)
+        self.atoms.append((
+            weight, Atom(self.ndim, param_map, feat_map, foo)))
 
+    @call_func
+    def __call__(self, params, k=0, **kwargs):
+        return self.atoms[k][1](params)
+
+    @vector_func
+    def grad(self, params, i, k=0, **kwargs):
+        diag_param = self.param_feat.keys()
+        return self.atoms[k][1].grad(params, i, diag=(i in diag_param))
+
+    @matrix_func
+    def hess(self, params, i, j, k=0, **kwargs):
+        diag_param = self.param_feat.keys()
+        diag_i = i in diag_param
+        diag_j = j in diag_param
+        return self.atoms[k][1].hess(params, i, j,
+                                     diag_i=diag_i, diag_j=diag_j)
+
+
+class FuncSum(Ensemble):
+    def __init__(self, ndim):
+        Ensemble.__init__(self, ndim)
+        self.b = 0
+
+    def add(self, param_map, feat_map, foo, weight=1.0):
         if isinstance(foo, Affine):
             self.b += foo.b
             self.add(param_map, feat_map, foo.base, weight * foo.a)
@@ -143,24 +180,7 @@ class FuncSum(Func):
                     atom.foo,
                     w * weight)
         else:
-            for p, f in foo.param_feat.iteritems():
-                if param_map[p] in self.params:
-                    raise IndexError
-                    # as alternative, just send a warning and
-                    # loose the diag property
-            for p, f in self.param_feat.iteritems():
-                if p in param_map:
-                    raise IndexError
-                    # as alternative, just send a warning and
-                    # loose the diag property
-            for p, f in foo.param_feat.iteritems():
-                self.param_feat[param_map[p]] = IndexMap(f)(feat_map)
-            self.atoms.append((
-                weight, Atom(self.ndim, param_map, feat_map, foo)))
-
-    @property
-    def params(self):
-        return set([p for w, atom in self.atoms for p in atom.param_map])
+            Ensemble.add(self, param_map, feat_map, foo, weight)
 
     @call_func
     def __call__(self, params, **kwargs):
@@ -222,7 +242,7 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
 
     @vector_func
     def grad(self, params, i, **kwargs):
-        return 2 * self.weight * np.dot(self.weight, params[i])
+        return 2 * np.dot(self.weight, np.dot(self.weight, params[i]))
 
     @matrix_func
     def hess(self, params, i, j, **kwargs):
