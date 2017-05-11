@@ -13,11 +13,9 @@ class MaxLike(object):
         self.constraint = []
         self.reg = []
 
-        self.features_names = []
         self.N = None
 
         self.g_last = None
-        self.verbose = False
 
     def like(self, params):
         """
@@ -203,13 +201,20 @@ class MaxLike(object):
                 (lambda x: np.arange(x.size)[x])(
                     (~self.free[i]).flatten())))
 
-        matrix = [[np.insert(np.insert(
-                   matrix[s_[i]:s_[i + 1], s_[j]:s_[j + 1]],
-                   val_map[i], val[f_[i]:f_[i + 1]]),
-            val_map[j], val[f_[j]:f_[j + 1]]).reshape(
-            np.concatenate(self.free[i].shape, self.free[j].shape))
-            for j in range(n)] for i in range(n)]
-        return matrix
+        # val is a scalar
+        if isinstance(val, (int, float)):
+            return [[np.insert(np.insert(
+                matrix[s_[i]:s_[i + 1], s_[j]:s_[j + 1]],
+                val_map[i], val), val_map[j], val).reshape(
+                self.free[i].shape + self.free[j].shape)
+                for j in range(n)] for i in range(n)]
+        else:
+            return [[np.insert(np.insert(
+                matrix[s_[i]:s_[i + 1], s_[j]:s_[j + 1]],
+                val_map[i], val[f_[i]:f_[i + 1]]),
+                val_map[j], val[f_[j]:f_[j + 1]]).reshape(
+                self.free[i].shape + self.free[j].shape)
+                for j in range(n)] for i in range(n)]
 
     def fisher_matrix(self):
         return self.__reshape_matrix(self.__flat_hess, 0)
@@ -303,10 +308,10 @@ class MaxLike(object):
         # --------------------------------------------------------------------
         params = np.concatenate(params)
         grad = np.concatenate(grad)
-        hess = np.vstack(map(np.hstack, hess))
+        hess = np.vstack(list(map(np.hstack, hess)))
 
         if c_len > 0:
-            hess_c = np.vstack(map(np.concatenate, hess_c))
+            hess_c = np.vstack(list(map(np.concatenate, hess_c)))
             hess = np.vstack([
                 np.hstack([hess, hess_c.transpose()]),
                 np.hstack([hess_c,
@@ -334,7 +339,7 @@ class MaxLike(object):
         raise RuntimeError("Error: the objective function did not increased",
                            "after %d steps" % max_steps)
 
-    def fit(self, tol=1e-8, max_steps=100, **kwargs):
+    def fit(self, tol=1e-8, max_steps=100, verbose=False, **kwargs):
         """
         Run the algorithm to find the best fit.
 
@@ -358,7 +363,7 @@ class MaxLike(object):
         for i in range(max_steps):
             old_g = self.g_last
             self.__step()
-            if self.verbose:
+            if verbose:
                 print(i, self.g_last)
             if abs(old_g / self.g_last - 1) < tol:
                 return None
