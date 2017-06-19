@@ -11,7 +11,7 @@ def prepare_series(observations, transformations=None):
     ----------
     observations : pd.Series
         sequence of observations, the index correspond to the features and the
-        values to the labels
+        values to the target values.
     transformations : dict
         (named) list of transformations to apply to observations labels,
         grouped by index
@@ -21,7 +21,7 @@ def prepare_series(observations, transformations=None):
     res : dict
         resulting ndarrays after applying the transformations on the observations
     axis : list[list]
-        feature indexes names
+        feature index names
     """
     if transformations is None:
         transformations = {"N": np.size}
