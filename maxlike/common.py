@@ -110,4 +110,4 @@ class IndexMap(list):
         self.extend(indexes)
 
     def __call__(self, params):
-        return map(params.__getitem__, self)
+        return [params[k] for k in self]

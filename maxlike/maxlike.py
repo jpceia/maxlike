@@ -1,6 +1,6 @@
 import numpy as np
 import abc
-from common import IndexMap, transpose, vector_sum, matrix_sum
+from .common import IndexMap, transpose, vector_sum, matrix_sum
 from scipy.misc import factorial
 
 

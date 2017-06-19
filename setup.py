@@ -4,7 +4,6 @@ setup(
     name='maxlike',
     version='2.0',
     packages=['maxlike'],
-    install_requires = ['numpy'],
     url='https://github.com/jpceia/maxlike',
     license='',
     author='jpceia',

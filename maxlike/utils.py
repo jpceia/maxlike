@@ -4,7 +4,7 @@ import pandas as pd
 def prepare_series(observations, transformations):
     if isinstance(observations.index, pd.MultiIndex):
         axis = [level.sort_values() for level in observations.index.levels]
-        shape = map(len, axis)
+        shape = [len(a) for a in axis]
         df = observations.groupby(observations.index).agg(transformations).\
             reindex(pd.MultiIndex.from_product(axis)).fillna(0)
     else:
