@@ -2,7 +2,7 @@ import numpy as np
 from functools import wraps
 
 
-class CacheWrap:
+class cache_output:
     def __init__(self, foo):
         self.foo = foo
         self.params = None
@@ -25,7 +25,7 @@ class CacheWrap:
                 elif any(self.params[k] != params[k]):
                     cached = False
         if not cached:
-            self.params = list(params)
+            self.params = params[:]
             self.cached_result = self.foo(params)
         return self.cached_result
 
@@ -47,9 +47,8 @@ def vector_func(g):
             params = []
         if i is not None:
             return g(obj, params, i, diag=diag, **kwargs)
-        else:
-            return map(lambda k: g(obj, params, k, diag=diag, **kwargs),
-                       range(len(params)))
+        return [g(obj, params, k, diag=diag, **kwargs)
+                for k in range(len(params))]
     return wrapper
 
 
@@ -61,20 +60,17 @@ def matrix_func(h):
             params = []
         if i is not None and j is not None:
             return h(obj, params, i, j, diag_i=diag_i, diag_j=diag_j, **kwargs)
-        else:
-            return map(lambda k:
-                       map(lambda l:
-                           h(obj, params, k, l,
-                             diag_i=diag_i, diag_j=diag_j, **kwargs),
-                           range(k + 1)), range(len(params)))
+        return [[h(obj, params, k, l, diag_i=diag_i, diag_j=diag_j, **kwargs)
+                 for l in range(k + 1)]
+                for k in range(len(params))]
     return wrapper
 
 
 def vector_sum(vector, params, param_feat, i):
     param_feat = param_feat.get(i, [])
     p = params[i].ndim
-    for k in range(len(param_feat)):
-        vector = vector.swapaxes(k, p + param_feat[k])
+    for k, f in enumerate(param_feat):
+        vector = vector.swapaxes(k, p + f)
     return vector.sum(tuple(np.arange(p, vector.ndim)))
 
 
@@ -83,15 +79,14 @@ def matrix_sum(matrix, params, param_feat, i, j):
     param_feat_j = param_feat.get(j, [])
     p_i = params[i].ndim
     p_j = params[j].ndim
-    for k in range(p_i):
-        matrix = matrix.swapaxes(p_j + k, p_i + p_j + param_feat_i[k])
-    for k in range(p_j):
-        f = param_feat_j[k]
+    for k, f in enumerate(param_feat_i):  # range(p_i)
+        matrix = matrix.swapaxes(p_j + k, p_i + p_j + f)
+    for k, f in enumerate(param_feat_j):  # range(p_j)
         if f in param_feat_i:
             idx = np.zeros(matrix.ndim, dtype=np.bool)
             idx[param_feat_j.index(f)] = True
             idx[p_j + k] = True
-            idx = map(lambda b: slice(None) if b else None, idx)
+            idx = [slice(None) if x else None for x in idx]
             matrix = matrix * np.eye(matrix.shape[p_j + k])[idx]
         else:
             matrix = matrix.swapaxes(k, p_i + p_j + f)
@@ -101,11 +96,10 @@ def matrix_sum(matrix, params, param_feat, i, j):
 def transpose(vector, params, i, j):
     if params[i].ndim > vector[i].ndim:
         return np.zeros(())
-    else:
-        slc = [slice(None)] * params[i].ndim
-        slc += [None] * params[j].ndim
-        slc += [Ellipsis]
-        return vector[i][slc]
+    slc = [slice(None)] * params[i].ndim
+    slc += [None] * params[j].ndim
+    slc += [Ellipsis]
+    return vector[i][slc]
 
 
 class IndexMap(list):

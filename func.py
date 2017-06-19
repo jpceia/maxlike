@@ -42,10 +42,10 @@ class Atom(Func):
         self.param_map = param_map
         self.feat_map = feat_map
         self.foo = foo
-        self.__slice = map(
-            lambda x: slice(None) if x else None,
-            (np.arange(self.ndim)[:, None] ==
-             np.asarray(self.feat_map)[None, :]).any(1))
+        self.__slice = [
+            slice(None) if x else None
+            for x in (np.arange(self.ndim)[:, None] ==
+                      np.asarray(self.feat_map)[None, :]).any(1)]
 
     def __call__(self, params, **kwargs):
         return self.foo(self.param_map(params))[self.__slice]
@@ -61,8 +61,7 @@ class Atom(Func):
                 self.param_map(params),
                 self.param_map.index(i),
                 **kwargs)[[Ellipsis] + self.__slice]
-        else:
-            return np.zeros(())
+        return np.zeros(())
 
     def hess(self, params, i, j, **kwargs):
         if i in self.param_map and j in self.param_map:
@@ -71,8 +70,7 @@ class Atom(Func):
                 self.param_map.index(i),
                 self.param_map.index(j),
                 **kwargs)[[Ellipsis] + self.__slice]
-        else:
-            return np.zeros(())
+        return np.zeros(())
 
 
 class Affine(Func):
@@ -208,16 +206,16 @@ class Linear(Func):
             weight_list = []
         elif not isinstance(weight_list, (list, tuple)):
             weight_list = [weight_list]
-        self.weight = weight_list
+        self.weights = weight_list
 
     @call_func
     def __call__(self, params, **kwargs):
-        return sum([sum(params[i] * self.weight[i])
-                    for i in range(len(params))])
+        return sum([(w * param).sum()
+                    for w, param in zip(params, self.weights)])
 
     @vector_func
     def grad(self, params, i, **kwargs):
-        return self.weight[i] * np.ones(params[i].shape)
+        return self.weights[i] * np.ones(params[i].shape)
 
     @matrix_func
     def hess(self, params, i, j, **kwargs):
@@ -226,7 +224,7 @@ class Linear(Func):
             np.zeros(params[i].shape))
 
     def add_feature(self, weight):
-        self.weight.append(weight)
+        self.weights.append(weight)
 
 
 class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
@@ -265,17 +263,14 @@ class OneHot(Func):
         if diag:
             return np.ones(params[0].shape)[
                 params[0].ndim * [None] + [Ellipsis]]
-        else:
-            return np.diag(np.ones(params[0].size)).\
-                reshape(2 * params[0].shape)
+        return np.diag(np.ones(params[0].size)).reshape(2 * params[0].shape)
 
     @matrix_func
     def hess(self, params, i, j, diag_i=False, diag_j=False, **kwargs):
         if diag_i:
             return np.zeros(params[0].shape)[
                 2 * params[0].ndim * [None] + [Ellipsis]]
-        else:
-            return np.zeros(params[0].shape * 3)
+        return np.zeros(params[0].shape * 3)
 
 
 class Constant(Func):

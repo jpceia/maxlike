@@ -16,6 +16,6 @@ def prepare_series(observations, transformations):
     return res, axis
 
 
-def prepare_dataframe(df, features_cols, labels_col,
-                      transformations, weights_col=None):
+def prepare_dataframe(df, features_cols, result_col,
+                      transformations, weight_col=None):
     raise NotImplementedError

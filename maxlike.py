@@ -1,9 +1,13 @@
 import numpy as np
-from .common import IndexMap, transpose, vector_sum, matrix_sum
+import abc
+from common import IndexMap, transpose, vector_sum, matrix_sum
 from scipy.misc import factorial
 
 
 class MaxLike(object):
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
     def __init__(self):
         self.reset_params()
 
@@ -17,23 +21,26 @@ class MaxLike(object):
 
         self.g_last = None
 
+    @abc.abstractmethod
     def like(self, params):
         """
         Likelihood function.
         """
-        raise NotImplementedError
+        pass
 
+    @abc.abstractmethod
     def grad_like(self, params):
         """
         Calculates the gradient of the log-likelihood function.
         """
-        raise NotImplementedError
+        pass
 
+    @abc.abstractmethod
     def hess_like(self, params):
         """
         Calculates the hessian of the log-likelihood function.
         """
-        raise NotImplementedError
+        pass
 
     def g(self, params):
         """
@@ -155,23 +162,23 @@ class MaxLike(object):
 
         # val is a scalar
         if isinstance(val, (int, float)):
-            for i in range(len(self.params)):
-                s_1 = s_0 + self.free[i].sum()
+            for i, free in enumerate(self.free):
+                s_1 = s_0 + free.sum()
                 shaped_array.append(np.insert(
                     flat_array[s_0:s_1],
-                    fix_map((~self.free[i]).flatten()),
-                    val).reshape(self.free[i].shape))
+                    fix_map((~free).flatten()),
+                    val).reshape(free.shape))
                 s_0 = s_1
         # val is an array
         else:
             f_0 = 0
-            for i in range(len(self.params)):
-                s_1 = s_0 + self.free[i].sum()
-                f_1 = f_0 + (~self.free[i]).sum()
+            for i, free in enumerate(self.free):
+                s_1 = s_0 + free.sum()
+                f_1 = f_0 + (~free).sum()
                 shaped_array.append(np.insert(
                     flat_array[s_0:s_1],
-                    fix_map((~self.free[i]).flatten()),
-                    val[f_0:f_1]).reshape(self.free[i].shape))
+                    fix_map((~free).flatten()),
+                    val[f_0:f_1]).reshape(free.shape))
                 s_0 = s_1
                 f_0 = f_1
         return shaped_array
@@ -179,8 +186,8 @@ class MaxLike(object):
     def __reshape_params(self, params_free):
         return self.__reshape_array(
             params_free,
-            np.concatenate([self.params[i][~self.free[i]]
-                            for i in range(len(self.free))]))
+            np.concatenate([param[~free]
+                            for param, free in zip(self.params, self.free)]))
 
     def __reshape_matrix(self, matrix, val=np.NaN):
         if matrix.ndim != 2:
@@ -194,12 +201,12 @@ class MaxLike(object):
         s_ = [0]
         f_ = [0]
         val_map = []
-        for i in range(n):
-            s_.append(s_[-1] + self.free[i].size)
-            f_.append(f_[-1] + (~self.free[i]).sum())
+        for i, free in enumerate(self.free):
+            s_.append(s_[-1] + free.size)
+            f_.append(f_[-1] + (~free).sum())
             val_map.append((lambda x: x - np.arange(x.size))(
                 (lambda x: np.arange(x.size)[x])(
-                    (~self.free[i]).flatten())))
+                    (~free).flatten())))
 
         # val is a scalar
         if isinstance(val, (int, float)):
@@ -248,8 +255,9 @@ class MaxLike(object):
 
         # Add blocks corresponding to constraint variables:
         # Hess_lambda_params = grad_g
-        hess_c = [[np.zeros(self.free[j].shape)
-                   for j in range(n)] for i in range(c_len)]
+        hess_c = [[np.zeros(free.shape)
+                   for free in self.free]
+                  for _ in range(c_len)]
 
         # --------------------------------------------------------------------
         # 2nd phase: Add constraints / regularization to grad and hess
@@ -260,8 +268,7 @@ class MaxLike(object):
             args = param_map(self.params)
             grad_g = g.grad(args)
             hess_g = g.hess(args)
-            for i in range(len(param_map)):
-                idx = param_map[i]
+            for i, idx in enumerate(param_map):
                 grad[idx] += gamma * grad_g[i]
                 grad[n + count] = np.asarray([g(args)])
                 hess_c[count][idx] += grad_g[i]
@@ -272,8 +279,7 @@ class MaxLike(object):
             args = param_map(self.params)
             grad_h = h.grad(args)
             hess_h = h.hess(args)
-            for i in range(len(param_map)):
-                idx = param_map[i]
+            for i, idx in enumerate(param_map):
                 grad[idx] -= gamma * grad_h[i]
                 for j in range(i + 1):
                     hess[idx][param_map[j]] -= gamma * hess_h[i][j]
@@ -281,7 +287,7 @@ class MaxLike(object):
         # --------------------------------------------------------------------
         # 3rd phase: Reshape and flatten
         # --------------------------------------------------------------------
-        params = [self.params[i][self.free[i]] for i in range(n)]
+        params = [param[free] for param, free in zip(self.params, self.free)]
         grad = [grad[i][self.free[i]] for i in range(n)] + grad[n:]
 
         # ------
@@ -442,7 +448,6 @@ class Normal(MaxLike):
 
     def __init__(self):
         MaxLike.__init__(self)
-        self.vol_model = None
         self.U = None
         self.V = None
 
