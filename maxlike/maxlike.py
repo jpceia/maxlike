@@ -213,14 +213,14 @@ class MaxLike(object):
             return [[np.insert(np.insert(
                 matrix[s_[i]:s_[i + 1], s_[j]:s_[j + 1]],
                 val_map[i], val), val_map[j], val).reshape(
-                self.free[i].shape + self.free[j].shape)
+                self.param_[i].shape + self.param_[j].shape)
                 for j in range(n)] for i in range(n)]
         else:
             return [[np.insert(np.insert(
                 matrix[s_[i]:s_[i + 1], s_[j]:s_[j + 1]],
                 val_map[i], val[f_[i]:f_[i + 1]]),
                 val_map[j], val[f_[j]:f_[j + 1]]).reshape(
-                self.free[i].shape + self.free[j].shape)
+                self.param_[i].shape + self.param_[j].shape)
                 for j in range(n)] for i in range(n)]
 
     def fisher_matrix(self):
@@ -287,8 +287,8 @@ class MaxLike(object):
         # --------------------------------------------------------------------
         # 3rd phase: Reshape and flatten
         # --------------------------------------------------------------------
-        params = [param[free] for param, free in zip(self.param_, self.free)]
-        grad = [grad[i][self.free[i]] for i in range(n)] + grad[n:]
+        flat_params = [param[free] for param, free in zip(self.param_, self.free)]
+        grad = [grad[i][free] for i, free in enumerate(self.free)] + grad[n:]
 
         # ------
         # | aa |
@@ -306,13 +306,13 @@ class MaxLike(object):
             for i in range(j + 1)] for j in range(n)]
         hess = [[hess[i][j].transpose() for j in range(i)] +
                 [hess[j][i] for j in range(i, n)] for i in range(n)]
-        hess_c = [[hess_c[i][j][self.free[j]] for j in range(n)]
+        hess_c = [[hess_c[i][j][free] for j, free in enumerate(self.free)]
                   for i in range(c_len)]
 
         # --------------------------------------------------------------------
         # 4th phase: Consolidate blocks
         # --------------------------------------------------------------------
-        params = np.concatenate(params)
+        flat_params = np.concatenate(flat_params)
         grad = np.concatenate(grad)
         hess = np.vstack(list(map(np.hstack, hess)))
 
@@ -333,7 +333,7 @@ class MaxLike(object):
 
         # change = np.linalg.norm(d) / np.linalg.norm(params)
         for i in range(max_steps):
-            new_params = self.__reshape_params(params + u * d)
+            new_params = self.__reshape_params(flat_params + u * d)
             new_g = self.g(new_params)
             if new_g - self.g_last >= 0:
                 self.param_ = new_params
@@ -342,7 +342,7 @@ class MaxLike(object):
                 return None
             else:
                 u *= .5
-        raise RuntimeError("Error: the objective function did not increased",
+        raise RuntimeError("Error: the objective function did not increase",
                            "after %d steps" % max_steps)
 
     def fit(self, tol=1e-8, max_steps=100, verbose=False, **kwargs):
@@ -373,7 +373,7 @@ class MaxLike(object):
                 print(i, self.g_last)
             if abs(old_g / self.g_last - 1) < tol:
                 return None
-        raise RuntimeError("Error: the objective function did not converged",
+        raise RuntimeError("Error: the objective function did not converge",
                            "after %d steps" % max_steps)
 
 
@@ -393,11 +393,10 @@ class Poisson(MaxLike):
 
     def grad_like(self, params):
         delta = self.X - self.N * np.exp(self.model(params))
-        der = self.model.grad(params)
         return [vector_sum(
-                delta * der[i],
+                delta * d,
                 params, self.model.param_feat, i)
-                for i in range(len(params))]
+                for i, d in enumerate(self.model.grad(params))]
 
     def hess_like(self, params):
         y = self.N * np.exp(self.model(params))
@@ -405,9 +404,9 @@ class Poisson(MaxLike):
         der = self.model.grad(params)
         return [[matrix_sum(
                  delta * self.model.hess(params, i, j) -
-                 y * der[i] * transpose(der, params, j, i),
+                 y * d * transpose(der, params, j, i),
                  params, self.model.param_feat, i, j)
-                 for j in range(i + 1)] for i in range(len(params))]
+                 for j in range(i + 1)] for i, d in enumerate(der)]
 
 
 class Logistic(MaxLike):
@@ -423,11 +422,10 @@ class Logistic(MaxLike):
         return -(self.N * np.log(1 + np.exp(-y)) + (self.N - self.P) * y).sum()
 
     def grad_like(self, params):
-        der = self.model.grad(params)
         delta = self.P - (self.N / (1 + np.exp(-self.model(params))))
-        return [vector_sum(delta * der[i],
+        return [vector_sum(delta * d,
                            params, self.model.param_feat, i)
-                for i in range(len(params))]
+                for i, d in enumerate(self.model.grad(params))]
 
     def hess_like(self, params):
         p = 1 / (1 + np.exp(-self.model(params)))
@@ -438,7 +436,7 @@ class Logistic(MaxLike):
                 delta * self.model.hess(params, i, j) +
                 delta2 * der[i] * transpose(der, params, j, i),
                 params, self.model.param_feat, i, j)
-                for j in range(i + 1)] for i in range(len(params))]
+                for j in range(i + 1)] for i, d in enumerate(der)]
 
 
 class Normal(MaxLike):
