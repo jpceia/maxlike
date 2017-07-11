@@ -118,7 +118,7 @@ class Ensemble(Func):
         feat_map:
             index of features that 'foo' returns.
         foo: Func
-            function to add to the FuncSum object.
+            function to add to the Ensemble object.
         weight: double
             weight
         """
@@ -160,7 +160,7 @@ class Ensemble(Func):
                                      diag_i=diag_i, diag_j=diag_j)
 
 
-class FuncSum(Ensemble):
+class Sum(Ensemble):
     def __init__(self, ndim):
         Ensemble.__init__(self, ndim)
         self.b = 0
@@ -169,7 +169,7 @@ class FuncSum(Ensemble):
         if isinstance(foo, Affine):
             self.b += foo.b
             self.add(param_map, feat_map, foo.base, weight * foo.a)
-        elif isinstance(foo, FuncSum):
+        elif isinstance(foo, Sum):
             self.b += foo.b
             for w, atom in foo.atoms:
                 self.add(
@@ -248,7 +248,7 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
             np.ones(params[i].shape + params[j].shape)
 
 
-class OneHot(Func):
+class Encode(Func):
     def __init__(self, diag=True):
         Func.__init__(self)
         if diag:
