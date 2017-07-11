@@ -182,21 +182,21 @@ class Sum(Ensemble):
 
     @call_func
     def __call__(self, params, **kwargs):
-        return sum([w * atom(params) for w, atom in self.atoms]) + self.b
+        return sum((w * atom(params) for w, atom in self.atoms)) + self.b
 
     @vector_func
     def grad(self, params, i, **kwargs):
         diag_param = self.param_feat.keys()
-        return sum([w * atom.grad(params, i, diag=(i in diag_param))
-                    for w, atom in self.atoms])
+        return sum((w * atom.grad(params, i, diag=(i in diag_param))
+                    for w, atom in self.atoms))
 
     @matrix_func
     def hess(self, params, i, j, **kwargs):
         diag_param = self.param_feat.keys()
         diag_i = i in diag_param
         diag_j = j in diag_param
-        return sum([w * atom.hess(params, i, j, diag_i=diag_i, diag_j=diag_j)
-                    for w, atom in self.atoms])
+        return sum((w * atom.hess(params, i, j, diag_i=diag_i, diag_j=diag_j)
+                    for w, atom in self.atoms))
 
 
 class Linear(Func):
@@ -210,8 +210,8 @@ class Linear(Func):
 
     @call_func
     def __call__(self, params, **kwargs):
-        return sum([(w * param).sum()
-                    for w, param in zip(params, self.weights)])
+        return sum(((w * param).sum()
+                    for w, param in zip(params, self.weights)))
 
     @vector_func
     def grad(self, params, i, **kwargs):
@@ -234,9 +234,9 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
 
     @call_func
     def __call__(self, params, **kwargs):
-        return sum([(np.dot(self.weight, params[i]) *
-                     np.dot(self.weight, params[i])).sum()
-                    for i in range(len(params))])
+        return sum(((np.dot(self.weight, param) *
+                     np.dot(self.weight, param)).sum()
+                    for param in params))
 
     @vector_func
     def grad(self, params, i, **kwargs):
