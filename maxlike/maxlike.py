@@ -55,9 +55,8 @@ class MaxLike(object):
     def reset_params(self):
         self.param_ = []
         self.free = []
-        self.label = []
 
-    def add_param(self, values, fixed=None, label=''):
+    def add_param(self, values, fixed=None):
         """
         Adds a new parameter.
 
@@ -68,8 +67,6 @@ class MaxLike(object):
         fixed: list (optional)
             Boolean arrays with value = True if the parameter has a
             fixed value.
-        label: string (optional)
-            label for that parameter.
         """
         if isinstance(values, (int, float, tuple, list)):
             values = np.asarray(values)
@@ -90,7 +87,6 @@ class MaxLike(object):
 
         self.param_.append(values)
         self.free.append(~fixed)
-        self.label.append(label)
 
     def add_constraint(self, param_map, g):
         """
