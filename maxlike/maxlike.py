@@ -68,25 +68,9 @@ class MaxLike(object):
             Boolean arrays with value = True if the parameter has a
             fixed value.
         """
-        if isinstance(values, (int, float, tuple, list)):
-            values = np.asarray(values)
-        elif not isinstance(values, np.ndarray):
-            raise TypeError
-
-        if fixed is None:
-            fixed = np.zeros(values.shape, np.bool)
-        elif isinstance(fixed, bool):
-            fixed *= np.ones(values.shape, np.bool)
-        elif isinstance(fixed, (tuple, list)):
-            fixed = np.asarray(fixed)
-        elif not isinstance(fixed, np.ndarray):
-            raise TypeError
-
-        if not fixed.shape == values.shape:
-            raise ValueError("shape mismatch")
-
-        self.param_.append(values)
-        self.free.append(~fixed)
+        param = np.ma.array(values, mask=fixed)
+        self.param_.append(param.data)
+        self.free.append(~param.mask)
 
     def add_constraint(self, param_map, g):
         """
