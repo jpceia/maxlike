@@ -56,25 +56,29 @@ class Atom(Func):
                 for p, f in self.foo.param_feat.items()}
 
     def grad(self, params, i, **kwargs):
-        if i in self.param_map:
+        try:
+            idx = self.param_map.index(i)
+        except ValueError:
+            return np.zeros(())
+        else:
             return self.foo.grad(
-                self.param_map(params),
-                self.param_map.index(i),
+                self.param_map(params), idx,
                 **kwargs)[[Ellipsis] + self.__slice]
-        return np.zeros(())
 
     def hess(self, params, i, j, **kwargs):
-        if i in self.param_map and j in self.param_map:
+        try:
+            idx = self.param_map.index(i)
+            jdx = self.param_map.index(j)
+        except ValueError:
+            return np.zeros(())
+        else:
             return self.foo.hess(
-                self.param_map(params),
-                self.param_map.index(i),
-                self.param_map.index(j),
+                self.param_map(params), idx, jdx,
                 **kwargs)[[Ellipsis] + self.__slice]
-        return np.zeros(())
 
 
 class Affine(Func):
-    def __init__(self, base, a, b):
+    def __init__(self, base, a=1, b=0):
         if isinstance(base, Affine):
             self.base = base.base
             self.a = a * base.a
@@ -122,25 +126,20 @@ class Ensemble(Func):
         weight: double
             weight
         """
-        if isinstance(param_map, int):
-            param_map = [param_map]
-        if isinstance(feat_map, int):
-            feat_map = [feat_map]
-        for p, f in foo.param_feat.items():
-            if param_map[p] in [p for w, atom in self.atoms
-                                for p in atom.param_map]:
-                raise IndexError
-                # as alternative, just send a warning and
-                # loose the diag property
-        for p, f in self.param_feat.items():
-            if p in param_map:
-                raise IndexError
-                # as alternative, just send a warning and
-                # loose the diag property
-        for p, f in foo.param_feat.items():
-            self.param_feat[param_map[p]] = IndexMap(f)(feat_map)
+        for k, p in enumerate(param_map):
+            f_new = IndexMap(foo.param_feat.get(k, []))(feat_map)
+            if p in set([u for w, atom in self.atoms
+                         for u in atom.param_map]):
+                f = self.param_feat.get(p, [])
+                if f != f_new and p in self.param_feat:
+                    del self.param_feat[p]
+            elif k in foo.param_feat:
+                self.param_feat[p] = f_new
+
         self.atoms.append((
             weight, Atom(self.ndim, param_map, feat_map, foo)))
+
+        return self
 
     @call_func
     def __call__(self, params, k=0, **kwargs):
@@ -166,19 +165,26 @@ class Sum(Ensemble):
         self.b = 0
 
     def add(self, param_map, feat_map, foo, weight=1.0):
+        if isinstance(param_map, int):
+            param_map = [param_map]
+        if isinstance(feat_map, int):
+            feat_map = [feat_map]
+
         if isinstance(foo, Affine):
             self.b += foo.b
             self.add(param_map, feat_map, foo.base, weight * foo.a)
         elif isinstance(foo, Sum):
             self.b += foo.b
             for w, atom in foo.atoms:
-                self.add(
+                Ensemble.add(
+                    self,
                     atom.param_map(param_map),
                     atom.feat_map(feat_map),
                     atom.foo,
                     w * weight)
         else:
             Ensemble.add(self, param_map, feat_map, foo, weight)
+        return self
 
     @call_func
     def __call__(self, params, **kwargs):
