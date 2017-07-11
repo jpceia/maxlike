@@ -3,7 +3,7 @@ from collections import defaultdict
 from .common import *
 
 
-class Func:
+class Func(object):
     def __init__(self):
         self.param_feat = defaultdict(list)
 
@@ -162,7 +162,7 @@ class Ensemble(Func):
 
 class Sum(Ensemble):
     def __init__(self, ndim):
-        Ensemble.__init__(self, ndim)
+        super(Sum, self).__init__(ndim)
         self.b = 0
 
     def add(self, param_map, feat_map, foo, weight=1.0):
@@ -201,7 +201,7 @@ class Sum(Ensemble):
 
 class Linear(Func):
     def __init__(self, weight_list=None):
-        Func.__init__(self)
+        super(Linear, self).__init__()
         if weight_list is None:
             weight_list = []
         elif not isinstance(weight_list, (list, tuple)):
@@ -229,7 +229,7 @@ class Linear(Func):
 
 class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
     def __init__(self, weight=None):
-        Func.__init__(self)
+        super(Quadratic, self).__init__()
         self.weight = weight
 
     @call_func
@@ -250,7 +250,7 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
 
 class Encode(Func):
     def __init__(self, diag=True):
-        Func.__init__(self)
+        super(Encode, self).__init__()
         if diag:
             self.param_feat[0].append(0)
 
@@ -275,7 +275,7 @@ class Encode(Func):
 
 class Constant(Func):
     def __init__(self, vector):
-        Func.__init__(self)
+        super(Constant, self).__init__()
         self.vector = np.asarray(vector)
 
     @call_func
@@ -293,7 +293,7 @@ class Constant(Func):
 
 class Vector(Func):
     def __init__(self, vector):
-        Func.__init__(self)
+        super(Vector, self).__init__()
         self.vector = np.asarray(vector)
 
     @call_func
