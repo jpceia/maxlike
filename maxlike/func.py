@@ -133,7 +133,7 @@ class Ensemble(Func):
                 f = self.param_feat.get(p, [])
                 if f != f_new and p in self.param_feat:
                     del self.param_feat[p]
-            elif k in foo.param_feat:
+            elif k in list(foo.param_feat):
                 self.param_feat[p] = f_new
 
         self.atoms.append((
