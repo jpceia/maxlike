@@ -16,27 +16,12 @@ class Param(np.ma.masked_array):
 class cache_output:
     def __init__(self, foo):
         self.foo = foo
-        self.params = None
-        self.args = []
-        self.kwargs = dict()
+        self.hash = None
 
-    def __call__(self, params):
-        n = len(params)
-        cached = True
-        if self.params is None:
-            cached = False
-        elif len(self.params) != n:
-            cached = False
-        else:
-            for k in range(n):
-                if not cached:
-                    break
-                if self.params[k].shape != params[k].shape:
-                    cached = False
-                elif any(self.params[k] != params[k]):
-                    cached = False
-        if not cached:
-            self.params = params[:]
+    def __call__(self, params, **kwargs):
+        hash_val = hash(tuple(params, frozenset(kwargs.items())))
+        if self.hash is None or self.hash != hash_val:
+            self.hash = hash_val
             self.cached_result = self.foo(params)
         return self.cached_result
 
