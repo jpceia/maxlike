@@ -9,7 +9,6 @@ class MaxLike(object):
 
     @abc.abstractmethod
     def __init__(self):
-
         # model related
         self.model = None
 
@@ -40,6 +39,9 @@ class MaxLike(object):
         Calculates the hessian of the log-likelihood function.
         """
         pass
+
+    def reset_params(self):
+        self.params_ = Params()
 
     def g(self, params):
         """
