@@ -27,7 +27,7 @@ def prepare_series(observations, transformations=None):
         transformations = {"N": np.size}
 
     if isinstance(observations.index, pd.MultiIndex):
-        axis = [level.sort_values() for level in observations.index.levels]
+        axis = tuple((level.sort_values() for level in observations.index.levels))
         shape = [len(a) for a in axis]
         df = observations.groupby(observations.index).agg(transformations.values()).\
             rename(columns={transf.__name__: name
