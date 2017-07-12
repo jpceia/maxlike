@@ -1,5 +1,16 @@
 import numpy as np
 from functools import wraps
+from hashlib import sha1
+
+
+class Params(list):
+    def __hash__(self):
+        return hash(tuple(self))
+
+
+class Param(np.ma.masked_array):
+    def __hash__(self):
+        return sha1(self.data).digest()
 
 
 class cache_output:
@@ -110,4 +121,4 @@ class IndexMap(list):
         self.extend(indexes)
 
     def __call__(self, params):
-        return [params[k] for k in self]
+        return Params([params[k] for k in self])

@@ -1,18 +1,7 @@
 import numpy as np
 import abc
-from hashlib import sha1
-from .common import IndexMap, transpose, vector_sum, matrix_sum
+from .common import IndexMap, transpose, vector_sum, matrix_sum, Param, Params
 from scipy.misc import factorial
-
-
-class Params(list):
-    def __hash__(self):
-        return hash(tuple(self))
-
-
-class Param(np.ma.masked_array):
-    def __hash__(self):
-        return sha1(self.data).digest()
 
 
 class MaxLike(object):
