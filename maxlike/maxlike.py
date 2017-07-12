@@ -165,9 +165,9 @@ class MaxLike(object):
         return shaped_array
 
     def __reshape_params(self, params_free):
-        return self.__reshape_array(
+        return Params(self.__reshape_array(
             params_free,
-            np.concatenate([p[p.mask].data for p in self.params_]))
+            np.concatenate([p[p.mask].data for p in self.params_])))
 
     def __reshape_matrix(self, matrix, val=np.nan):
         if matrix.ndim != 2:
