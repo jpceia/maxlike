@@ -10,7 +10,7 @@ class Params(list):
 
 class Param(np.ma.masked_array):
     def __hash__(self):
-        return sha1(self.data).digest()
+        return int(sha1(self.data).hexdigest(), 16)
 
 
 class cache_output:
