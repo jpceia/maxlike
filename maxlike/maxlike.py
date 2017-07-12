@@ -9,7 +9,6 @@ class MaxLike(object):
 
     @abc.abstractmethod
     def __init__(self):
-        self.reset_params()
 
         # model related
         self.model = None
@@ -52,10 +51,6 @@ class MaxLike(object):
 
         return g / self.N.sum()
 
-    def reset_params(self):
-        self.param_ = []
-        self.free = []
-
     def add_param(self, values, fixed=None):
         """
         Adds a new parameter.
@@ -68,9 +63,11 @@ class MaxLike(object):
             Boolean arrays with value = True if the parameter has a
             fixed value.
         """
-        param = np.ma.array(values, mask=fixed)
-        self.param_.append(param.data)
-        self.free.append(~param.mask)
+        try:
+            self.param_.append(np.ma.array(values, mask=fixed))
+        except AttributeError:
+            self.param_ = []
+            self.add_param(values, fixed)
 
     def add_constraint(self, param_map, g):
         """
@@ -106,7 +103,7 @@ class MaxLike(object):
         (The best model is that which minimizes it)
         """
         # k: # of free parameters
-        k = sum([f.sum() for f in self.free]) - len(self.constraint)
+        k = sum(map(np.ma.count, self.param_)) - len(self.constraint)
         return 2 * k * (1 + (k - 1) / (self.N.sum() - k - 1)) - \
             2 * self.g(self.param_)
 
@@ -116,13 +113,13 @@ class MaxLike(object):
         (The best model is that which minimizes it)
         """
         # k: # of free parameters
-        k = sum([f.sum() for f in self.free]) - len(self.constraint)
+        k = sum(map(np.ma.count, self.param_)) - len(self.constraint)
         return k * np.log(self.N.sum()) - 2 * self.g(self.param_)
 
     def _sum_feat(self):
         return tuple(-np.arange(self.N.ndim) - 1)
 
-    def __reshape_array(self, flat_array, val=0):
+    def __reshape_array(self, flat_array, val=np.NaN):
         """
         Reshapes as array in order to have the same format as self.param_
 
@@ -142,23 +139,25 @@ class MaxLike(object):
 
         # val is a scalar
         if isinstance(val, (int, float)):
-            for i, free in enumerate(self.free):
-                s_1 = s_0 + free.sum()
-                shaped_array.append(np.insert(
+            for i, p in enumerate(self.param_):
+                s_1 = s_0 + p.count()
+                data = np.insert(
                     flat_array[s_0:s_1],
-                    fix_map((~free).flatten()),
-                    val).reshape(free.shape))
+                    fix_map((p.mask).flatten()),
+                    val).reshape(p.shape)
+                shaped_array.append(np.ma.array(data, mask=p.mask))
                 s_0 = s_1
         # val is an array
         else:
             f_0 = 0
-            for i, free in enumerate(self.free):
-                s_1 = s_0 + free.sum()
-                f_1 = f_0 + (~free).sum()
-                shaped_array.append(np.insert(
+            for i, p in enumerate(self.param_):
+                s_1 = s_0 + p.count()
+                f_1 = f_0 + (p.mask).sum()
+                data = np.insert(
                     flat_array[s_0:s_1],
-                    fix_map((~free).flatten()),
-                    val[f_0:f_1]).reshape(free.shape))
+                    fix_map((p.mask).flatten()),
+                    val[f_0:f_1]).reshape(p.shape)
+                shaped_array.append(np.ma.array(data, mask=p.mask))
                 s_0 = s_1
                 f_0 = f_1
         return shaped_array
@@ -166,8 +165,7 @@ class MaxLike(object):
     def __reshape_params(self, params_free):
         return self.__reshape_array(
             params_free,
-            np.concatenate([param[~free]
-                            for param, free in zip(self.param_, self.free)]))
+            np.concatenate([p[p.mask].data for p in self.param_]))
 
     def __reshape_matrix(self, matrix, val=np.NaN):
         if matrix.ndim != 2:
@@ -181,12 +179,12 @@ class MaxLike(object):
         s_ = [0]
         f_ = [0]
         val_map = []
-        for i, free in enumerate(self.free):
-            s_.append(s_[-1] + free.size)
-            f_.append(f_[-1] + (~free).sum())
+        for i, p in enumerate(self.param_):
+            s_.append(s_[-1] + p.size)
+            f_.append(f_[-1] + (p.mask).sum())
             val_map.append((lambda x: x - np.arange(x.size))(
                 (lambda x: np.arange(x.size)[x])(
-                    (~free).flatten())))
+                    (p.mask).flatten())))
 
         # val is a scalar
         if isinstance(val, (int, float)):
@@ -235,8 +233,8 @@ class MaxLike(object):
 
         # Add blocks corresponding to constraint variables:
         # Hess_lambda_params = grad_g
-        hess_c = [[np.zeros(free.shape)
-                   for free in self.free]
+        hess_c = [[np.zeros(p.shape)
+                   for p in self.param_]
                   for _ in range(c_len)]
 
         # --------------------------------------------------------------------
@@ -267,8 +265,8 @@ class MaxLike(object):
         # --------------------------------------------------------------------
         # 3rd phase: Reshape and flatten
         # --------------------------------------------------------------------
-        flat_params = [param[free] for param, free in zip(self.param_, self.free)]
-        grad = [grad[i][free] for i, free in enumerate(self.free)] + grad[n:]
+        flat_params = [p.compressed() for p in self.param_]
+        grad = [grad[i][~p.mask] for i, p in enumerate(self.param_)] + grad[n:]
 
         # ------
         # | aa |
@@ -281,12 +279,12 @@ class MaxLike(object):
         # then hess[i][j].shape = shape[j] x shape[i]
 
         hess = [[hess[j][i][np.multiply.outer(
-            self.free[i], self.free[j])].reshape(
-            (self.free[i].sum(), self.free[j].sum()))
-            for i in range(j + 1)] for j in range(n)]
+            ~self.param_[i].mask, ~p_j.mask)].reshape(
+            (self.param_[i].count(), p_j.count()))
+            for i in range(j + 1)] for j, p_j in enumerate(self.param_)]
         hess = [[hess[i][j].transpose() for j in range(i)] +
                 [hess[j][i] for j in range(i, n)] for i in range(n)]
-        hess_c = [[hess_c[i][j][free] for j, free in enumerate(self.free)]
+        hess_c = [[hess_c[i][j][~p.mask] for j, p in enumerate(self.param_)]
                   for i in range(c_len)]
 
         # --------------------------------------------------------------------
