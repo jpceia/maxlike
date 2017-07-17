@@ -349,7 +349,7 @@ class SkellamMatrix(Func):
         a = np.asarray(params[0])
         b = np.asarray(params[1])
         assert a.shape == b.shape
-        return [a], [b]
+        return (a), (b)
 
     @call_func
     def __call__(self, params, **kwargs):
