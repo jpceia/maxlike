@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.misc import factorial
 from collections import defaultdict
 from .common import *
 
@@ -313,3 +314,64 @@ class Vector(Func):
     @matrix_func
     def hess(self, params, i, j, **kwargs):
         return np.zeros(self.vector.shape)
+
+
+class PoissonVector(Func):
+    def __init__(self, size=10):
+        super(PoissonVector, self).__init__()
+        self.size = size
+
+    @call_func
+    def __call__(self, params, **kwargs):
+        a = np.asarray(params[0])
+        rng = np.arange(self.size)
+        return np.exp(-a)[..., None] * (a[..., None] ** rng) / factorial(rng)
+
+    @vector_func
+    def grad(self, params, i, **kwargs):
+        val = self(params)
+        return np.insert(val[..., :-1], 0, 0, -1) - val
+
+    @matrix_func
+    def hess(self, params, i, j, **kwargs):
+        grad = self.grad(params, i, j)
+        return np.insert(grad[..., :-1], 0, 0, -1) - grad
+
+
+class SkellamMatrix(Func):
+    def __init__(self, size=10):
+        super(SkellamMatrix, self).__init__()
+        self.poi_a = PoissonVector(size)
+        self.poi_b = PoissonVector(size)
+
+    @staticmethod
+    def __parseparams(params):
+        a = np.asarray(params[0])
+        b = np.asarray(params[1])
+        assert a.shape == b.shape
+        return [a], [b]
+
+    @call_func
+    def __call__(self, params, **kwargs):
+        a, b = self.__parseparams(params)
+        return self.poi_a(a)[..., None] * self.poi_b(b)[..., None, :]
+
+    @vector_func
+    def grad(self, params, i, **kwargs):
+        a, b = self.__parseparams(params)
+        if i == 0:
+            return self.poi_a.grad(a, 0)[..., None] * self.poi_b(b)[..., None, :]
+        elif i == 1:
+            return self.poi_a(a)[..., None] * self.poi_b.grad(b, 0)[..., None, :]
+        raise IndexError
+
+    @matrix_func
+    def hess(self, params, i, j, **kwargs):
+        a, b = self.__parseparams(params)
+        if (i, j) == (0, 0):
+            return self.poi_a.hess(a, 0, 0)[..., None] * self.poi_b(b)[..., None, :]
+        elif (i, j) == (1, 0):
+            return self.poi_a.grad(a, 0)[..., None] * self.poi_b.grad(b, 0)[..., None, :]
+        elif (i, j) == (1, 1):
+            return self.poi_a(a)[..., None] * self.poi_b.hess(b, 0, 0)[..., None, :]
+        raise IndexError
