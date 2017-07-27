@@ -305,7 +305,7 @@ class Vector(Func):
 
     @call_func
     def __call__(self, params, **kwargs):
-        return params * self.vector
+        return np.asarray(params[0]) * self.vector
 
     @vector_func
     def grad(self, params, i, **kwargs):
@@ -360,18 +360,23 @@ class SkellamMatrix(Func):
     def grad(self, params, i, **kwargs):
         a, b = self.__parseparams(params)
         if i == 0:
-            return self.poi_a.grad(a, 0)[..., None] * self.poi_b(b)[..., None, :]
+            return self.poi_a.grad(a, 0)[..., None] * \
+                self.poi_b(b)[..., None, :]
         elif i == 1:
-            return self.poi_a(a)[..., None] * self.poi_b.grad(b, 0)[..., None, :]
+            return self.poi_a(a)[..., None] * \
+                self.poi_b.grad(b, 0)[..., None, :]
         raise IndexError
 
     @matrix_func
     def hess(self, params, i, j, **kwargs):
         a, b = self.__parseparams(params)
         if (i, j) == (0, 0):
-            return self.poi_a.hess(a, 0, 0)[..., None] * self.poi_b(b)[..., None, :]
+            return self.poi_a.hess(a, 0, 0)[..., None] * \
+                self.poi_b(b)[..., None, :]
         elif (i, j) == (1, 0):
-            return self.poi_a.grad(a, 0)[..., None] * self.poi_b.grad(b, 0)[..., None, :]
+            return self.poi_a.grad(a, 0)[..., None] * \
+                self.poi_b.grad(b, 0)[..., None, :]
         elif (i, j) == (1, 1):
-            return self.poi_a(a)[..., None] * self.poi_b.hess(b, 0, 0)[..., None, :]
+            return self.poi_a(a)[..., None] * \
+                self.poi_b.hess(b, 0, 0)[..., None, :]
         raise IndexError
