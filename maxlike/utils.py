@@ -56,7 +56,7 @@ def prepare_dataframe(df, index_cols, weight_col, result_col, transformations):
         rename(columns={transf.__name__: name
                         for name, transf in transformations.items()}).\
         reindex(new_index).fillna(0)
-    df = (df[result_col] * df[weight_col]).to_frame('N').groupby(df.index).\
+    df = (df[result_col] * df[weight_col]).groupby(df.index).\
         agg(transformations.values()).\
         rename(columns={transf.__name__: name
                         for name, transf in transformations.items()}).\
