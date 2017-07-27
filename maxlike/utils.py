@@ -46,15 +46,11 @@ def prepare_series(observations, transformations=None):
     return res, axis
 
 
-def prepare_dataframe(df, index_cols, weight_col, result_col, transformations):
-    axis = tuple((np.sort(df[s].unique()) for s in index_cols))
+def prepare_dataframe(df, weight_col, result_col, transformations):
+    axis = tuple((level.sort_values() for level in df.index.levels))
     shape = tuple((len(a) for a in axis))
-    df.set_index(index_cols, inplace=True)
     new_index = pd.MultiIndex.from_product(axis)
-    w = df[weight_col].to_frame('N').groupby(df.index).\
-        agg(transformations.values()).\
-        rename(columns={transf.__name__: name
-                        for name, transf in transformations.items()}).\
+    w = df[weight_col].to_frame('N').groupby(df.index).sum().\
         reindex(new_index).fillna(0)
     df = (df[result_col] * df[weight_col]).groupby(df.index).\
         agg(transformations.values()).\
