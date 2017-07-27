@@ -27,9 +27,11 @@ def prepare_series(observations, transformations=None):
         transformations = {"N": np.size}
 
     if isinstance(observations.index, pd.MultiIndex):
-        axis = tuple((level.sort_values() for level in observations.index.levels))
-        shape = [len(a) for a in axis]
-        df = observations.groupby(observations.index).agg(transformations.values()).\
+        axis = tuple((level.sort_values()
+                      for level in observations.index.levels))
+        shape = tuple((len(a) for a in axis))
+        df = observations.groupby(observations.index).\
+            agg(transformations.values()).\
             rename(columns={transf.__name__: name
                             for name, transf in transformations.items()}).\
             reindex(pd.MultiIndex.from_product(axis)).fillna(0)
@@ -44,6 +46,21 @@ def prepare_series(observations, transformations=None):
     return res, axis
 
 
-def prepare_dataframe(df, features_cols, result_col,
-                      transformations, weight_col=None):
-    raise NotImplementedError
+def prepare_dataframe(df, index_cols, weight_col, result_col, transformations):
+    axis = tuple((np.sort(df[s].unique()) for s in index_cols))
+    shape = tuple((len(a) for a in axis))
+    df.set_index(index_cols, inplace=True)
+    new_index = pd.MultiIndex.from_product(axis)
+    w = df[weight_col].to_frame('N').groupby(df.index).\
+        agg(transformations.values()).\
+        rename(columns={transf.__name__: name
+                        for name, transf in transformations.items()}).\
+        reindex(new_index).fillna(0)
+    df = (df[result_col] * df[weight_col]).to_frame('N').groupby(df.index).\
+        agg(transformations.values()).\
+        rename(columns={transf.__name__: name
+                        for name, transf in transformations.items()}).\
+        reindex(new_index).fillna(0)
+    res = {k: df[k].values.reshape(shape) for k in transformations.keys()}
+    res['N'] = w.values.reshape(shape)
+    return res, axis
