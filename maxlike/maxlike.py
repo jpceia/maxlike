@@ -374,14 +374,14 @@ class Poisson(MaxLike):
 
     def grad_like(self, params):
         delta = self.X - self.N * np.exp(self.model(params))
-        return [delta * d for d in self.model.grad(params)]
+        return [(d * delta).sum() for d in self.model.grad(params)]
 
     def hess_like(self, params):
         y = self.N * np.exp(self.model(params))
         delta = self.X - y
         der = self.model.grad(params)
-        return [[delta * self.model.hess(params, i, j) -
-                 y * der[i] * der[j].transpose()
+        return [[(self.model.hess(params, i, j) * delta -
+                  der[i] * der[j].transpose() * y).sum()
                  for j in range(i + 1)] for i in range(len(der))]
 
 

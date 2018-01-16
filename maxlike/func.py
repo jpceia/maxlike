@@ -50,6 +50,8 @@ class Tensor:
                 else:
                     self.values = self.values.swapaxes(self.p1 + k, p + f)
         self.values = self.values.sum(tuple(p + np.arange(self.n + self.v)))
+        self.p1_mapping = None
+        self.p2_mapping = None
         self.n = 0
         self.v = 0
         return self
@@ -65,11 +67,14 @@ class Tensor:
         return self
 
     def transpose(self):
+        new_tensor = self.clone()
         for k in range(0, self.p1):
-            self.values = np.moveaxis(self.values, 0, self.p1 + k)
-        self.p1, self.p2 = self.p2, self.p1
-        self.p1_mapping, self.p2_mapping = self.p2_mapping, self.p1_mapping
-        return self
+            new_tensor.values = np.moveaxis(new_tensor.values, 0, self.p1 + k)
+        new_tensor.p1 = self.p2
+        new_tensor.p2 = self.p1
+        new_tensor.p1_mapping = self.p2_mapping
+        new_tensor.p2_mapping = self.p1_mapping
+        return new_tensor
 
     def clone(self):
         return Tensor(self.values, p1=self.p1, p2=self.p2, v=self.v,
@@ -111,6 +116,8 @@ class Tensor:
         if self.p1 == other.p1:
             if self.p1_mapping == other.p1_mapping:
                 p1_mapping = self.p1_mapping
+            else:
+                raise NotImplementedError
         elif other.p1 == 0:
             p1_mapping = self.p1_mapping
         elif self.p1 == 0:
@@ -119,12 +126,14 @@ class Tensor:
             raise ValueError
 
         # set new_p2
-        p2 = max(self.p1, other.p1)
+        p2 = max(self.p2, other.p2)
         if self.p2 == other.p2:
             if self.p2_mapping == other.p2_mapping:
                 p2_mapping = self.p2_mapping
+            else:
+                raise NotImplementedError
         elif other.p2 == 0:
-            p2_mapping = self.p1_mapping
+            p2_mapping = self.p2_mapping
         elif self.p2 == 0:
             p2_mapping = other.p2_mapping
         else:
@@ -155,6 +164,9 @@ class Tensor:
     def shape(self):
         return self.values.shape
 
+    def __getitem__(self, i):
+        return self.values[i]
+
     def __str__(self):
         s = str(self.values)
         s += "\nshape: "
@@ -170,11 +182,13 @@ class Tensor:
     def __reshape_idx(self, p1, p2, n, v):
         idx = []
         if self.p1 > 0:
+            p1 = max(1, p1)
             assert self.p1 == p1
             idx += [slice(None)] * p1
         elif (self.p1 == 0) & (p1 > 0):
             idx += [None] * p1
         if self.p2 > 0:
+            p2 = max(1, p2)
             assert self.p2 == p2
             idx += [slice(None)] * p2
         elif (self.p2 == 0) & (p2 > 0):
@@ -229,8 +243,7 @@ def grad_tensor(values, params, i=0, p1_mapping=None, v=0):
         idx = [Ellipsis]
     else:
         idx = [None] * p1 + [Ellipsis]
-    return Tensor(values[idx], p1=p1, p2=0, v=v,
-                  p1_mapping=p1_mapping, p2_mapping=None)
+    return Tensor(values[idx], p1=p1, v=v, p1_mapping=p1_mapping)
 
 
 def hess_tensor(values, params, i=0, j=0,
@@ -405,13 +418,15 @@ class Linear(Func):
 
     @vector_func
     def grad(self, params, i, **kwargs):
-        return self.weights[i] * np.ones(params[i].shape)
+        return grad_tensor(self.weights[i] * np.ones(params[i].shape),
+                           params, i)
 
     @matrix_func
     def hess(self, params, i, j, **kwargs):
-        return np.multiply.outer(
+        return hess_tensor(np.multiply.outer(
             np.zeros(params[j].shape),
-            np.zeros(params[i].shape))
+            np.zeros(params[i].shape)),
+            params, i, j)
 
     def add_feature(self, weight):
         self.weights.append(weight)
