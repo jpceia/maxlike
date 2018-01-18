@@ -34,11 +34,11 @@ class Tensor:
                 raise ValueError
 
     def sum(self):
-        new_tensor = self.clone()
+        t = self.copy()
         p = self.p1 + self.p2
         if self.p1_mapping is not None:
             for k, f in enumerate(self.p1_mapping):
-                new_tensor.values = new_tensor.values.swapaxes(k, p + f)
+                t.values = t.values.swapaxes(k, p + f)
         if self.p2_mapping is not None:
             for k, f in enumerate(self.p2_mapping):
                 if self.p1_mapping is not None and f in self.p1_mapping:
@@ -46,18 +46,15 @@ class Tensor:
                     idx[self.p1_mapping.index(f)] = True  # isnt it k?
                     idx[self.p1 + k] = True
                     idx = [slice(None) if x else None for x in idx]
-                    new_tensor.values = new_tensor.values * \
-                        np.eye(new_tensor.values.shape[k])[idx]
+                    t.values = t.values * np.eye(t.values.shape[k])[idx]
                 else:
-                    new_tensor.values = new_tensor.values.swapaxes(
-                        self.p1 + k, p + f)
-        new_tensor.values = new_tensor.values.sum(
-            tuple(p + np.arange(self.n + self.v)))
-        new_tensor.p1_mapping = None
-        new_tensor.p2_mapping = None
-        new_tensor.n = 0
-        new_tensor.v = 0
-        return new_tensor
+                    t.values = t.values.swapaxes(self.p1 + k, p + f)
+        t.values = t.values.sum(tuple(p + np.arange(self.n + self.v)))
+        t.p1_mapping = None
+        t.p2_mapping = None
+        t.n = 0
+        t.v = 0
+        return t
 
     def expand(self, feat_map, ndim):
         assert len(feat_map) == self.n
@@ -80,17 +77,17 @@ class Tensor:
             p2_mapping=p2_mapping)
 
     def transpose(self):
-        new_tensor = self.clone()
+        t = self.copy()
         if (self.p1 != 0) & (self.p2 != 0):
             for k in range(0, self.p1):
-                new_tensor.values = np.moveaxis(new_tensor.values, 0, self.p1 + k)
-        new_tensor.p1 = self.p2
-        new_tensor.p2 = self.p1
-        new_tensor.p1_mapping = self.p2_mapping
-        new_tensor.p2_mapping = self.p1_mapping
-        return new_tensor
+                t.values = np.moveaxis(t.values, 0, self.p1 + k)
+        t.p1 = self.p2
+        t.p2 = self.p1
+        t.p1_mapping = self.p2_mapping
+        t.p2_mapping = self.p1_mapping
+        return t
 
-    def clone(self):
+    def copy(self):
         return Tensor(self.values, p1=self.p1, p2=self.p2, v=self.v,
                       p1_mapping=self.p1_mapping, p2_mapping=self.p2_mapping)
 
@@ -107,20 +104,20 @@ class Tensor:
 
         if scalar_op:
             if other.values.shape == ():
-                new_tensor = self.clone()
+                t = self.copy()
             else:
-                new_tensor = other.clone()
+                t = other.copy()
             if op_type == "sum":
-                new_tensor.values = np.asarray(self.values + other.values)
+                t.values = np.asarray(self.values + other.values)
             elif op_type == "sub":
-                new_tensor.values = np.asarray(self.values - other.values)
+                t.values = np.asarray(self.values - other.values)
             elif op_type == "mul":
-                new_tensor.values = np.asarray(self.values * other.values)
+                t.values = np.asarray(self.values * other.values)
             elif op_type == "div":
-                new_tensor.values = np.asarray(self.values / other.values)
+                t.values = np.asarray(self.values / other.values)
             else:
                 raise NotImplementedError
-            return new_tensor
+            return t
 
         assert self.n == other.n
         n = self.n
@@ -162,21 +159,22 @@ class Tensor:
         r_idx = other.__reshape_idx(p1, p2, n, v)
 
         if op_type == "sum":
-            new_values = self.values[l_idx] + other.values[r_idx]
+            values = self.values[l_idx] + other.values[r_idx]
         elif op_type == "sub":
-            new_values = self.values[l_idx] - other.values[r_idx]
+            values = self.values[l_idx] - other.values[r_idx]
         elif op_type == "mul":
-            new_values = self.values[l_idx] * other.values[r_idx]
+            values = self.values[l_idx] * other.values[r_idx]
         elif op_type == "div":
-            new_values = self.values[l_idx] / other.values[r_idx]
+            values = self.values[l_idx] / other.values[r_idx]
         else:
             raise NotImplementedError
 
-        return Tensor(new_values, p1=p1, p2=p2, v=v,
+        return Tensor(values, p1=p1, p2=p2, v=v,
                       p1_mapping=p1_mapping, p2_mapping=p2_mapping)
 
     def shape(self):
-        return "(p1:%d, p2:%d, n:%d, v:%d)" % (self.p1, self.p2, self.n, self.v)
+        return "(p1:%d, p2:%d, n:%d, v:%d)" % \
+            (self.p1, self.p2, self.n, self.v)
 
     def __getitem__(self, i):
         return self.values[i]
