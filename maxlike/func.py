@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.misc import factorial
-from common import *
+from .common import *
 
 
 class Tensor:
@@ -18,7 +18,7 @@ class Tensor:
             if p1_mapping is True:
                 assert p1 == self.n
                 self.p1_mapping = range(self.n)
-            elif isinstance(p1_mapping, (list, tuple)):
+            elif isinstance(p1_mapping, (list, tuple, range)):
                 assert len(p1_mapping) == p1
                 self.p1_mapping = p1_mapping
             else:
@@ -27,34 +27,37 @@ class Tensor:
             if p2_mapping is True:
                 assert p2 == self.n
                 self.p2_mapping = range(self.n)
-            elif isinstance(p2_mapping, (list, tuple)):
+            elif isinstance(p2_mapping, (list, tuple, range)):
                 assert len(p2_mapping) == p2
                 self.p2_mapping = p2_mapping
             else:
                 raise ValueError
 
     def sum(self):
+        new_tensor = self.clone()
         p = self.p1 + self.p2
         if self.p1_mapping is not None:
             for k, f in enumerate(self.p1_mapping):
-                self.values = self.values.swapaxes(k, p + f)
+                new_tensor.values = new_tensor.values.swapaxes(k, p + f)
         if self.p2_mapping is not None:
             for k, f in enumerate(self.p2_mapping):
-                if self.p1_mapping is not None and f not in self.p1_mapping:
+                if self.p1_mapping is not None and f in self.p1_mapping:
                     idx = np.zeros(self.values.ndim, dtype=np.bool)
-                    idx[self.p2_mapping.index(f)] = True  # isnt it k?
+                    idx[self.p1_mapping.index(f)] = True  # isnt it k?
                     idx[self.p1 + k] = True
                     idx = [slice(None) if x else None for x in idx]
-                    self.values = self.values * \
-                        np.eye(self.values.shape[self.p2 + k])[idx]
+                    new_tensor.values = new_tensor.values * \
+                        np.eye(new_tensor.values.shape[k])[idx]
                 else:
-                    self.values = self.values.swapaxes(self.p1 + k, p + f)
-        self.values = self.values.sum(tuple(p + np.arange(self.n + self.v)))
-        self.p1_mapping = None
-        self.p2_mapping = None
-        self.n = 0
-        self.v = 0
-        return self
+                    new_tensor.values = new_tensor.values.swapaxes(
+                        self.p1 + k, p + f)
+        new_tensor.values = new_tensor.values.sum(
+            tuple(p + np.arange(self.n + self.v)))
+        new_tensor.p1_mapping = None
+        new_tensor.p2_mapping = None
+        new_tensor.n = 0
+        new_tensor.v = 0
+        return new_tensor
 
     def expand(self, feat_map, ndim):
         assert len(feat_map) == self.n
@@ -62,14 +65,25 @@ class Tensor:
         idx = [slice(None)] * (self.p1 + self.p2)
         idx += [slice(None) if k in feat_map else None for k in range(ndim)]
         idx += [slice(None)] * self.v
-        self.values = self.values[idx]
-        self.n = ndim
-        return self
+        p1_mapping = None
+        p2_mapping = None
+        if self.p1_mapping is not None:
+            p1_mapping = IndexMap(self.p1_mapping)(feat_map)
+        if self.p2_mapping is not None:
+            p2_mapping = IndexMap(self.p2_mapping)(feat_map)
+        return Tensor(
+            self.values[idx],
+            p1=self.p1,
+            p2=self.p2,
+            v=self.v,
+            p1_mapping=p1_mapping,
+            p2_mapping=p2_mapping)
 
     def transpose(self):
         new_tensor = self.clone()
-        for k in range(0, self.p1):
-            new_tensor.values = np.moveaxis(new_tensor.values, 0, self.p1 + k)
+        if (self.p1 != 0) & (self.p2 != 0):
+            for k in range(0, self.p1):
+                new_tensor.values = np.moveaxis(new_tensor.values, 0, self.p1 + k)
         new_tensor.p1 = self.p2
         new_tensor.p2 = self.p1
         new_tensor.p1_mapping = self.p2_mapping
@@ -162,7 +176,7 @@ class Tensor:
                       p1_mapping=p1_mapping, p2_mapping=p2_mapping)
 
     def shape(self):
-        return self.values.shape
+        return "(p1:%d, p2:%d, n:%d, v:%d)" % (self.p1, self.p2, self.n, self.v)
 
     def __getitem__(self, i):
         return self.values[i]
