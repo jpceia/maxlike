@@ -180,23 +180,25 @@ class Linear(Func):
 
 
 class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
-    def __init__(self, weight=None):
-        self.weight = weight
+    def __init__(self, u=0, s=1):
+        self.u = u
+        self.s = s
 
     @call_func
     def __call__(self, params, **kwargs):
-        return sum(((np.dot(self.weight, param) *
-                     np.dot(self.weight, param)).sum()
-                    for param in params))
+        z = (params[0] - self.u) / self.s
+        return Tensor((z * z).sum())
 
     @vector_func
     def grad(self, params, i, **kwargs):
-        return 2 * np.dot(self.weight, np.dot(self.weight, params[i]))
+        z = (params[0] - self.u) / self.s
+        return grad_tensor(2 * z / self.s, params, i, True).sum()
 
     @matrix_func
     def hess(self, params, i, j, **kwargs):
-        return 2 * np.dot(self.weight, self.weight) * \
-            np.ones(params[i].shape + params[j].shape)
+        return hess_tensor(
+            2 * np.ones(params[0].shape) / self.s / self.s,
+            params, i, j, True, True).sum()
 
 
 class Encode(Func):

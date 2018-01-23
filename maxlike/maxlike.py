@@ -48,9 +48,8 @@ class MaxLike(object):
         Objective function, to maximize.
         """
         g = self.like(params)
-        for param_map, gamma, h in self.reg:
-            g -= gamma * h(param_map(params))
-
+        for param_map, h in self.reg:
+            g -= h(param_map(params))
         return g / self.N.sum()
 
     def add_param(self, values, fixed=None):
@@ -84,7 +83,7 @@ class MaxLike(object):
         """
         self.constraint.append((IndexMap(param_map), 0, g))
 
-    def add_regularization(self, param_map, gamma, h):
+    def add_regularization(self, param_map, h):
         """
         Adds a regularization factor to the objective function.
 
@@ -97,7 +96,7 @@ class MaxLike(object):
         h : func
             Regularization function
         """
-        self.reg.append((IndexMap(param_map), gamma, h))
+        self.reg.append((IndexMap(param_map), h))
 
     def akaine_information_criterion(self):
         """
@@ -255,14 +254,15 @@ class MaxLike(object):
                 for j in range(i + 1):
                     hess[idx][param_map[j]] += gamma * hess_g[i][j]
 
-        for param_map, gamma, h in self.reg:
+        N_tot = self.N.sum()
+        for param_map, h in self.reg:
             args = param_map(self.params_)
             grad_h = h.grad(args)
             hess_h = h.hess(args)
             for i, idx in enumerate(param_map):
-                grad[idx] -= gamma * grad_h[i]
+                grad[idx] -= grad_h[i] / N_tot
                 for j in range(i + 1):
-                    hess[idx][param_map[j]] -= gamma * hess_h[i][j]
+                    hess[idx][param_map[j]] -= hess_h[i][j] / N_tot
 
         # --------------------------------------------------------------------
         # 3rd phase: Reshape and flatten
@@ -316,6 +316,7 @@ class MaxLike(object):
         for i in range(max_steps):
             new_params = self.__reshape_params(flat_params + u * d)
             new_g = self.g(new_params)
+            print(new_g)
             if new_g - self.g_last >= 0:
                 self.params_ = new_params
                 self.g_last = new_g
