@@ -47,7 +47,8 @@ class Tensor:
                     t.values = t.values * np.eye(t.values.shape[k])[idx]
                 else:
                     t.values = t.values.swapaxes(self.p1 + k, p + f)
-        t.values = t.values.sum(tuple(p + np.arange(self.n + self.v)))
+        idx = tuple(p + np.arange(self.n + self.v))
+        t.values = t.values.sum(idx).transpose()
         t.p1_mapping = None
         t.p2_mapping = None
         t.n = 0
@@ -78,7 +79,7 @@ class Tensor:
         t = self.copy()
         if (self.p1 != 0) & (self.p2 != 0):
             for k in range(0, self.p1):
-                t.values = np.moveaxis(t.values, 0, self.p1 + k)
+                t.values = np.moveaxis(t.values, self.p1, k)
         t.p1 = self.p2
         t.p2 = self.p1
         t.p1_mapping = self.p2_mapping

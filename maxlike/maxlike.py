@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import abc
 from .common import IndexMap, Param, Params
@@ -316,7 +317,6 @@ class MaxLike(object):
         for i in range(max_steps):
             new_params = self.__reshape_params(flat_params + u * d)
             new_g = self.g(new_params)
-            print(new_g)
             if new_g - self.g_last >= 0:
                 self.params_ = new_params
                 self.g_last = new_g
