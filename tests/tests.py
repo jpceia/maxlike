@@ -41,9 +41,8 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
-    def test_poisson_w_reg(self):
+    def test_poisson_reg(self):
         mle = maxlike.Poisson()
-        mle.verbose = True
         mle.model = maxlike.func.Sum(2)
         mle.model.add(0, 0, Encode())
         mle.model.add(1, 1, -Encode())
@@ -67,6 +66,29 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
+    def test_logistic(self):
+        mle = maxlike.Logistic()
+        mle.model = maxlike.func.Sum(2)   # Exp ?
+        mle.model.add(0, 0, Encode())
+        mle.model.add(1, 1, -Encode())
+        mle.add_constraint([0, 1], Linear([1, 1]))
+        g = pd.read_csv("test_data1.csv", index_col=[0, 1])['g'] > 1
+        prepared_data, _ = maxlike.utils.prepare_series(
+            g, {'N': np.size, 'X': np.sum})
+        m = np.log(g.mean())
+        a = np.log(g.groupby(level='t1').mean()) - m
+        b = m - np.log(g.groupby(level='t2').mean())
+        mle.add_param(a)
+        mle.add_param(b)
+        tol = 1e-8
+        mle.fit(tol=tol, **prepared_data)
+        a, b = mle.params_
+        s_a, s_b = mle.std_error()
+        df = pd.read_csv("test_results_logistic.csv")
+        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
+        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
+        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
+        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
 if __name__ == '__main__':
     unittest.main()
