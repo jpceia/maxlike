@@ -396,19 +396,19 @@ class Logistic(MaxLike):
 
     def like(self, params):
         y = self.model(params)
-        return -(self.N * np.log(1 + np.exp(-y)) + (self.N - self.P) * y).sum()
+        return -(self.N * np.log(1 + np.exp(-y)) + (self.N - self.X) * y).sum()
 
     def grad_like(self, params):
-        delta = self.P - (self.N / (1 + np.exp(-self.model(params))))
-        return [delta * d for d in self.model.grad(params)]
+        delta = self.X - (self.N / (1 + np.exp(-self.model(params))))
+        return [(d * delta).sum() for d in self.model.grad(params)]
 
     def hess_like(self, params):
         p = 1 / (1 + np.exp(-self.model(params)))
         der = self.model.grad(params)
-        delta = self.P - p * self.N
+        delta = self.X - p * self.N
         delta2 = - p * (1 - p) * self.N
-        return[[delta * self.model.hess(params, i, j) +
-                delta2 * der[i] * der[j].transpose()
+        return[[(self.model.hess(params, i, j) * delta +
+                 der[i] * der[j].transpose() * delta2).sum()
                 for j in range(i + 1)]
                for i in range(len(der))]
 
@@ -429,13 +429,13 @@ class Finite(MaxLike):
     def grad_like(self, params):
         p = self.model(params)
         delta = self.N / p
-        return [delta * d for d in self.model.grad(params)]
+        return [(d * delta).sum() for d in self.model.grad(params)]
 
     def hess_like(self, params):
         p = self.model(params)
         der = self.model.grad(params)
         delta = self.N / p
-        return [[delta * self.model.hess(params, i, j) -
+        return [[self.model.hess(params, i, j) * delta -
                  der[i] * der[j].transpose / p
                  for j in range(i + 1)]
                 for i in range(len(der))]
