@@ -109,7 +109,7 @@ class Tensor:
             assert self.p1 == other.n
             # new: p1=other.p1, p2=other.p2, n=self.n
             idx_lhs = [Ellipsis] + [None] * (self.p2 + self.n)
-            idx_rhs = [None] * other.p1 + [Ellpsis]
+            idx_rhs = [None] * other.p1 + [Ellipsis]
             val = (other.values[idx_lhs] * self.values[idx_rhs]).sum(
                 tuple(other.p1 + np.arange(other.n)))
         elif other.p2 > 0:
