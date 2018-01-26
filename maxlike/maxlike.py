@@ -435,7 +435,49 @@ class Finite(MaxLike):
         p = self.model(params)
         der = self.model.grad(params)
         delta = self.N / p
-        return [[self.model.hess(params, i, j) * delta -
-                 der[i] * der[j].transpose / p
+        return [[(self.model.hess(params, i, j) * delta -
+                 der[i] * der[j].transpose / p).sum()
+                 for j in range(i + 1)]
+                for i in range(len(der))]
+
+class NegativeBinomial(MaxLike):
+    """
+    Class to model an probabilistic regression under an arbitrary
+    Negative Binomial Distribution
+    """
+
+    def __init__(self):
+        MaxLike.__init__(self)
+        self.scale = 1  # the model uses a fixed scale param
+
+    def like(self, params):
+        # m = exp(y)
+        # f = x * ln m - (x + r) * ln (r + m)
+        # sum => X * ln m - (X + r * N) * ln (r + m)
+        y = self.model(params)
+        r = self.scale
+        return (self.X * y - (self.X + r * self.N) *
+                np.log(r + np.exp(y))).sum()
+
+    def grad_like(self, params):
+        # grad_m f = x / m - (x + r) / (m + r)
+        # sum => X / m - (X + r * N) / (m + r)
+        m = np.exp(self.model(params))
+        r = self.scale
+        # delta = m *  grad_m f
+        delta = self.X - (self.X + r * self.N) * m / (m + r)
+        return [(d * delta).sum() for d in self.model.grad(params)]
+
+    def hess_like(self, params):
+        # hess_m = (x + r) / (m + r)^2 - x / m^2
+        # sum => (X + r * N) / (m + r)^2 - X / m^2
+        m = np.exp(self.model(params))
+        r = self.scale
+        der = self.model.grad(params)
+        s = m / (m + r)
+        delta = self.X - (self.X + r * self.N) * s
+        delta2 = (self.X + r * self.N) * s * s - self.X + delta
+        return [[(self.model.hess(params, i, j) * delta +
+                  der[i] * der[j].transpose() * delta2).sum()
                  for j in range(i + 1)]
                 for i in range(len(der))]
