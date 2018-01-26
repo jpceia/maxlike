@@ -86,52 +86,82 @@ class Tensor:
         return t
 
     def dot(self, other):
+
         if (other.p1 > 0) & (other.p2 > 0):
             if self.p1 > 0:
                 assert self.p2 == 0
                 assert self.p1 == other.n
                 # new: p1=other.p1, p2=other.p2, n=self.n
                 p = other.p1 + other.p2
-                idx_lhs = [Ellipsis] + [None] * self.n
-                idx_rhs = [None] * p + [Ellipsis]
+                l_idx = [Ellipsis] + [None] * self.n
+                r_idx = [None] * p + [Ellipsis]
                 p1_mapping = None
                 p2_mapping = None
+                val = self.values.copy()
                 if self.p1_mapping is not None:
-                    if other.p1_mapping is not None:
+                    for k, f in enumerate(self.p1_mapping):
+                        val = val.swapaxes(k, self.p1 + f)
+                val = other.values[l_idx] * val[r_idx]
+
+                if other.p1_mapping is not None:
+                    if self.p1_mapping is not None:
                         p1_mapping = [self.p1_mapping[f]
                                       for f in other.p1_mapping]
-                    if other.p2_mapping is not None:
+                    else:
+                        for k, f in enumerate(other.p1_mapping):
+                            val = val.swapaxes(self.p1 + k, p + f)
+                if other.p2_mapping is not None:
+                    if self.p1_mapping is not None:
                         p2_mapping = [self.p1_mapping[f]
                                       for f in other.p2_mapping]
-                val = (other.values[idx_lhs] * self.values[idx_rhs]).sum(
-                    tuple(p + np.arange(other.n)))
-                return Tensor(val, p1=other.p1, p2=other.p2)
+                    else:
+                        for k, f in enumerate(other.p1_mapping):
+                            val = val.swapaxes(self.p1 + k, p + f)
+                val = val.sum(tuple(p + np.arange(other.n)))
+                return Tensor(val, p1=other.p1, p2=other.p2,
+                              p1_mapping=p1_mapping,
+                              p2_mapping=p2_mapping)
 
             elif self.p2 > 0:
                 assert self.p1 == 0
                 assert self.p2 == other.n
-                # new: p1=other.p2, p2=other.p1, n=self.n
                 return self.dot(other.transpose()).transpose()
             else:
                 raise ValueError
+
         elif other.p1 > 0:
             assert self.p1 == other.n
             # new: p1=other.p1, p2=other.p2, n=self.n
-            idx_lhs = [Ellipsis] + [None] * (self.p2 + self.n)
-            idx_rhs = [None] * other.p1 + [Ellipsis]
+            p = self.p1 + self.p2
+            l_idx = [Ellipsis] + [None] * (self.p2 + self.n)
+            r_idx = [None] * other.p1 + [Ellipsis]
+            p1_mapping = None
             val = self.values
             if self.p1_mapping is not None:
                 for k, f in enumerate(self.p1_mapping):
-                    val = val.swap_axes(k, self.p1 + f)
-                val = (other.values[idx_lhs] * val[idx_rhs])
+                    val = val.swap_axes(k, p + f)
+            val = other.values[l_idx] * val[r_idx]
+            if self.p1_mapping is not None:
                 for k, f in enumerate(self.p1_mapping):
-                    val = val.swap_axes(k, self.p1 + f)
-                val = val.sum(tuple(self.p1 + np.arange(other.n)))
-                return Tensor(val, p1=other.p1, p2=self.p2)
+                    val = val.swap_axes(other.p1 + k, other.p1 + p + f)
+            
+            if other.p1_mapping is not None:
+                if self.p1_mapping is not None:
+                    p1_mapping = [self.p1_mapping[f]
+                                  for f in other.p1_mapping]
+                else:
+                    for k, f in enumerate(other.p1_mapping):
+                        val = val.swapaxes(self.p1 + k, p + f)
+            val = val.sum(tuple(self.p1 + np.arange(other.n)))
+            return Tensor(val, p1=other.p1, p2=self.p2,
+                          p1_mapping=p1_mapping,
+                          p2_mapping=self.p2_mapping)
+
         elif other.p2 > 0:
             assert self.p2 == other.n
             # new: p1=other.p2, p2=other.p1, n=self.n
             return self.dot(other.transpose()).transpose()
+
         else:
             raise ValueError
 
