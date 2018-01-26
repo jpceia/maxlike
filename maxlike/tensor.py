@@ -1,6 +1,5 @@
 import numpy as np
 
-
 class Tensor:
     def __init__(self, values=0, p1=0, p2=0, v=0,
                  p1_mapping=None, p2_mapping=None):
@@ -85,6 +84,40 @@ class Tensor:
         t.p1_mapping = self.p2_mapping
         t.p2_mapping = self.p1_mapping
         return t
+
+    def dot(self, other):
+        if (other.p1 > 0) & (other.p2 > 0):
+            if self.p1 > 0:
+                assert self.p2 == 0
+                assert self.p1 == other.n
+                # new: p1=other.p1, p2=other.p2, n=self.n
+                p = other.p1 + other.p2
+                idx_lhs = [Ellipsis] + [None] * self.n
+                idx_rhs = [None] * p + [Ellipsis]
+                val = (other.values[idx_lhs] * self.values[idx_rhs]).sum(
+                    tuple(p + np.arange(other.n)))
+                return Tensor(val, p1=other.p1, p2=other.p2)
+
+            elif self.p2 > 0:
+                assert self.p1 == 0
+                assert self.p2 == other.n
+                # new: p1=other.p2, p2=other.p1, n=self.n
+                return self.dot(other.transpose()).transpose()
+            else:
+                raise ValueError
+        elif other.p1 > 0:
+            assert self.p1 == other.n
+            # new: p1=other.p1, p2=other.p2, n=self.n
+            idx_lhs = [Ellipsis] + [None] * (self.p2 + self.n)
+            idx_rhs = [None] * other.p1 + [Ellpsis]
+            val = (other.values[idx_lhs] * self.values[idx_rhs]).sum(
+                tuple(other.p1 + np.arange(other.n)))
+        elif other.p2 > 0:
+            assert self.p2 == other.n
+            # new: p1=other.p2, p2=other.p1, n=self.n
+            return self.dot(other.transpose()).transpose()
+        else:
+            raise ValueError
 
     def copy(self):
         return Tensor(self.values, p1=self.p1, p2=self.p2, v=self.v,
@@ -226,6 +259,9 @@ class Tensor:
         return self._bin_op(other, "mul")
 
     def __div__(self, other):
+        return self.__truediv__(other)
+
+    def __truediv__(self, other):
         return self._bin_op(other, "div")
 
     def __neg__(self):
@@ -243,6 +279,9 @@ class Tensor:
         return self * other
 
     def __rdiv__(self, other):
+        return self.__rtruediv__(other)
+
+    def __rtruediv__(self, other):
         if isinstance(other, (int, float)):
             other = Tensor(other)
         return other._bin_op(self, "div")
