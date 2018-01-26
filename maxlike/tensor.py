@@ -40,7 +40,7 @@ class Tensor:
             for k, f in enumerate(self.p2_mapping):
                 if self.p1_mapping is not None and f in self.p1_mapping:
                     idx = np.zeros(self.values.ndim, dtype=np.bool)
-                    idx[self.p1_mapping.index(f)] = True  # isnt it k?
+                    idx[self.p1_mapping.index(f)] = True
                     idx[self.p1 + k] = True
                     idx = [slice(None) if x else None for x in idx]
                     t.values = t.values * np.eye(t.values.shape[k])[idx]
@@ -94,6 +94,15 @@ class Tensor:
                 p = other.p1 + other.p2
                 idx_lhs = [Ellipsis] + [None] * self.n
                 idx_rhs = [None] * p + [Ellipsis]
+                p1_mapping = None
+                p2_mapping = None
+                if self.p1_mapping is not None:
+                    if other.p1_mapping is not None:
+                        p1_mapping = [self.p1_mapping[f]
+                                      for f in other.p1_mapping]
+                    if other.p2_mapping is not None:
+                        p2_mapping = [self.p1_mapping[f]
+                                      for f in other.p2_mapping]
                 val = (other.values[idx_lhs] * self.values[idx_rhs]).sum(
                     tuple(p + np.arange(other.n)))
                 return Tensor(val, p1=other.p1, p2=other.p2)
@@ -110,8 +119,15 @@ class Tensor:
             # new: p1=other.p1, p2=other.p2, n=self.n
             idx_lhs = [Ellipsis] + [None] * (self.p2 + self.n)
             idx_rhs = [None] * other.p1 + [Ellipsis]
-            val = (other.values[idx_lhs] * self.values[idx_rhs]).sum(
-                tuple(other.p1 + np.arange(other.n)))
+            val = self.values
+            if self.p1_mapping is not None:
+                for k, f in enumerate(self.p1_mapping):
+                    val = val.swap_axes(k, self.p1 + f)
+                val = (other.values[idx_lhs] * val[idx_rhs])
+                for k, f in enumerate(self.p1_mapping):
+                    val = val.swap_axes(k, self.p1 + f)
+                val = val.sum(tuple(self.p1 + np.arange(other.n)))
+                return Tensor(val, p1=other.p1, p2=self.p2)
         elif other.p2 > 0:
             assert self.p2 == other.n
             # new: p1=other.p2, p2=other.p1, n=self.n
