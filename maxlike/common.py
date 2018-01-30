@@ -44,12 +44,12 @@ class cache_output:
 
 def call_func(f):
     @wraps(f)
-    def wrapper(obj, params=None, **kwargs):
+    def wrapper(obj, params=None):
         if params is None:
             params = []
         elif not isinstance(params, (tuple, list)):
             params = [params]
-        return f(obj, params, **kwargs)
+        return f(obj, params)
     return wrapper
 
 
