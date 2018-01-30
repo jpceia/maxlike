@@ -1,8 +1,6 @@
-from __future__ import print_function
 import numpy as np
 import abc
-from .common import IndexMap, Param, Params
-from scipy.misc import factorial
+from .common import *
 
 
 class MaxLike(object):

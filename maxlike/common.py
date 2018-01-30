@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from functools import wraps
 from hashlib import sha1
@@ -5,8 +6,6 @@ from scipy.misc import factorial
 from scipy.special import ndtri
 from scipy.stats.mvn import mvnun
 
-# poisson curve:
-#   np.vectorize(lambda u: a**u / factorial(u))(np.arange(size))
 
 def vectorize(n_in, n_out):
     def wrap(foo):
@@ -18,6 +17,7 @@ def vectorize(n_in, n_out):
 def gauss_bivar(x, y, rho):
     return mvnun(-999 * np.ones((2)), (x, y), (0, 0),
                  np.array([[1, rho], [rho, 1]]))[0]
+
 
 class Params(list):
     def __hash__(self):
