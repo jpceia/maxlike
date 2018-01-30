@@ -125,8 +125,7 @@ class Sum(Func):
         elif isinstance(foo, Sum):
             self.b += foo.b
             for w, atom in foo.atoms:
-                Ensemble.add(
-                    self,
+                self.add(
                     atom.param_map(param_map),
                     atom.feat_map(feat_map),
                     atom.foo,
@@ -159,8 +158,8 @@ class Linear(Func):
 
     @call_func
     def __call__(self, params):
-        return sum(((w * param).sum()
-                    for w, param in zip(params, self.weights)))
+        return sum(((w * np.asarray(p)).sum()
+                    for w, p in zip(params, self.weights)))
 
     @vector_func
     def grad(self, params, i):
@@ -239,7 +238,7 @@ class Vector(Func):
 
     @call_func
     def __call__(self, params):
-        return Tensor(params[0] * self.vector)
+        return Tensor(np.asarray(params[0]) * self.vector)
 
     @vector_func
     def grad(self, params, i):
@@ -317,7 +316,7 @@ class GaussianCopula(Func):
         F_xy = gauss_bivar(X[None, :], Y[:, None], self.rho)
         F_xy = np.insert(F_xy, 0, 0, 0)
         F_xy = np.insert(F_xy, 0, 0, 1)
-        return np.diff(np.diff(F_xy, 1, 1), 1, 0)
+        return Tensor(np.diff(np.diff(F_xy, 1, 1), 1, 0))
 
 
 class CollapseMatrix(Func):
@@ -330,8 +329,8 @@ class CollapseMatrix(Func):
         if conditions is None:
             self.conditions = [
                 (1, -1, 0, -1),
-                (1, -1, 0,  0),
-                (1, -1, 0,  1),
+                (1, -1, 0, 0),
+                (1, -1, 0, 1),
             ]
 
     @call_func
@@ -342,4 +341,4 @@ class CollapseMatrix(Func):
         val = [frame[np.sign(x * rng_x[None, :] +
                              y * rng_y[:, None] + c) == s].sum()
                for x, y, c, s in self.conditions]
-        return np.asarray(val)
+        return Tensor(val)
