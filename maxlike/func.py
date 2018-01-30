@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.misc import factorial
 from .tensor import *
 from .common import *
 
@@ -186,12 +185,14 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
 
     @call_func
     def __call__(self, params, **kwargs):
-        z = (params[0] - self.u) / self.s
+        p = np.asarray(params[0])
+        z = (p - self.u) / self.s
         return Tensor((z * z).sum())
 
     @vector_func
     def grad(self, params, i, **kwargs):
-        z = (params[0] - self.u) / self.s
+        p = np.asarray(params[0])
+        z = (p - self.u) / self.s
         return grad_tensor(2 * z / self.s, params, i, True).sum()
 
     @matrix_func
@@ -218,7 +219,6 @@ class Encode(Func):
 class Constant(Func):
     def __init__(self, vector):
         self.vector = np.asarray(vector)
-        self.compact = True
 
     @call_func
     def __call__(self, params, **kwargs):
@@ -236,7 +236,6 @@ class Constant(Func):
 class Vector(Func):
     def __init__(self, vector):
         self.vector = np.asarray(vector)
-        self.compact = True
 
     @call_func
     def __call__(self, params, **kwargs):
@@ -253,9 +252,9 @@ class Vector(Func):
 
 
 class Exp(Func):
+
     def __init__(self, size=10):
         super(Exp, self).__init__()
-        self.compact = True
 
     @call_func
     def __call__(self, params, **kwargs):
@@ -272,13 +271,9 @@ class Exp(Func):
 
 
 class PoissonVector(Func):
-    """
-    Generates a vector
 
-    """
     def __init__(self, size=10):
         self.size = size
-        self.compact = True
 
     @call_func
     def __call__(self, params, **kwargs):
@@ -298,3 +293,53 @@ class PoissonVector(Func):
         vec = self.grad(params, i).values[0]
         return hess_tensor(np.insert(vec[..., :-1], 0, 0, -1) - vec,
                            params, i, j, True, True, v=1)
+
+
+class GaussianCopula(Func):
+    """
+    Receives the marginals of X and Y and returns
+    a joint distribution of XY using a gaussian copula
+    """
+
+    def __init__(self, rho):
+        self.rho = rho
+
+    @staticmethod
+    def _normalize(x):
+        x = ndtri(np.asarray(x).cumsum())
+        x[x == np.inf] = 999
+        return x
+
+    @call_func
+    def __call__(self, params):
+        X = self._normalize(params[0])
+        Y = self._normalize(params[1])
+        F_xy = gauss_bivar(X[None, :], Y[:, None], self.rho)
+        F_xy = np.insert(F_xy, 0, 0, 0)
+        F_xy = np.insert(F_xy, 0, 0, 1)
+        return np.diff(np.diff(F_xy, 1, 1), 1, 0)
+
+
+class CollapseFrame(Func):
+
+    def __init__(self, conditions=None):
+        """
+        Condition or list of conditions with the form
+        sgn(A*x + B*y + C) == s
+        """
+        if conditions is None:
+            self.conditions = [
+                (1, -1, 0, -1),
+                (1, -1, 0,  0),
+                (1, -1, 0,  1),
+            ]
+
+    @call_func
+    def __call__(self, params):
+        frame = np.asarray(params[0])
+        rng_x = np.arange(frame.shape[0])
+        rng_y = np.arange(frame.shape[1])
+        val = [frame[np.sign(x * rng_x[None, :] +
+                             y * rng_y[:, None] + c) == s].sum()
+               for x, y, c, s in self.conditions]
+        return np.asarray(val)
