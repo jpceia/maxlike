@@ -90,5 +90,30 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
+    def test_negative_binomial(self):
+        mle = maxlike.NegativeBinomial()
+        mle.model = maxlike.func.Sum(2)
+        mle.model.add(0, 0, Encode())
+        mle.model.add(1, 1, -Encode())
+        mle.add_constraint([0, 1], Linear([1, 1]))
+        g = pd.read_csv("test_data1.csv", index_col=[0, 1])['g']
+        prepared_data, _ = maxlike.utils.prepare_series(
+            g, {'N': np.size, 'X': np.sum})
+        log_mean = np.log(g.mean()) / 2
+        a = g.groupby(level='t1').mean().map(np.log) - log_mean
+        b = log_mean - g.groupby(level='t2').mean()
+        mle.add_param(a)
+        mle.add_param(b)
+        tol = 1e-8
+        mle.fit(tol=tol, **prepared_data)
+        a, b = mle.params_
+        s_a, s_b = mle.std_error()
+        df = pd.read_csv("test_negative_binomial.csv")
+        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
+        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
+        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
+        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
+
+
 if __name__ == '__main__':
     unittest.main()
