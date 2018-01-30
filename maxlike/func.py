@@ -39,21 +39,21 @@ class Atom(Func):
         self.feat_map = feat_map
         self.foo = foo
 
-    def __call__(self, params, **kwargs):
+    def __call__(self, params):
         return self.foo(self.param_map(params)).\
             expand(self.feat_map, self.ndim)
 
-    def grad(self, params, i, **kwargs):
+    def grad(self, params, i):
         try:
             idx = self.param_map.index(i)
         except ValueError:
             return Tensor()
         else:
             return self.foo.grad(
-                self.param_map(params), idx,
-                **kwargs).expand(self.feat_map, self.ndim)
+                self.param_map(params), idx).expand(
+                    self.feat_map, self.ndim)
 
-    def hess(self, params, i, j, **kwargs):
+    def hess(self, params, i, j):
         try:
             idx = self.param_map.index(i)
             jdx = self.param_map.index(j)
@@ -61,8 +61,8 @@ class Atom(Func):
             return Tensor()
         else:
             return self.foo.hess(
-                self.param_map(params), idx, jdx,
-                **kwargs).expand(self.feat_map, self.ndim)
+                self.param_map(params), idx, jdx).expand(
+                    self.feat_map, self.ndim)
 
 
 class Affine(Func):
@@ -81,15 +81,15 @@ class Affine(Func):
         return self.base.param_feat
 
     @call_func
-    def __call__(self, params, **kwargs):
+    def __call__(self, params):
         return self.a * self.base(params) + self.b
 
     @vector_func
-    def grad(self, params, i, **kwargs):
+    def grad(self, params, i):
         return self.a * self.base.grad(params, i, **kwargs)
 
     @matrix_func
-    def hess(self, params, i, j, **kwargs):
+    def hess(self, params, i, j):
         return self.a * self.base.hess(params, i, j, **kwargs)
 
 
@@ -137,15 +137,15 @@ class Sum(Func):
         return self
 
     @call_func
-    def __call__(self, params, **kwargs):
+    def __call__(self, params):
         return sum((w * atom(params) for w, atom in self.atoms)) + self.b
 
     @vector_func
-    def grad(self, params, i, **kwargs):
+    def grad(self, params, i):
         return sum((w * atom.grad(params, i) for w, atom in self.atoms))
 
     @matrix_func
-    def hess(self, params, i, j, **kwargs):
+    def hess(self, params, i, j):
         return sum((w * atom.hess(params, i, j) for w, atom in self.atoms))
 
 
@@ -158,17 +158,17 @@ class Linear(Func):
         self.weights = weight_list
 
     @call_func
-    def __call__(self, params, **kwargs):
+    def __call__(self, params):
         return sum(((w * param).sum()
                     for w, param in zip(params, self.weights)))
 
     @vector_func
-    def grad(self, params, i, **kwargs):
+    def grad(self, params, i):
         return grad_tensor(self.weights[i] * np.ones(params[i].shape),
                            params, i)
 
     @matrix_func
-    def hess(self, params, i, j, **kwargs):
+    def hess(self, params, i, j):
         return hess_tensor(np.multiply.outer(
             np.zeros(params[j].shape),
             np.zeros(params[i].shape)),
@@ -184,19 +184,19 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
         self.s = s
 
     @call_func
-    def __call__(self, params, **kwargs):
+    def __call__(self, params):
         p = np.asarray(params[0])
         z = (p - self.u) / self.s
         return Tensor((z * z).sum())
 
     @vector_func
-    def grad(self, params, i, **kwargs):
+    def grad(self, params, i):
         p = np.asarray(params[0])
         z = (p - self.u) / self.s
         return grad_tensor(2 * z / self.s, params, i, True).sum()
 
     @matrix_func
-    def hess(self, params, i, j, **kwargs):
+    def hess(self, params, i, j):
         return hess_tensor(
             2 * np.ones(params[0].shape) / self.s / self.s,
             params, i, j, True, True).sum()
@@ -204,15 +204,15 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
 
 class Encode(Func):
     @call_func
-    def __call__(self, params, **kwargs):
+    def __call__(self, params):
         return Tensor(params[0])
 
     @vector_func
-    def grad(self, params, i, **kwargs):
+    def grad(self, params, i):
         return grad_tensor(np.ones(params[0].shape), params, i, True)
 
     @matrix_func
-    def hess(self, params, i, j, **kwargs):
+    def hess(self, params, i, j):
         return hess_tensor(np.zeros(params[0].shape), params, i, j, True, True)
 
 
@@ -221,15 +221,15 @@ class Constant(Func):
         self.vector = np.asarray(vector)
 
     @call_func
-    def __call__(self, params, **kwargs):
+    def __call__(self, params):
         return Tensor(self.vector)
 
     @vector_func
-    def grad(self, params, i, **kwargs):
+    def grad(self, params, i):
         return Tensor(np.zeros(self.vector.shape))
 
     @matrix_func
-    def hess(self, params, i, j, **kwargs):
+    def hess(self, params, i, j):
         return Tensor(np.zeros(self.vector.shape))
 
 
@@ -238,15 +238,15 @@ class Vector(Func):
         self.vector = np.asarray(vector)
 
     @call_func
-    def __call__(self, params, **kwargs):
+    def __call__(self, params):
         return Tensor(params[0] * self.vector)
 
     @vector_func
-    def grad(self, params, i, **kwargs):
+    def grad(self, params, i):
         return grad_tensor(self.vector, params, i, None)
 
     @matrix_func
-    def hess(self, params, i, j, **kwargs):
+    def hess(self, params, i, j):
         return hess_tensor(np.zeros(self.vector.shape),
                            params, i, j, None, None)
 
@@ -257,15 +257,15 @@ class Exp(Func):
         super(Exp, self).__init__()
 
     @call_func
-    def __call__(self, params, **kwargs):
+    def __call__(self, params):
         return Tensor(np.exp(np.asarray(params[0])))
 
     @vector_func
-    def grad(self, params, i, **kwargs):
+    def grad(self, params, i):
         return grad_tensor(np.exp(np.asarray(params[0])), params, i, True)
 
     @matrix_func
-    def hess(self, params, i, j, **kwargs):
+    def hess(self, params, i, j):
         return hess_tensor(np.exp(np.asarray(params[0])),
                            params, i, j, True, True)
 
@@ -276,20 +276,20 @@ class PoissonVector(Func):
         self.size = size
 
     @call_func
-    def __call__(self, params, **kwargs):
+    def __call__(self, params):
         a = np.asarray(params[0])
         rng = np.arange(self.size)
         return Tensor(np.exp(-a)[..., None] * (a[..., None] ** rng) /
                       factorial(rng), v=1)
 
     @vector_func
-    def grad(self, params, i, **kwargs):
+    def grad(self, params, i):
         vec = self(params).values
         return grad_tensor(np.insert(vec[..., :-1], 0, 0, -1) - vec,
                            params, i, True, v=1)
 
     @matrix_func
-    def hess(self, params, i, j, **kwargs):
+    def hess(self, params, i, j):
         vec = self.grad(params, i).values[0]
         return hess_tensor(np.insert(vec[..., :-1], 0, 0, -1) - vec,
                            params, i, j, True, True, v=1)
