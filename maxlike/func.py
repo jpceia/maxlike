@@ -320,7 +320,7 @@ class GaussianCopula(Func):
         return np.diff(np.diff(F_xy, 1, 1), 1, 0)
 
 
-class CollapseFrame(Func):
+class CollapseMatrix(Func):
 
     def __init__(self, conditions=None):
         """
