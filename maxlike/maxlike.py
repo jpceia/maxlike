@@ -253,15 +253,14 @@ class MaxLike(object):
                 for j in range(i + 1):
                     hess[idx][param_map[j]] += gamma * hess_g[i][j]
 
-        N_tot = self.N.sum()
         for param_map, h in self.reg:
             args = param_map(self.params_)
             grad_h = h.grad(args)
             hess_h = h.hess(args)
             for i, idx in enumerate(param_map):
-                grad[idx] -= grad_h[i] / N_tot
+                grad[idx] -= grad_h[i]
                 for j in range(i + 1):
-                    hess[idx][param_map[j]] -= hess_h[i][j] / N_tot
+                    hess[idx][param_map[j]] -= hess_h[i][j]
 
         # --------------------------------------------------------------------
         # 3rd phase: Reshape and flatten
