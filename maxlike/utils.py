@@ -19,7 +19,8 @@ def prepare_series(observations, transformations=None):
     Returns
     -------
     res : dict
-        resulting ndarrays after applying the transformations on the observations
+        resulting ndarrays after applying the transformations on the
+        observations
     axis : list[list]
         feature index names
     """
@@ -46,8 +47,14 @@ def prepare_series(observations, transformations=None):
     return res, axis
 
 
-def prepare_dataframe(df, weight_col, result_col, transformations):
-    axis = tuple((level.sort_values() for level in df.index.levels))
+def prepare_dataframe(df, weight_col, result_col, transformations,
+                      add_axis=None):
+    axis = [level.sort_values() for level in df.index.levels]
+    if add_axis is not None:
+        for k, level in enumerate(df.index.levels):
+            name = level.name
+            if name in add_axis:
+                axis[k] = sorted(set(axis[k]).union(add_axis[name]))
     shape = tuple((len(a) for a in axis))
     new_index = pd.MultiIndex.from_product(axis)
     w = df[weight_col].to_frame('N').groupby(df.index).sum().\
