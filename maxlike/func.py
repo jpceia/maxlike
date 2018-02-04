@@ -1,16 +1,16 @@
 import numpy as np
-from .tensor import *
-from .common import *
+from tensor import *
+from common import *
 
 
 class Func(object):
-    def __call__(self, params, **kwargs):
+    def __call__(self, params):
         raise NotImplementedError
 
-    def grad(self, params, i, **kwargs):
+    def grad(self, params, i):
         raise NotImplementedError
 
-    def hess(self, params, i, j, **kwargs):
+    def hess(self, params, i, j):
         raise NotImplementedError
 
     def __add__(self, b):
@@ -86,11 +86,11 @@ class Affine(Func):
 
     @vector_func
     def grad(self, params, i):
-        return self.a * self.base.grad(params, i, **kwargs)
+        return self.a * self.base.grad(params, i)
 
     @matrix_func
     def hess(self, params, i, j):
-        return self.a * self.base.hess(params, i, j, **kwargs)
+        return self.a * self.base.hess(params, i, j)
 
 
 class Sum(Func):
@@ -184,20 +184,23 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
 
     @call_func
     def __call__(self, params):
-        p = np.asarray(params[0])
-        z = (p - self.u) / self.s
-        return Tensor((z * z).sum())
+        val = 0
+        for p in params:
+            z = (np.asarray(p) - self.u) / self.s
+            val += (z * z).sum()
+        return Tensor(val)
 
     @vector_func
     def grad(self, params, i):
-        p = np.asarray(params[0])
-        z = (p - self.u) / self.s
+        z = (np.asarray(params[i]) - self.u) / self.s
         return grad_tensor(2 * z / self.s, params, i, True).sum()
 
     @matrix_func
     def hess(self, params, i, j):
+        if i != j:
+            return Tensor()
         return hess_tensor(
-            2 * np.ones(params[0].shape) / self.s / self.s,
+            2 * np.ones(params[i].shape) / self.s / self.s,
             params, i, j, True, True).sum()
 
 
@@ -305,7 +308,7 @@ class GaussianCopula(Func):
 
     @staticmethod
     def _normalize(x):
-        x = ndtri(np.asarray(x).cumsum())
+        x = ndtri(np.asarray(x).cumsum(-1))
         x[x == np.inf] = 999
         return x
 
@@ -313,21 +316,21 @@ class GaussianCopula(Func):
     def __call__(self, params):
         X = self._normalize(params[0])
         Y = self._normalize(params[1])
-        F_xy = gauss_bivar(X[None, :], Y[:, None], self.rho)
-        F_xy = np.insert(F_xy, 0, 0, 0)
-        F_xy = np.insert(F_xy, 0, 0, 1)
-        return Tensor(np.diff(np.diff(F_xy, 1, 1), 1, 0))
+        F_xy = gauss_bivar(X[..., None, :], Y[..., None], self.rho)
+        F_xy = np.insert(F_xy, 0, 0, -1)
+        F_xy = np.insert(F_xy, 0, 0, -2)
+        return Tensor(np.diff(np.diff(F_xy, 1, -1), 1, -2))
 
 
 class IndependenceCopula(Func):
     @call_func
     def __call__(self, params):
-        F_x = np.asarray(params[0]).cumsum()
-        F_y = np.asarray(params[1]).cumsum()
-        F_xy = F_x[None, :] * F_y[:, None]
-        F_xy = np.insert(F_xy, 0, 0, 0)
-        F_xy = np.insert(F_xy, 0, 0, 1)
-        return Tensor(np.diff(np.diff(F_xy, 1, 1), 1, 0))
+        F_x = np.asarray(params[0]).cumsum(-1)
+        F_y = np.asarray(params[1]).cumsum(-1)
+        F_xy = F_x[..., None, :] * F_y[..., None]
+        F_xy = np.insert(F_xy, 0, 0, -1)
+        F_xy = np.insert(F_xy, 0, 0, -2)
+        return Tensor(np.diff(np.diff(F_xy, 1, -1), 1, -2))
 
 
 class CollapseMatrix(Func):
@@ -347,9 +350,11 @@ class CollapseMatrix(Func):
     @call_func
     def __call__(self, params):
         frame = np.asarray(params[0])
-        rng_x = np.arange(frame.shape[0])
-        rng_y = np.arange(frame.shape[1])
-        val = [frame[np.sign(x * rng_x[None, :] +
-                             y * rng_y[:, None] + c) == s].sum()
-               for x, y, c, s in self.conditions]
-        return Tensor(val)
+        rng_x = np.arange(frame.shape[-2])
+        rng_y = np.arange(frame.shape[-1])
+        val = []
+        for x, y, c, s in self.conditions:
+            filt = np.sign(x * rng_x[:, None] +
+                           y * rng_y[None, :] + c) == s
+            val.append((frame * filt).sum((-1, -2)))
+        return Tensor(np.asarray(val).swapaxes(-1, -2))
