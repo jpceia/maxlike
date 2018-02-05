@@ -5,6 +5,7 @@ from hashlib import sha1
 from scipy.misc import factorial
 from scipy.special import ndtri
 from scipy.stats.mvn import mvnun
+from numpy import exp as np_exp
 
 
 def vectorize(n_in, n_out):
@@ -24,7 +25,12 @@ class Params(list):
         return hash(tuple(self))
 
 
-class Param(np.ma.masked_array):
+class Param(np.ma.MaskedArray):
+    def reset(self, data, mask=None):
+        self.data[:] = data
+        if mask is not None:
+            self.mask = mask
+
     def __hash__(self):
         return int(sha1(self.data).hexdigest(), 16)
 
