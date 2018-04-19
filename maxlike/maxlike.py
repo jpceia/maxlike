@@ -389,10 +389,11 @@ class Logistic(MaxLike):
 
     def __init__(self):
         MaxLike.__init__(self)
+        self.X = None
 
     def like(self, params):
         y = self.model(params)
-        return -(self.N * np.log(1 + np.exp(-y)) + (self.N - self.X) * y).sum()
+        return ((self.N - self.X) * y - self.N * np.log(1 + np.exp(-y))).sum()
 
     def grad_like(self, params):
         delta = self.X - (self.N / (1 + np.exp(-self.model(params))))
@@ -436,6 +437,7 @@ class Finite(MaxLike):
                  for j in range(i + 1)]
                 for i in range(len(der))]
 
+
 class NegativeBinomial(MaxLike):
     """
     Class to model an probabilistic regression under an arbitrary
@@ -445,6 +447,7 @@ class NegativeBinomial(MaxLike):
     def __init__(self):
         MaxLike.__init__(self)
         self.scale = 1  # the model uses a fixed scale param
+        self.X = None
 
     def like(self, params):
         # m = exp(y)
