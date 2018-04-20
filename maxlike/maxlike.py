@@ -393,7 +393,7 @@ class Logistic(MaxLike):
 
     def like(self, params):
         y = self.model(params)
-        return ((self.N - self.X) * y - self.N * np.log(1 + np.exp(-y))).sum()
+        return (self.N * np.log(1 + np.exp(-y)) - (self.N - self.X) * y).sum()
 
     def grad_like(self, params):
         delta = self.X - (self.N / (1 + np.exp(-self.model(params))))
