@@ -60,7 +60,7 @@ class Test(unittest.TestCase):
         mle.fit(tol=tol, **prepared_data)
         a, b = mle.params_
         s_a, s_b = mle.std_error()
-        df = pd.read_csv("test_results2.csv")
+        df = pd.read_csv("test_results_reg.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
