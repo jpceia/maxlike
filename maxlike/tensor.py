@@ -1,13 +1,86 @@
+import abc
 import numpy as np
 
 
-class GenericTensor:
-    def __init__(self, p1=0, p2=0, n=0, e=0, elements=None):
+class BaseTensor(object):
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def __init__(self, p1=0, p2=0, n=0, e=0):
+        assert p1 >= 0
+        assert p2 >= 0
+        assert n >= 0
+        assert e >= 0
         self.p1 = p1
         self.p2 = p2
         self.n = n
         self.e = e
 
+    @abc.abstractmethod
+    def sum(self, e=False):
+        pass
+
+    @abc.abstractmethod
+    def expand(self, feat_map, ndim, e=False):
+        pass
+
+    @abc.abstractmethod
+    def transpose(self):
+        pass
+
+    @abc.abstractmethod
+    def dot(self, other):
+        pass
+
+    @abc.abstractmethod
+    def copy(self):
+        pass
+
+    @abc.abstractmethod
+    def shape(self):
+        pass
+
+    @abc.abstractmethod
+    def __add__(self, other):
+        pass
+
+    @abc.abstractmethod
+    def __sub__(self, other):
+        pass
+
+    @abc.abstractmethod
+    def __mul__(self, other):
+        pass
+
+    @abc.abstractmethod
+    def __div__(self, other):
+        pass
+
+    def __neg__(self):
+        return self * (-1.0)
+
+    def __truediv__(self, other):
+        return self.__div__(other)
+
+    def __radd__(self, other):
+        return self + other
+
+    def __rsub__(self, other):
+        return self - other
+
+    def __rmul__(self, other):
+        return self * other
+
+    def __rdiv__(self, other):
+        return self.__rtruediv__(other)
+
+    def __rtruediv__(self, other):
+        return self / other
+
+
+class GenericTensor(BaseTensor):
+    def __init__(self, p1=0, p2=0, n=0, e=0, elements=None):
+        super(GenericTensor, self).__init__(p1, p2, n, e)
         # all of the elements need to have the same shape
         if elements:
             self.elements = elements
@@ -96,22 +169,14 @@ class GenericTensor:
     def __sub__(self, other):
         return self._add(other, -1.0)
 
-    def __radd__(self, other):
-        return self + other
-
-    def __rsub__(self, other):
-        if isinstance(other, (int, float)):
-            other = Tensor(other)
-        return self - other
-
     def __len__(self):
         return len(self.elements)
 
     def _scalar_mul(self, a):
         assert isinstance(a, (int, float))
         return GenericTensor(
-                self.p1, self.p2, self.n, self.e,
-                [el * a for el in self.elements])
+            self.p1, self.p2, self.n, self.e,
+            [el * a for el in self.elements])
 
     # multiplication / division just with scalars
     def __mul__(self, other):
@@ -120,28 +185,17 @@ class GenericTensor:
     def __div__(self, other):
         return self._scalar_mul(1.0 / other)
 
-    def __rmul__(self, other):
-        return self * other
-
-    def __rdiv__(self, other):
-        return self.__rtruediv__(other)
-
-    def __rtruediv__(self, other):
-        return self / other
+    def __neg__(self, other):
+        return self._scalar_mul(-1.0)
 
 
-
-class Tensor:
+class Tensor(BaseTensor):
     def __init__(self, values=0, p1=0, p2=0, e=0,
                  p1_mapping=None, p2_mapping=None):
         self.values = np.asarray(values)
-        self.n = self.values.ndim - p1 - p2 - e
-        assert self.n >= 0
-        self.p1 = p1
-        self.p2 = p2
+        super(Tensor, self).__init__(p1, p2, self.values.ndim - p1 - p2 - e, e)
         self.p1_mapping = None
         self.p2_mapping = None
-        self.e = e
         if p1_mapping is not None:
             if p1_mapping is True:
                 assert p1 == self.n
@@ -193,7 +247,8 @@ class Tensor:
         if e is True:
             assert len(feat_map) == self.e
             idx = [slice(None)] * (self.p1 + self.p2 + self.n)
-            idx += [slice(None) if k in feat_map else None for k in range(ndim)]
+            idx += [slice(None) if k in feat_map else None
+                    for k in range(ndim)]
             return Tensor(
                 self.values[idx],
                 p1=self.p1,
@@ -250,7 +305,7 @@ class Tensor:
 
                 assert self.p2 == 0
                 assert self.p1 == other.n
-                
+
                 p = other.p1 + other.p2
                 e = max(self.e, other.e)
 
@@ -283,14 +338,16 @@ class Tensor:
                             val = val.swapaxes(k, p + f)
                     if other.p2_mapping:
                         for k, f in enumerate(other.p2_mapping):
-                            if other.p1_mapping and f in other.p1_mapping:  # overlap
+                            if other.p1_mapping and f in other.p1_mapping:
+                                # overlap
                                 idx = np.zeros(val.ndim, dtype=np.bool)
                                 idx[other.p1_mapping.index(f)] = True
                                 idx[other.p1 + k] = True
                                 idx = [slice(None) if x else None for x in idx]
                                 val = val * np.eye(val.shape[k])[idx]
                             else:
-                                val = val.swapaxes(other.p1 + k, p + f)  # no overlap
+                                # no overlap
+                                val = val.swapaxes(other.p1 + k, p + f)
 
                 val = val.sum(tuple(p + np.arange(other.n)))
                 return Tensor(val, p1=other.p1, p2=other.p2, e=e,
@@ -303,12 +360,12 @@ class Tensor:
                 raise ValueError
 
         elif other.p1 > 0:
-            
+
             # P1 -  N E (other)
             # N  P2 M E (self)
             #
             # product
-            # P1 N -  - E  
+            # P1 N -  - E
             # -  N P2 M E
             #    x
 
@@ -403,12 +460,13 @@ class Tensor:
                 p1_mapping = self.p1_mapping
             else:
                 if op_type == "sum":
-                    return GenericTensor(p1, p2, n, e, [self.copy(), other.copy()])
+                    return GenericTensor(
+                        p1, p2, n, e, [self.copy(), other.copy()])
                 elif op_type == "sub":
-                    return GenericTensor(p1, p2, n, e, [self.copy(), -other.copy()])
+                    return GenericTensor(
+                        p1, p2, n, e, [self.copy(), -other.copy()])
                 else:
                     raise NotImplementedError
-                
         elif other.p1 == 0:
             p1_mapping = self.p1_mapping
         elif self.p1 == 0:
@@ -421,9 +479,11 @@ class Tensor:
                 p2_mapping = self.p2_mapping
             else:
                 if op_type == "sum":
-                    return GenericTensor(p1, p2, n, e, [self.copy(), other.copy()])
+                    return GenericTensor(
+                        p1, p2, n, e, [self.copy(), other.copy()])
                 elif op_type == "sub":
-                    return GenericTensor(p1, p2, n, e, [self.copy(), -other.copy()])
+                    return GenericTensor(
+                        p1, p2, n, e, [self.copy(), -other.copy()])
                 else:
                     raise NotImplementedError
 
@@ -507,38 +567,11 @@ class Tensor:
         return self._bin_op(other, "mul")
 
     def __div__(self, other):
-        return self.__truediv__(other)
-
-    def __truediv__(self, other):
         return self._bin_op(other, "div")
-
-    def __neg__(self):
-        t = self.copy()
-        t.values *= -1
-        return t
-
-    def __radd__(self, other):
-        return self + other
-
-    def __rsub__(self, other):
-        if isinstance(other, (int, float)):
-            other = Tensor(other)
-        return other._bin_op(self, "sub")
-
-    def __rmul__(self, other):
-        return self * other
-
-    def __rdiv__(self, other):
-        return self.__rtruediv__(other)
-
-    def __rtruediv__(self, other):
-        if isinstance(other, (int, float)):
-            other = Tensor(other)
-        return other._bin_op(self, "div")
 
 
 def grad_tensor(values, params, i=0, p1_mapping=None, e=0):
-    p1 = params[i].ndim
+    p1 = np.asarray(params[i]).ndim
     if p1_mapping is None:
         idx = [Ellipsis]
     else:
@@ -548,18 +581,18 @@ def grad_tensor(values, params, i=0, p1_mapping=None, e=0):
 
 def hess_tensor(values, params, i=0, j=0,
                 p1_mapping=None, p2_mapping=None, e=0):
-    p1 = params[i].ndim
-    p2 = params[j].ndim
+    p1 = np.asarray(params[i]).ndim
+    p2 = np.asarray(params[j]).ndim
     idx = [slice(None) if p1_mapping is None else None] * p1
     idx += [slice(None) if p2_mapping is None else None] * p2
     idx += [Ellipsis]
     return Tensor(values[idx], p1=p1, p2=p2, e=e,
                   p1_mapping=p1_mapping, p2_mapping=p2_mapping)
 
+
 if __name__ == "__main__":
     t1 = Tensor(np.ones((1, 1, 4, 5, 6, 7, 2)), p1=2, p2=2, e=1, p1_mapping=True)
     t2 = Tensor(np.ones((6, 7, 2, 2)), p1=2, p2=0)
     t3 = t1.copy()
     t = t1 + t2
-    print((t2.dot(t1*5)).sum())  # porque que nao altera... ?
-
+    print(t.sum())  # porque que nao altera... ?
