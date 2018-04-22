@@ -2,7 +2,6 @@ import numpy as np
 from tensor import *
 from common import *
 
-# 
 
 class Func(object):
     def __call__(self, params):
@@ -359,3 +358,37 @@ class CollapseMatrix(Func):
                            y * rng_y[None, :] + c) == s
             val.append((frame * filt).sum((-1, -2)))
         return Tensor(np.asarray(val).swapaxes(-1, -2))
+
+
+class Compose(Func):
+
+    def __init__(self, f, g_list):
+        if not isinstance(g_list, (list, tuple)):
+            self.g_list = [g_list]
+        else:
+            self.g_list = g_list
+        self.f = f
+
+    def __f_arg(self, params):
+        return [g(params) for g in self.g_list]
+
+    @call_func
+    def __call__(self, params):
+        return self.f(self.__f_arg(params))
+
+    @vector_func
+    def grad(self, params, i):
+        f_arg = self.__f_arg(params)
+        return sum([self.f.grad(f_arg, k).dot(g.grad(params, i))
+                    for k, g in enumerate(self.g_list)])
+
+    @matrix_func
+    def hess(self, params, i, j):
+        f_arg = self.__f_arg(params)
+        h_val = 0
+        for k, g_k in enumerate(self.g_list):
+            for l, g_l in enumerate(self.g_list):
+                h_val += self.f.hess(f_arg, k, l).\
+                    dot(g_k.grad(params, i)).dot(g_l.grad(params, j))
+            h_val += self.f.grad(f_arg, k).dot(g_k.hess(params, i, j))
+        return h_val
