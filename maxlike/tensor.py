@@ -588,11 +588,3 @@ def hess_tensor(values, params, i=0, j=0,
     idx += [Ellipsis]
     return Tensor(values[idx], p1=p1, p2=p2, e=e,
                   p1_mapping=p1_mapping, p2_mapping=p2_mapping)
-
-
-if __name__ == "__main__":
-    t1 = Tensor(np.ones((1, 1, 4, 5, 6, 7, 2)), p1=2, p2=2, e=1, p1_mapping=True)
-    t2 = Tensor(np.ones((6, 7, 2, 2)), p1=2, p2=0)
-    t3 = t1.copy()
-    t = t1 + t2
-    print(t.sum())  # porque que nao altera... ?
