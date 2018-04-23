@@ -292,7 +292,7 @@ class PoissonVector(Func):
 
     @matrix_func
     def hess(self, params, i, j):
-        vec = self.grad(params, i).values[0]
+        vec = self.grad(params, i).values[0][0] # correct?
         return hess_tensor(np.insert(vec[..., :-1], 0, 0, -1) - vec,
                            params, i, j, True, True, e=1)
 
@@ -389,6 +389,6 @@ class Compose(Func):
         for k, g_k in enumerate(self.g_list):
             for l, g_l in enumerate(self.g_list):
                 h_val += self.f.hess(f_arg, k, l).\
-                    dot(g_k.grad(params, i)).dot(g_l.grad(params, j))
+                    dot(g_k.grad(params, i)).dot(g_l.grad(params, j).transpose())
             h_val += self.f.grad(f_arg, k).dot(g_k.hess(params, i, j))
         return h_val
