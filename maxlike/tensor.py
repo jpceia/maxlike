@@ -17,7 +17,7 @@ class BaseTensor(object):
         self.e = e
 
     @abc.abstractmethod
-    def sum(self, e=False):
+    def sum(self, e=True):
         pass
 
     @abc.abstractmethod
@@ -87,7 +87,7 @@ class GenericTensor(BaseTensor):
         else:
             self.elements = []
 
-    def sum(self, e=False):
+    def sum(self, e=True):
         return Tensor(
             sum([el.sum(e).values for el in self.elements]),
             p1=self.p1, p2=self.p2, e=self.e)
@@ -192,6 +192,7 @@ class GenericTensor(BaseTensor):
 class Tensor(BaseTensor):
     def __init__(self, values=0, p1=0, p2=0, e=0,
                  p1_mapping=None, p2_mapping=None):
+
         self.values = np.asarray(values)
         super(Tensor, self).__init__(p1, p2, self.values.ndim - p1 - p2 - e, e)
         self.p1_mapping = None
@@ -215,7 +216,7 @@ class Tensor(BaseTensor):
             else:
                 raise ValueError("p2_mapping defined incorrectly")
 
-    def sum(self, e=False):
+    def sum(self, e=True):
         t = self.copy()
         p = self.p1 + self.p2
         if self.p1_mapping is not None:
@@ -288,6 +289,8 @@ class Tensor(BaseTensor):
 
     def dot(self, other):
 
+        # import ipdb; ipdb.set_trace()
+
         assert (self.e == 0) | (other.e == 0) | (self.e == other.e)
         e = max(self.e, other.e)
 
@@ -330,7 +333,7 @@ class Tensor(BaseTensor):
                         p1_mapping = [self.p1_mapping[f]
                                       for f in other.p1_mapping]
                     if other.p2_mapping:
-                        p2_mapping = [self.p2_mapping[f]
+                        p2_mapping = [self.p1_mapping[f]
                                       for f in other.p2_mapping]
                 else:
                     if other.p1_mapping:
@@ -398,15 +401,17 @@ class Tensor(BaseTensor):
                         val = val.swapaxes(k, other.p1 + f)
 
             val = val.sum(tuple(other.p1 + np.arange(self.n)))
-            return Tensor(val, p1=other.p1, p2=self.p2,
+            return Tensor(val, p1=other.p1, p2=self.p2, e=e,
                           p1_mapping=p1_mapping,
                           p2_mapping=self.p2_mapping)
 
         elif other.p2 > 0:
             return self.transpose().dot(other.transpose()).transpose()
-
-        else:
-            raise ValueError
+        
+        elif other.values == 0:
+            return 0
+        
+        raise ValueError
 
     def copy(self):
         return Tensor(self.values, p1=self.p1, p2=self.p2, e=self.e,
@@ -530,6 +535,13 @@ class Tensor(BaseTensor):
 
     def __array__(self):
         return self.values
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        if (self.p1 > 0) | (self.p2 > 0):
+            return ufunc(self.values, *inputs)
+        values = ufunc(self.values)
+        return Tensor(values, p1=0, p2=0, e=self.e)
+        #return self.values.__array_ufunc__(ufunc, method, *inputs, **kwargs)
 
     def __reshape_idx(self, p1, p2, n, e):
         idx = []

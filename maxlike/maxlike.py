@@ -48,7 +48,7 @@ class MaxLike(object):
         g = self.like(params)
         for param_map, h in self.reg:
             g -= h(param_map(params))
-        return g / self.N.sum()
+        return g.values / self.N.sum()
 
     def add_param(self, values, fixed=None):
         """
@@ -311,8 +311,9 @@ class MaxLike(object):
 
         # change = np.linalg.norm(d) / np.linalg.norm(params)
         for i in range(max_steps):
-            new_params = self.__reshape_params(flat_params + u * d)
+            new_params = self.__reshape_params(flat_params - u * d)
             new_g = self.g(new_params)
+            print(new_g)
             if new_g - self.g_last >= 0:
                 self.params_ = new_params
                 self.g_last = new_g
@@ -421,19 +422,19 @@ class Finite(MaxLike):
 
     def like(self, params):
         # N * ln p
-        return (self.N * np.log(self.model(params))).sum()
+        return (np.log(self.model(params)) * self.N).sum()
 
     def grad_like(self, params):
         p = self.model(params)
-        delta = self.N / p
+        delta = (1 / p) * self.N
         return [(d * delta).sum() for d in self.model.grad(params)]
 
     def hess_like(self, params):
         p = self.model(params)
         der = self.model.grad(params)
-        delta = self.N / p
-        return [[(self.model.hess(params, i, j) * delta -
-                 der[i] * der[j].transpose / p).sum()
+        delta = (1 / p) * self.N
+        return [[((self.model.hess(params, i, j) -
+                   der[i] * der[j].transpose() / p) * delta).sum()
                  for j in range(i + 1)]
                 for i in range(len(der))]
 
