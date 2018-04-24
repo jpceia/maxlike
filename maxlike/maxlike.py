@@ -1,6 +1,6 @@
 import abc
 from .common import *
-
+from .tensor import *
 
 class MaxLike(object):
     __metaclass__ = abc.ABCMeta
@@ -48,7 +48,7 @@ class MaxLike(object):
         g = self.like(params)
         for param_map, h in self.reg:
             g -= h(param_map(params))
-        return g.values / self.N.sum()
+        return g / self.N.sum()
 
     def add_param(self, values, fixed=None):
         """
@@ -311,9 +311,8 @@ class MaxLike(object):
 
         # change = np.linalg.norm(d) / np.linalg.norm(params)
         for i in range(max_steps):
-            new_params = self.__reshape_params(flat_params - u * d)
+            new_params = self.__reshape_params(flat_params + u * d)
             new_g = self.g(new_params)
-            print(new_g)
             if new_g - self.g_last >= 0:
                 self.params_ = new_params
                 self.g_last = new_g
@@ -321,6 +320,7 @@ class MaxLike(object):
                 return None
             else:
                 u *= .5
+
         raise RuntimeError("Error: the objective function did not increase",
                            "after %d steps" % max_steps)
 
@@ -347,6 +347,7 @@ class MaxLike(object):
         self.g_last = self.g(self.params_)
         for i in range(max_steps):
             old_g = self.g_last
+            # print(i, old_g)
             self.__step()
             if verbose:
                 print(i, self.g_last)
@@ -417,24 +418,25 @@ class Finite(MaxLike):
     Discrete Finite Distribution
     """
 
-    def __init__(self):
+    def __init__(self, dim=1):
+        self.dim = dim
         MaxLike.__init__(self)
 
     def like(self, params):
         # N * ln p
-        return (np.log(self.model(params)) * self.N).sum()
+        return (np.array(np.log(self.model(params))) * self.N).sum()
 
     def grad_like(self, params):
         p = self.model(params)
-        delta = (1 / p) * self.N
+        delta = Tensor(self.N, dim=self.dim) / p
         return [(d * delta).sum() for d in self.model.grad(params)]
 
     def hess_like(self, params):
         p = self.model(params)
         der = self.model.grad(params)
-        delta = (1 / p) * self.N
-        return [[((self.model.hess(params, i, j) -
-                   der[i] * der[j].transpose() / p) * delta).sum()
+        delta = Tensor(self.N, dim=self.dim) / p
+        return [[(delta * (self.model.hess(params, i, j) -
+                   der[i] * der[j].transpose() / p)).sum()
                  for j in range(i + 1)]
                 for i in range(len(der))]
 
