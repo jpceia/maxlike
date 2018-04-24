@@ -28,6 +28,9 @@ class Func(object):
     def __div__(self, a):
         return Affine(self, 1.0 / a, 0)
 
+    def __matmul__(self, other):
+        return Compose(self, other)
+
 
 # maybe this can be replaced by a metaclass
 class Atom(Func):
@@ -282,19 +285,19 @@ class PoissonVector(Func):
         a = np.asarray(params[0])
         rng = np.arange(self.size)
         return Tensor(np.exp(-a)[..., None] * (a[..., None] ** rng) /
-                      factorial(rng), e=1)
+                      factorial(rng), dim=1)
 
     @vector_func
     def grad(self, params, i):
         vec = self(params).values
         return grad_tensor(np.insert(vec[..., :-1], 0, 0, -1) - vec,
-                           params, i, True, e=1)
+                           params, i, True, dim=1)
 
     @matrix_func
     def hess(self, params, i, j):
         vec = self.grad(params, i).values[0][0] # correct?
         return hess_tensor(np.insert(vec[..., :-1], 0, 0, -1) - vec,
-                           params, i, j, True, True, e=1)
+                           params, i, j, True, True, dim=1)
 
 
 class GaussianCopula(Func):
