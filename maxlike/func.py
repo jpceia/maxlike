@@ -275,7 +275,12 @@ class Exp(Func):
                            params, i, j, True, True)
 
 
-class PoissonVector(Func):
+class Poisson(Func):
+
+    """
+    Non normalized
+    vector (lambda ^ x) / x!
+    """
 
     def __init__(self, size=10):
         self.size = size
@@ -284,20 +289,25 @@ class PoissonVector(Func):
     def __call__(self, params):
         a = np.asarray(params[0])
         rng = np.arange(self.size)
-        return Tensor(np.exp(-a)[..., None] * (a[..., None] ** rng) /
-                      factorial(rng), dim=1)
+        vec = (a[..., None] ** rng) / factorial(rng)
+        return Tensor(vec, dim=1)
 
     @vector_func
     def grad(self, params, i):
-        vec = self(params).values
-        return grad_tensor(np.insert(vec[..., :-1], 0, 0, -1) - vec,
-                           params, i, True, dim=1)
+        a = np.asarray(params[0])
+        rng = np.arange(self.size)
+        vec = ((a[..., None] ** rng) / factorial(rng))[..., :-1]
+        vec = np.insert(vec, 0, 0, -1)
+        return grad_tensor(vec, params, i, True, dim=1)
 
     @matrix_func
     def hess(self, params, i, j):
-        vec = self.grad(params, i).values[0][0] # correct?
-        return hess_tensor(np.insert(vec[..., :-1], 0, 0, -1) - vec,
-                           params, i, j, True, True, dim=1)
+        a = np.asarray(params[0])
+        rng = np.arange(self.size)
+        vec = ((a[..., None] ** rng) / factorial(rng))[..., :-2]
+        vec = np.insert(vec, 0, 0, -1)
+        vec = np.insert(vec, 0, 0, -1)
+        return hess_tensor(vec, params, i, j, True, True, dim=1)
 
 
 class GaussianCopula(Func):
@@ -392,6 +402,13 @@ class Compose(Func):
         for k, g_k in enumerate(self.g_list):
             for l, g_l in enumerate(self.g_list):
                 h_val += self.f.hess(f_arg, k, l).\
-                    dot(g_k.grad(params, i)).dot(g_l.grad(params, j).transpose())
+                    dot(g_k.grad(params, i)).\
+                    dot(g_l.grad(params, j).transpose())
             h_val += self.f.grad(f_arg, k).dot(g_k.hess(params, i, j))
         return h_val
+
+
+if __name__ == "__main__":
+    f = Poisson(10)
+    x = [np.array([[1,2], [3,4]])]
+    print(f.grad(x, 0).values.shape)
