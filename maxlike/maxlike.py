@@ -305,13 +305,13 @@ class MaxLike(object):
         # 5th phase: Compute
         # --------------------------------------------------------------------
         u = 1
-        d = -np.linalg.solve(hess, grad)
+        d = np.linalg.solve(hess, grad)
         if c_len > 0:
             d = d[:-c_len]
 
         # change = np.linalg.norm(d) / np.linalg.norm(params)
         for i in range(max_steps):
-            new_params = self.__reshape_params(flat_params + u * d)
+            new_params = self.__reshape_params(flat_params - u * d)
             new_g = self.g(new_params)
             if new_g - self.g_last >= 0:
                 self.params_ = new_params
@@ -347,7 +347,6 @@ class MaxLike(object):
         self.g_last = self.g(self.params_)
         for i in range(max_steps):
             old_g = self.g_last
-            # print(i, old_g)
             self.__step()
             if verbose:
                 print(i, self.g_last)
@@ -416,6 +415,13 @@ class Finite(MaxLike):
     """
     Class to model an probabilistic regression under an arbitrary
     Discrete Finite Distribution
+
+    This class doesn't require the model function to be normalized,
+    I.e, the probabilistic model doesnt needs to satisfy sum_i p(i) = 1
+    However we require p(i) > 0 for every i
+
+    Can be used to minimize the Kullback-Leibler divergence, replacing
+    frequencies by probabilities.
     """
 
     def __init__(self, dim=1):
@@ -423,22 +429,48 @@ class Finite(MaxLike):
         MaxLike.__init__(self)
 
     def like(self, params):
-        # N * ln p
+        """
+        evaluation of:
+            sum_k sum_u N_{k, u} * (log p(x=u|k) - log Z(k))
+        where:
+            p(x=u|k) unnormalized probability function, conditional to k
+            Z(k) := sum_u p(x=u|k)
+        """
         return (np.array(np.log(self.model(params))) * self.N).sum()
 
     def grad_like(self, params):
+        """
+        Derivative of
+            sum_k sum_u N_{k, u} * (log p(x=u|k) - log Z(k))
+
+        = sum_k sum_u N_{k, u} * ((d_i p) / p - (d_i (sum_k p)) / (sum_k p))
+        """
+        grad = []
         p = self.model(params)
-        delta = Tensor(self.N, dim=self.dim) / p
-        return [(d * delta).sum() for d in self.model.grad(params)]
+        z = p.sum(val=False)
+        N = Tensor(self.N, dim=self.dim)
+        for d in self.model.grad(params):
+            dz = d.sum(val=False)
+            grad.append((N * (d / p - dz / z)).sum())
+        return grad
 
     def hess_like(self, params):
+        hess = []
         p = self.model(params)
+        z = p.sum(val=False)
         der = self.model.grad(params)
-        delta = Tensor(self.N, dim=self.dim) / p
-        return [[(delta * (self.model.hess(params, i, j) -
-                   der[i] * der[j].transpose() / p)).sum()
-                 for j in range(i + 1)]
-                for i in range(len(der))]
+        dz = [d.sum(val=False) for d in der]
+        N = Tensor(self.N, dim=self.dim)
+        for i in range(len(params)):
+            hess_line = []
+            for j in range(i + 1):
+                h = self.model.hess(params, i, j)
+                hz = h.sum(val=False)
+                H1 = (h / p - der[i] * der[j].transpose()) / p
+                H2 = (hz / z - dz[i] * dz[j].transpose()) / z
+                hess_line.append((N * (H1 - H2)).sum())
+            hess.append(hess_line)
+        return hess
 
 
 class NegativeBinomial(MaxLike):
