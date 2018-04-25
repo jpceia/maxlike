@@ -194,7 +194,8 @@ class Tensor(BaseTensor):
                  p1_mapping=None, p2_mapping=None):
 
         self.values = np.asarray(values)
-        super(Tensor, self).__init__(p1, p2, self.values.ndim - p1 - p2 - dim, dim)
+        super(Tensor, self).__init__(
+            p1, p2, self.values.ndim - p1 - p2 - dim, dim)
         self.p1_mapping = None
         self.p2_mapping = None
         if p1_mapping is not None:
@@ -216,9 +217,17 @@ class Tensor(BaseTensor):
             else:
                 raise ValueError("p2_mapping defined incorrectly")
 
-    def sum(self, dim=True):
+    def sum(self, val=True, dim=True):
         t = self.copy()
         p = self.p1 + self.p2
+
+        if not val:
+            if dim:
+                t.values = t.values.sum(tuple(
+                    p + self.n + np.arange(self.dim)))
+                t.dim = 0
+            return t
+
         if self.p1_mapping is not None:
             for k, f in enumerate(self.p1_mapping):
                 t.values = t.values.swapaxes(k, p + f)
