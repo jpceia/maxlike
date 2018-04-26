@@ -436,7 +436,9 @@ class Finite(MaxLike):
             p(x=u|k) unnormalized probability function, conditional to k
             Z(k) := sum_u p(x=u|k)
         """
-        return (np.array(np.log(self.model(params))) * self.N).sum()
+        p = self.model(params)
+        z = p.sum(val=False)
+        return (self.N * np.array(np.log(p) - np.log(z))).sum()
 
     def grad_like(self, params):
         """
@@ -447,27 +449,27 @@ class Finite(MaxLike):
         """
         grad = []
         p = self.model(params)
-        z = p.sum(val=False)
+        z = p.sum(False)
         N = Tensor(self.N, dim=self.dim)
         for d in self.model.grad(params):
-            dz = d.sum(val=False)
+            dz = d.sum(False)
             grad.append((N * (d / p - dz / z)).sum())
         return grad
 
     def hess_like(self, params):
         hess = []
         p = self.model(params)
-        z = p.sum(val=False)
+        z = p.sum(False)
         der = self.model.grad(params)
-        dz = [d.sum(val=False) for d in der]
+        dz = [d.sum(False) for d in der]
         N = Tensor(self.N, dim=self.dim)
         for i in range(len(params)):
             hess_line = []
             for j in range(i + 1):
                 h = self.model.hess(params, i, j)
-                hz = h.sum(val=False)
-                H1 = (h / p - der[i] * der[j].transpose()) / p
-                H2 = (hz / z - dz[i] * dz[j].transpose()) / z
+                hz = h.sum(False)
+                H1 = (h - der[i] * der[j].transpose() / p) / p
+                H2 = (hz - dz[i] * dz[j].transpose() / z) / z
                 hess_line.append((N * (H1 - H2)).sum())
             hess.append(hess_line)
         return hess
