@@ -67,3 +67,14 @@ def prepare_dataframe(df, weight_col, result_col, transformations,
     res = {k: df[k].values.reshape(shape) for k in transformations.keys()}
     res['N'] = w.values.reshape(shape)
     return res, axis
+
+
+def df_count(series, size, name=None):
+    if not name:
+        name = 'count'
+    X = series.values[:, None] == np.arange(size - 1)[None, :]
+    return pd.DataFrame(
+        np.insert(X, -1, X.sum(-1) == False, 1),
+        index=series.index,
+        columns=pd.Index(np.arange(size),
+            name=name))
