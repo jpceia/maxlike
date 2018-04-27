@@ -34,17 +34,18 @@ class Func(object):
 
 # maybe this can be replaced by a metaclass
 class Atom(Func):
-    def __init__(self, ndim, param_map, feat_map, foo):
+    def __init__(self, foo, param_map, feat_map, n_feat,
+                 dim_map=None, n_dim=0):
         assert isinstance(foo, Func)
-        # assert max(feat_map) <= ndim
-        self.ndim = ndim
+        # assert max(feat_map) <= n_feat
+        self.n_feat = n_feat
         self.param_map = IndexMap(param_map)
         self.feat_map = feat_map
         self.foo = foo
 
     def __call__(self, params):
         return self.foo(self.param_map(params)).\
-            expand(self.feat_map, self.ndim)
+            expand(self.feat_map, self.n_feat)
 
     def grad(self, params, i):
         try:
@@ -54,7 +55,7 @@ class Atom(Func):
         else:
             return self.foo.grad(
                 self.param_map(params), idx).expand(
-                    self.feat_map, self.ndim)
+                    self.feat_map, self.n_feat)
 
     def hess(self, params, i, j):
         try:
@@ -65,7 +66,7 @@ class Atom(Func):
         else:
             return self.foo.hess(
                 self.param_map(params), idx, jdx).expand(
-                    self.feat_map, self.ndim)
+                    self.feat_map, self.n_feat)
 
 
 class Affine(Func):
@@ -97,12 +98,13 @@ class Affine(Func):
 
 
 class Sum(Func):
-    def __init__(self, ndim):
+    def __init__(self, n_feat, n_dim=0):
         self.atoms = []
-        self.ndim = ndim
+        self.n_feat = n_feat
+        self.n_dim = n_dim
         self.b = 0
 
-    def add(self, param_map, feat_map, foo, weight=1.0):
+    def add(self, foo, param_map, feat_map, weight=1.0):
         """
         Adds a factor to Ensemble object.
 
@@ -121,21 +123,23 @@ class Sum(Func):
             param_map = [param_map]
         if isinstance(feat_map, int):
             feat_map = [feat_map]
+        # if isinstance(dim_map, int):
+        #     dim_map = [dim_map]
 
         if isinstance(foo, Affine):
             self.b += foo.b
-            self.add(param_map, feat_map, foo.base, weight * foo.a)
+            self.add(foo.base, param_map, feat_map, weight * foo.a)
         elif isinstance(foo, Sum):
             self.b += foo.b
             for w, atom in foo.atoms:
                 self.add(
+                    atom.foo,
                     atom.param_map(param_map),
                     atom.feat_map(feat_map),
-                    atom.foo,
                     w * weight)
         else:
             self.atoms.append((
-                weight, Atom(self.ndim, param_map, feat_map, foo)))
+                weight, Atom(foo, param_map, feat_map, self.n_feat)))
         return self
 
     @call_func
@@ -337,7 +341,7 @@ class GaussianCopula(Func):
 
 class IndependenceCopula(Func):
     @call_func
-    def __call__(self, params):
+    def __call__(self, params):  ## isto nao e preciso
         F_x = np.asarray(params[0]).cumsum(-1)
         F_y = np.asarray(params[1]).cumsum(-1)
         F_xy = F_x[..., None, :] * F_y[..., None]
