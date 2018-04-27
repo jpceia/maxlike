@@ -155,6 +155,59 @@ class Sum(Func):
         return sum((w * atom.hess(params, i, j) for w, atom in self.atoms))
 
 
+def Product(Func):
+    def __init__(self, n_feat, n_dim=0):
+        self.atoms = []
+        self.n_feat = n_feat
+        self.n_dim = n_dim
+
+    def add(self, foo, param_map, feat_map, dim_map=None):
+
+        if isinstance(param_map, int):
+            param_map = [param_map]
+        if isinstance(feat_map, int):
+            feat_map = [feat_map]
+        if isinstance(dim_map, int):
+            dim_map = [dim_map]
+
+        if isinstance(foo, Product):
+            for atom in foo.atoms:
+                self.add(
+                    atom.foo,
+                    atom.param_map(param_map),
+                    atom.feat_map(feat_map))
+        else:
+            self.atoms.append(Atom(foo, param_map, feat_map, self.n_feat))
+
+        return self
+
+    @call_func
+    def __call__(self, params):
+        return np.array([a(params) for a in self.atoms]).prod()
+
+    @vector_func
+    def grad(self, params, i):
+        f_val = np.array([a(params) for a in self.atoms])
+        rng = np.arange(len(self.atoms))
+        return sum((f_val[rng != k].prod() * atom.grad(params, i)
+                    for k, atom in enumerate(self.atoms)))
+
+    @matrix_func
+    def hess(self, params, i, j):
+        f_val = np.array([a(params) for a in self.atoms])
+        rng = np.arange(len(self.atoms))
+        hess_val = 0
+        for k, a_k in enumerate(self.atoms):
+            hess_k = 0
+            for l, a_l in enumerate(self.atoms):
+                hess_k += f_val[(rng != k) & (rng != l)].prod() * \
+                    a_l.grad(params, j).transpose()
+            hess_k *= a_k.grad(params, i)
+            hess_k += f_val[rng != k] * a_k.hess(params, i, j)
+            hess_val += hess_k
+        return hess_val
+
+
 class Linear(Func):
     def __init__(self, weight_list=None):
         if weight_list is None:
