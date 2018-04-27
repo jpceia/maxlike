@@ -2,6 +2,7 @@ import abc
 from .common import *
 from .tensor import *
 
+
 class MaxLike(object):
     __metaclass__ = abc.ABCMeta
 
@@ -48,7 +49,8 @@ class MaxLike(object):
         g = self.like(params)
         for param_map, h in self.reg:
             g -= h(param_map(params))
-        return g / self.N.sum()
+        res = g / self.N.sum()
+        return float(res.values)
 
     def add_param(self, values, fixed=None):
         """
@@ -220,7 +222,7 @@ class MaxLike(object):
             self.flat_hess_))[:cut]))
 
     def __step(self):
-        max_steps = 20
+        max_steps = 50
         n = len(self.params_)
         c_len = len(self.constraint)
 
@@ -341,8 +343,9 @@ class MaxLike(object):
             Returns True if the algorithm converges, otherwise returns
             False.
         """
+        dim = getattr(self, 'dim', 0)
         for k, v in kwargs.items():
-            self.__dict__[k] = v
+            self.__dict__[k] = Tensor(v, dim=dim)
 
         self.g_last = self.g(self.params_)
         for i in range(max_steps):
@@ -394,7 +397,7 @@ class Logistic(MaxLike):
 
     def like(self, params):
         y = self.model(params)
-        return (self.N * np.log(1 + np.exp(-y)) - (self.N - self.X) * y).sum()
+        return -(self.N * np.log(1 + np.exp(-y)) + (self.N - self.X) * y).sum()
 
     def grad_like(self, params):
         delta = self.X - (self.N / (1 + np.exp(-self.model(params))))
@@ -404,7 +407,7 @@ class Logistic(MaxLike):
         p = 1 / (1 + np.exp(-self.model(params)))
         der = self.model.grad(params)
         delta = self.X - p * self.N
-        delta2 = - p * (1 - p) * self.N
+        delta2 = p * (1 - p) * self.N
         return[[(self.model.hess(params, i, j) * delta +
                  der[i] * der[j].transpose() * delta2).sum()
                 for j in range(i + 1)]
@@ -438,7 +441,7 @@ class Finite(MaxLike):
         """
         p = self.model(params)
         z = p.sum(val=False)
-        return (self.N * np.array(np.log(p) - np.log(z))).sum()
+        return (self.N * (np.log(p) - np.log(z))).sum()
 
     def grad_like(self, params):
         """
@@ -450,10 +453,9 @@ class Finite(MaxLike):
         grad = []
         p = self.model(params)
         z = p.sum(False)
-        N = Tensor(self.N, dim=self.dim)
         for d in self.model.grad(params):
             dz = d.sum(False)
-            grad.append((N * (d / p - dz / z)).sum())
+            grad.append((self.N * (d / p - dz / z)).sum())
         return grad
 
     def hess_like(self, params):
@@ -462,7 +464,6 @@ class Finite(MaxLike):
         z = p.sum(False)
         der = self.model.grad(params)
         dz = [d.sum(False) for d in der]
-        N = Tensor(self.N, dim=self.dim)
         for i in range(len(params)):
             hess_line = []
             for j in range(i + 1):
@@ -470,7 +471,7 @@ class Finite(MaxLike):
                 hz = h.sum(False)
                 H1 = (h - der[i] * der[j].transpose() / p) / p
                 H2 = (hz - dz[i] * dz[j].transpose() / z) / z
-                hess_line.append((N * (H1 - H2)).sum())
+                hess_line.append((self.N * (H1 - H2)).sum())
             hess.append(hess_line)
         return hess
 
