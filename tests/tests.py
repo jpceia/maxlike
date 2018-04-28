@@ -1,8 +1,8 @@
 import unittest
 import pandas as pd
 import numpy as np
-# import sys
-# sys.path.insert(0, "..")
+import sys
+sys.path.insert(0, "..")
 import maxlike
 from maxlike.func import Encode, Vector, Linear, Quadratic, Compose, Exp, Poisson
 
@@ -37,7 +37,6 @@ class Test(unittest.TestCase):
         self.assertAlmostEqual(h.data, 0.3496149212379256, delta=tol)
         self.assertAlmostEqual(s_h, 0.0804417430337, delta=tol)
         df = pd.read_csv("test_results1.csv")
-        print(a)
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -70,7 +69,7 @@ class Test(unittest.TestCase):
 
     def test_logistic(self):
         mle = maxlike.Logistic()
-        mle.model = maxlike.func.Sum(2)   # Exp ?
+        mle.model = maxlike.func.Sum(2)
         mle.model.add(Encode(), 0, 0)
         mle.model.add(-Encode(), 1, 1)
         mle.add_constraint([0, 1], Linear([1, 1]))

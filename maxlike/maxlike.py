@@ -250,7 +250,7 @@ class MaxLike(object):
             for i, idx in enumerate(param_map):
                 grad[idx] += gamma * grad_g[i]
                 grad[n + count] = np.asarray([g(args)])
-                hess_c[count][idx] += grad_g[i]
+                hess_c[count][idx] += np.array(grad_g[i])
                 for j in range(i + 1):
                     hess[idx][param_map[j]] += gamma * hess_g[i][j]
 
@@ -396,19 +396,26 @@ class Logistic(MaxLike):
         self.X = None
 
     def like(self, params):
+        """
+        p = 1 / (1 + e^-y)
+        like = sum_k x_k * ln p + (1 - x_k) * ln (1-p)
+             = - ((N - X) * y + N * ln(1 + e^-y))
+        """
         y = self.model(params)
-        return -(self.N * np.log(1 + np.exp(-y)) + (self.N - self.X) * y).sum()
+        return (self.N * np.log(1 + np.exp(-y)) + (self.N - self.X) * y).sum()
 
     def grad_like(self, params):
+        # (X - p * N) * d_y
         delta = self.X - (self.N / (1 + np.exp(-self.model(params))))
         return [(d * delta).sum() for d in self.model.grad(params)]
 
     def hess_like(self, params):
+        # (X - p * N) * hess_y - p * (1 - p) * N * di_y * dj_y^T
         p = 1 / (1 + np.exp(-self.model(params)))
         der = self.model.grad(params)
         delta = self.X - p * self.N
         delta2 = p * (1 - p) * self.N
-        return[[(self.model.hess(params, i, j) * delta +
+        return[[(self.model.hess(params, i, j) * delta -
                  der[i] * der[j].transpose() * delta2).sum()
                 for j in range(i + 1)]
                for i in range(len(der))]
