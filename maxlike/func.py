@@ -155,7 +155,7 @@ class Sum(Func):
         return sum((w * atom.hess(params, i, j) for w, atom in self.atoms))
 
 
-def Product(Func):
+class Product(Func):
     def __init__(self, n_feat, n_dim=0):
         self.atoms = []
         self.n_feat = n_feat
@@ -181,29 +181,44 @@ def Product(Func):
 
         return self
 
+    @staticmethod
+    def _prod(arr, except_idx):
+        try:
+            return reduce(
+                lambda x, y: x * y,
+                (el for i, el in enumerate(arr) if i not in except_idx)
+            )
+        except TypeError:
+            return 0
+
     @call_func
     def __call__(self, params):
-        return np.array([a(params) for a in self.atoms]).prod()
+        return reduce(
+            lambda x, y: x * y,
+            (atom(params) for atom in self.atoms))
 
     @vector_func
     def grad(self, params, i):
-        f_val = np.array([a(params) for a in self.atoms])
-        rng = np.arange(len(self.atoms))
-        return sum((f_val[rng != k].prod() * atom.grad(params, i)
-                    for k, atom in enumerate(self.atoms)))
+        f_val = [atom(params) for atom in self.atoms]
+        grad = 0
+        for k, atom in enumerate(self.atoms):
+            f_prod = Product._prod(f_val, k)
+            grad += f_prod * atom.grad(params, i)
+        return grad
 
     @matrix_func
     def hess(self, params, i, j):
-        f_val = np.array([a(params) for a in self.atoms])
-        rng = np.arange(len(self.atoms))
+        f_val = [atom(params) for atom in self.atoms]
         hess_val = 0
         for k, a_k in enumerate(self.atoms):
             hess_k = 0
             for l, a_l in enumerate(self.atoms):
-                hess_k += f_val[(rng != k) & (rng != l)].prod() * \
-                    a_l.grad(params, j).transpose()
+                if k != l:
+                    f_prod = Product._prod(f_val, (k, l))
+                    hess_k += f_prod * a_l.grad(params, j).transpose()
             hess_k *= a_k.grad(params, i)
-            hess_k += f_val[rng != k] * a_k.hess(params, i, j)
+            f_prod = Product._prod(f_val, k)
+            hess_k += f_prod * a_k.hess(params, i, j)
             hess_val += hess_k
         return hess_val
 
