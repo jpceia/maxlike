@@ -407,17 +407,6 @@ class GaussianCopula(Func):
         return Tensor(np.diff(np.diff(F_xy, 1, -1), 1, -2))
 
 
-class IndependenceCopula(Func):
-    @call_func
-    def __call__(self, params):  ## isto nao e preciso
-        F_x = np.asarray(params[0]).cumsum(-1)
-        F_y = np.asarray(params[1]).cumsum(-1)
-        F_xy = F_x[..., None, :] * F_y[..., None]
-        F_xy = np.insert(F_xy, 0, 0, -1)
-        F_xy = np.insert(F_xy, 0, 0, -2)
-        return Tensor(np.diff(np.diff(F_xy, 1, -1), 1, -2))
-
-
 class CollapseMatrix(Func):
 
     def __init__(self, conditions=None):
