@@ -21,7 +21,7 @@ class BaseTensor(object):
         pass
 
     @abc.abstractmethod
-    def expand(self, feat_map, ndim, dim=False):
+    def expand(self, feat_map, ndim, dim=False):  # use xmap, newsize
         pass
 
     @abc.abstractmethod
@@ -92,7 +92,7 @@ class GenericTensor(BaseTensor):
             sum([el.sum(dim).values for el in self.elements]),
             p1=self.p1, p2=self.p2, dim=self.dim)
 
-    def expand(self, feat_map, ndim, dim=False):
+    def expand(self, feat_map, ndim, dim=False):  # use xmap, newsize
         if dim:
             self.dim = ndim
         else:
@@ -290,6 +290,43 @@ class Tensor(BaseTensor):
                 dim=self.dim,
                 p1_mapping=p1_mapping,
                 p2_mapping=p2_mapping)
+
+    def flip(self, xmap, dim=False):
+
+        if xmap is None or xmap == []:
+            return self
+
+        if isinstance(xmap, int):
+            xmap = [xmap]
+
+        val = self.values
+        p = self.p1 + self.p2
+
+        if dim is True:
+            assert max(xmap) < self.dim
+            p += self.n
+
+        else:
+            assert max(xmap) < self.n
+            mappings = []
+            if self.p1_mapping:
+                mappings += self.p1_mapping
+            if self.p2_mapping:
+                mappings += self.p2_mapping
+            for k in xmap:
+                if k in mappings:
+                    raise NotImplementedError
+
+        for k in xmap:
+            val = np.flip(val, p + k)
+
+        return Tensor(
+            val,
+            p1=self.p1,
+            p2=self.p2,
+            dim=self.dim,
+            p1_mapping=self.p1_mapping,
+            p2_mapping=self.p2_mapping)
 
     def transpose(self):
         t = self.copy()
