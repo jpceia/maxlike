@@ -45,20 +45,26 @@ class Func(object):
         return Compose(self, other)
 
 
-# maybe this can be replaced by a metaclass
 class Atom(Func):
     def __init__(self, foo, param_map, feat_map, n_feat,
                  dim_map=None, n_dim=0):
         assert isinstance(foo, Func)
         # assert max(feat_map) <= n_feat
+        # assert max(dim_map) <= n_dim
+        self.foo = foo
         self.n_feat = n_feat
+        self.n_dim = n_dim
         self.param_map = IndexMap(param_map)
         self.feat_map = feat_map
-        self.foo = foo
+        if dim_map is None:
+            self.dim_map = []
+        else:
+            self.dim_map = dim_map
 
     def __call__(self, params):
         return self.foo(self.param_map(params)).\
-            expand(self.feat_map, self.n_feat)
+            expand(self.feat_map, self.n_feat).\
+            expand(self.dim_map, self.n_dim, dim=True)
 
     def grad(self, params, i):
         try:
@@ -66,9 +72,9 @@ class Atom(Func):
         except ValueError:
             return Tensor()
         else:
-            return self.foo.grad(
-                self.param_map(params), idx).expand(
-                    self.feat_map, self.n_feat)
+            return self.foo.grad(self.param_map(params), idx).expand(
+                self.feat_map, self.n_feat).expand(
+                self.dim_map, self.n_dim, dim=True)
 
     def hess(self, params, i, j):
         try:
@@ -79,7 +85,8 @@ class Atom(Func):
         else:
             return self.foo.hess(
                 self.param_map(params), idx, jdx).expand(
-                    self.feat_map, self.n_feat)
+                    self.feat_map, self.n_feat).expand(
+                    self.dim_map, self.n_dim, dim=True)
 
 
 class Affine(Func):
@@ -114,18 +121,20 @@ class Sum(Func):
         self.n_dim = n_dim
         self.b = 0
 
-    def add(self, foo, param_map, feat_map, weight=1.0):
+    def add(self, foo, param_map, feat_map, dim_map=None, weight=1.0):
         """
         Adds a factor to Ensemble object.
 
         Parameters
         ----------
+        foo: Func
+            function to add to the Ensemble object.
         param_map: int, list
             index of parameters that 'foo' accepts.
         feat_map:
             index of features that 'foo' returns.
-        foo: Func
-            function to add to the Ensemble object.
+        dim_map:
+            index of dim of 'foo' image space.
         weight: double
             weight
         """
@@ -133,12 +142,14 @@ class Sum(Func):
             param_map = [param_map]
         if isinstance(feat_map, int):
             feat_map = [feat_map]
-        # if isinstance(dim_map, int):
-        #     dim_map = [dim_map]
+        if dim_map is None:
+            dim_map = []
+        elif isinstance(dim_map, int):
+            dim_map = [dim_map]
 
         if isinstance(foo, Affine):
             self.b += foo.b
-            self.add(foo.base, param_map, feat_map, weight * foo.a)
+            self.add(foo.base, param_map, feat_map, dim_map, weight * foo.a)
         elif isinstance(foo, Sum):
             self.b += foo.b
             for w, atom in foo.atoms:
@@ -146,10 +157,14 @@ class Sum(Func):
                     atom.foo,
                     atom.param_map(param_map),
                     atom.feat_map(feat_map),
+                    atom.dim_map(dim_map),
                     w * weight)
         else:
             self.atoms.append((
-                weight, Atom(foo, param_map, feat_map, self.n_feat)))
+                weight, Atom(
+                    foo, param_map,
+                    feat_map, self.n_feat,
+                    dim_map, self.n_dim)))
         return self
 
     def __call__(self, params):
@@ -174,7 +189,9 @@ class Product(Func):
             param_map = [param_map]
         if isinstance(feat_map, int):
             feat_map = [feat_map]
-        if isinstance(dim_map, int):
+        if dim_map is None:
+            dim_map = []
+        elif isinstance(dim_map, int):
             dim_map = [dim_map]
 
         if isinstance(foo, Product):
@@ -182,9 +199,13 @@ class Product(Func):
                 self.add(
                     atom.foo,
                     atom.param_map(param_map),
-                    atom.feat_map(feat_map))
+                    atom.feat_map(feat_map),
+                    atom.dim_map(dim_map))
         else:
-            self.atoms.append(Atom(foo, param_map, feat_map, self.n_feat))
+            self.atoms.append(Atom(
+                foo, param_map,
+                feat_map, self.n_feat,
+                dim_map, self.n_dim))
 
         return self
 
