@@ -25,6 +25,10 @@ class BaseTensor(object):
         pass
 
     @abc.abstractmethod
+    def flip(self, xmap, dim=False):
+        pass
+
+    @abc.abstractmethod
     def transpose(self):
         pass
 
@@ -100,6 +104,12 @@ class GenericTensor(BaseTensor):
 
         self.elements = [el.expand(xmap, newsize, dim)
                          for el in self.elements]
+
+    def flip(self, xmap, dim=False):
+        gt = GenericTensor()
+        for el in self.elements:
+            gt += el.flip(xmap, dim)
+        return gt
 
     def transpose(self):
         self.p1, self.p2 = self.p2, self.p1
@@ -292,7 +302,6 @@ class Tensor(BaseTensor):
                 p2_mapping=p2_mapping)
 
     def flip(self, xmap, dim=False):
-
         if xmap is None or xmap == []:
             return self
 
@@ -340,9 +349,6 @@ class Tensor(BaseTensor):
         return t
 
     def dot(self, other):
-
-        # import ipdb; ipdb.set_trace()
-
         assert (self.dim == 0) | (other.dim == 0) | (self.dim == other.dim)
         dim = max(self.dim, other.dim)
 
