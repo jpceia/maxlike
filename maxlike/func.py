@@ -14,8 +14,7 @@ class FuncMeta(type):
         return type.__new__(cls, name, bases, attrs, **kwargs)
 
 
-class Func(object):
-    __metaclass__ = FuncMeta
+class Func(metaclass=FuncMeta):
 
     def __call__(self, params):
         raise NotImplementedError
@@ -45,9 +44,9 @@ class Func(object):
         return Compose(self, other)
 
 
-class Atom(Func):
+class FuncWrap(Func):
     def __init__(self, foo, param_map, feat_map, n_feat,
-                 dim_map=None, n_dim=0):
+                 dim_map=None, n_dim=0, feat_flip=None):
         assert isinstance(foo, Func)
         # assert max(feat_map) <= n_feat
         # assert max(dim_map) <= n_dim
@@ -56,6 +55,7 @@ class Atom(Func):
         self.n_dim = n_dim
         self.param_map = IndexMap(param_map)
         self.feat_map = feat_map
+        self.feat_flip = feat_flip
         if dim_map is None:
             self.dim_map = []
         else:
@@ -63,7 +63,7 @@ class Atom(Func):
 
     def __call__(self, params):
         return self.foo(self.param_map(params)).\
-            expand(self.feat_map, self.n_feat).\
+            expand(self.feat_map, self.n_feat).flip(self.feat_flip).\
             expand(self.dim_map, self.n_dim, dim=True)
 
     def grad(self, params, i):
@@ -72,9 +72,9 @@ class Atom(Func):
         except ValueError:
             return Tensor()
         else:
-            return self.foo.grad(self.param_map(params), idx).expand(
-                self.feat_map, self.n_feat).expand(
-                self.dim_map, self.n_dim, dim=True)
+            return self.foo.grad(self.param_map(params), idx).\
+                expand(self.feat_map, self.n_feat).flip(self.feat_flip).\
+                expand(self.dim_map, self.n_dim, dim=True)
 
     def hess(self, params, i, j):
         try:
@@ -84,9 +84,9 @@ class Atom(Func):
             return Tensor()
         else:
             return self.foo.hess(
-                self.param_map(params), idx, jdx).expand(
-                    self.feat_map, self.n_feat).expand(
-                    self.dim_map, self.n_dim, dim=True)
+                self.param_map(params), idx, jdx).\
+                    expand(self.feat_map, self.n_feat).flip(self.feat_flip).\
+                    expand(self.dim_map, self.n_dim, dim=True)
 
 
 class Affine(Func):
@@ -161,7 +161,7 @@ class Sum(Func):
                     w * weight)
         else:
             self.atoms.append((
-                weight, Atom(
+                weight, FuncWrap(
                     foo, param_map,
                     feat_map, self.n_feat,
                     dim_map, self.n_dim)))
@@ -202,7 +202,7 @@ class Product(Func):
                     atom.feat_map(feat_map),
                     atom.dim_map(dim_map))
         else:
-            self.atoms.append(Atom(
+            self.atoms.append(FuncWrap(
                 foo, param_map,
                 feat_map, self.n_feat,
                 dim_map, self.n_dim))
