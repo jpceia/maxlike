@@ -252,38 +252,44 @@ class Tensor(BaseTensor):
         t.n = 0
         return t
 
-    def expand(self, feat_map, ndim, dim=False):
-        assert max(feat_map) < ndim
+    def expand(self, xmap, newsize, dim=False):
+        """
+        Applied either to N or to Dim, accordingly with the 'dim' flag
+        """
+        assert max(xmap or [-1]) < newsize
+
         if dim is True:
-            assert len(feat_map) == self.dim
+            assert len(xmap) == self.dim
             idx = [slice(None)] * (self.p1 + self.p2 + self.n)
-            idx += [slice(None) if k in feat_map else None
-                    for k in range(ndim)]
+            idx += [slice(None) if k in xmap else None
+                    for k in range(newsize)]
             return Tensor(
                 self.values[idx],
                 p1=self.p1,
                 p2=self.p2,
-                dim=ndim,
+                dim=newsize,
                 p1_mapping=self.p1_mapping,
                 p2_mapping=self.p2_mapping)
 
-        assert len(feat_map) == self.n
-        idx = [slice(None)] * (self.p1 + self.p2)
-        idx += [slice(None) if k in feat_map else None for k in range(ndim)]
-        idx += [slice(None)] * self.dim
-        p1_mapping = None
-        p2_mapping = None
-        if self.p1_mapping is not None:
-            p1_mapping = [feat_map[k] for k in self.p1_mapping]
-        if self.p2_mapping is not None:
-            p2_mapping = [feat_map[k] for k in self.p2_mapping]
-        return Tensor(
-            self.values[idx],
-            p1=self.p1,
-            p2=self.p2,
-            dim=self.dim,
-            p1_mapping=p1_mapping,
-            p2_mapping=p2_mapping)
+        else:
+            assert len(xmap) == self.n
+            idx = [slice(None)] * (self.p1 + self.p2)
+            idx += [slice(None) if k in xmap else None
+                    for k in range(newsize)]
+            idx += [slice(None)] * self.dim
+            p1_mapping = None
+            p2_mapping = None
+            if self.p1_mapping is not None:
+                p1_mapping = [xmap[k] for k in self.p1_mapping]
+            if self.p2_mapping is not None:
+                p2_mapping = [xmap[k] for k in self.p2_mapping]
+            return Tensor(
+                self.values[idx],
+                p1=self.p1,
+                p2=self.p2,
+                dim=self.dim,
+                p1_mapping=p1_mapping,
+                p2_mapping=p2_mapping)
 
     def transpose(self):
         t = self.copy()
