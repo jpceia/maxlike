@@ -21,7 +21,7 @@ class BaseTensor(object):
         pass
 
     @abc.abstractmethod
-    def expand(self, feat_map, ndim, dim=False):  # use xmap, newsize
+    def expand(self, xmap, newsize, dim=False):
         pass
 
     @abc.abstractmethod
@@ -92,13 +92,13 @@ class GenericTensor(BaseTensor):
             sum([el.sum(dim).values for el in self.elements]),
             p1=self.p1, p2=self.p2, dim=self.dim)
 
-    def expand(self, feat_map, ndim, dim=False):  # use xmap, newsize
+    def expand(self, xmap, newsize, dim=False):
         if dim:
-            self.dim = ndim
+            self.dim = newsize
         else:
-            self.n = ndim
+            self.n = newsize
 
-        self.elements = [el.expand(feat_map, ndim, dim)
+        self.elements = [el.expand(xmap, newsize, dim)
                          for el in self.elements]
 
     def transpose(self):
