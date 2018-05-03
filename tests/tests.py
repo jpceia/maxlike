@@ -4,7 +4,9 @@ import numpy as np
 import sys
 sys.path.insert(0, "..")
 import maxlike
-from maxlike.func import Encode, Vector, Linear, Quadratic, Compose, Exp, Poisson
+from maxlike.func import (
+    Encode, Vector, Linear, Quadratic, Compose, Exp,
+    Poisson, Product, FuncWrap, CollapseMatrix)
 
 
 class Test(unittest.TestCase):
@@ -140,6 +142,22 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
+
+    def test_kullback_leibler(self):
+        foo = maxlike.func.Sum(3)
+        foo.add(Encode(), 0, 0)
+        foo.add(-Encode(), 1, 1)
+        foo.add(Vector(np.arange(2) - .5), 2, 2)
+        f1 = Poisson(10) @ Exp() @ foo
+        f2 = FuncWrap(f1, [0, 1, 2], [1, 0, 2], 3, n_dim=1, feat_flip=[2])
+        F = Product(3, 2)
+        F.add(f1, [0, 1, 2], [0, 1, 2], 0)
+        F.add(f2, [0, 1, 2], [0, 1, 2], 1)
+        a = np.random.uniform(-1, 1, (5))
+        b = np.random.uniform(-1, 1, (5))
+        h = .2
+        G = CollapseMatrix() @ F
+        print(G.grad([a, b, h], 0).values)
 
 
 if __name__ == '__main__':
