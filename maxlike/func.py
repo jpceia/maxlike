@@ -438,17 +438,17 @@ class CollapseMatrix(Func):
         return Tensor(val, dim=1)
 
     def grad(self, params, i):
-        frame_shape = np.asarray(params[0]).shape
-        ones_frame = np.ones(frame_shape[:-2])
-        rng_x = np.arange(frame_shape[-2])
-        rng_y = np.arange(frame_shape[-1])
+        shape = np.asarray(params[0]).shape
+        ones_frame = np.ones(shape)
+        rng_x = np.arange(shape[-2])
+        rng_y = np.arange(shape[-1])
         val = []
         for x, y, c, s in self.conditions:
             filt = np.sign(x * rng_x[:, None] +
                            y * rng_y[None, :] + c) == s
-            val.append(ones_frame * filt.sum((-1, -2)))
+            val.append(ones_frame * filt)
         val = np.stack(val, -1)
-        return grad_tensor(val, [ones_frame], i, p1_mapping=True, dim=1)
+        return grad_tensor(val, params, i, p1_mapping=True, dim=1)
 
     def hess(self, params, i, j):
         return Tensor()
