@@ -3,7 +3,6 @@ from six import with_metaclass
 from tensor import *
 from common import *
 
-
 class FuncMeta(type):
 
     def __new__(cls, name, bases, attrs, **kwargs):
@@ -427,6 +426,10 @@ class CollapseMatrix(Func):
             ]
 
     def __call__(self, params):
+        """
+        CollapseMatrix function assumes that there is just one param that is
+        a Tensor with dim=2 (frame)
+        """
         frame = np.asarray(params[0])
         rng_x = np.arange(frame.shape[-2])
         rng_y = np.arange(frame.shape[-1])
@@ -435,7 +438,23 @@ class CollapseMatrix(Func):
             filt = np.sign(x * rng_x[:, None] +
                            y * rng_y[None, :] + c) == s
             val.append((frame * filt).sum((-1, -2)))
-        return Tensor(np.asarray(val).swapaxes(-1, -2))
+        val = np.stack(val, -1)
+        return Tensor(val, dim=1)
+
+    def grad(self, params, i):
+        frame = np.asarray(params[0])
+        rng_x = np.arange(frame.shape[-2])
+        rng_y = np.arange(frame.shape[-1])
+        val = []
+        for x, y, c, s in self.conditions:
+            filt = np.sign(x * rng_x[:, None] +
+                           y * rng_y[None, :] + c) == s
+            val.append(filt.sum((-1, -2)))
+        val = np.stack(val, -1).swapaxes((-1, -2))
+        return grad_tensor(val, params, i, p1_mapping=True, dim=0)
+
+    def hess(self, params, i, j):
+        return Tensor()
 
 
 class Compose(Func):
