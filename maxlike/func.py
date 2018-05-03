@@ -3,6 +3,7 @@ from six import with_metaclass
 from tensor import *
 from common import *
 
+
 class FuncMeta(type):
 
     def __new__(cls, name, bases, attrs, **kwargs):
@@ -45,7 +46,7 @@ class Func(with_metaclass(FuncMeta, object)):
 
 
 class FuncWrap(Func):
-    def __init__(self, foo, param_map, feat_map, n_feat,
+    def __init__(self, foo, param_map, feat_map, n_feat=None,
                  dim_map=None, n_dim=0, feat_flip=None):
         assert isinstance(foo, Func)
         # assert max(feat_map) <= n_feat
@@ -57,7 +58,7 @@ class FuncWrap(Func):
         self.feat_map = feat_map
         self.feat_flip = feat_flip
         if dim_map is None:
-            self.dim_map = []
+            self.dim_map = list(range(n_dim))
         else:
             self.dim_map = dim_map
 
@@ -340,9 +341,6 @@ class Vector(Func):
 
 
 class Exp(Func):
-
-    def __init__(self, size=10):
-        super(Exp, self).__init__()
 
     def __call__(self, params):
         return Tensor(np.exp(np.asarray(params[0])))
