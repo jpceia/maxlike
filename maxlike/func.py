@@ -1,5 +1,5 @@
 import numpy as np
-from six import with_metaclass
+from six import with_metaclass, moves
 from tensor import *
 from common import *
 
@@ -213,7 +213,7 @@ class Product(Func):
     @staticmethod
     def _prod(arr, except_idx):
         try:
-            return reduce(
+            return moves.reduce(
                 lambda x, y: x * y,
                 (el for i, el in enumerate(arr) if i not in except_idx)
             )
@@ -221,9 +221,7 @@ class Product(Func):
             return 0
 
     def __call__(self, params):
-        return reduce(
-            lambda x, y: x * y,
-            (atom(params) for atom in self.atoms))
+        return Product._prod([atom(params) for atom in self.atoms], [])
 
     def grad(self, params, i):
         f_val = [atom(params) for atom in self.atoms]
@@ -440,16 +438,17 @@ class CollapseMatrix(Func):
         return Tensor(val, dim=1)
 
     def grad(self, params, i):
-        frame = np.asarray(params[0])
-        rng_x = np.arange(frame.shape[-2])
-        rng_y = np.arange(frame.shape[-1])
+        frame_shape = np.asarray(params[0]).shape
+        ones_frame = np.ones(frame_shape[:-2])
+        rng_x = np.arange(frame_shape[-2])
+        rng_y = np.arange(frame_shape[-1])
         val = []
         for x, y, c, s in self.conditions:
             filt = np.sign(x * rng_x[:, None] +
                            y * rng_y[None, :] + c) == s
-            val.append(filt.sum((-1, -2)))
-        val = np.stack(val, -1).swapaxes((-1, -2))
-        return grad_tensor(val, params, i, p1_mapping=True, dim=0)
+            val.append(ones_frame * filt.sum((-1, -2)))
+        val = np.stack(val, -1)
+        return grad_tensor(val, [ones_frame], i, p1_mapping=True, dim=1)
 
     def hess(self, params, i, j):
         return Tensor()
