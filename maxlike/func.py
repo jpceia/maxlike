@@ -1,4 +1,5 @@
 import numpy as np
+from six import with_metaclass
 from tensor import *
 from common import *
 
@@ -14,7 +15,7 @@ class FuncMeta(type):
         return type.__new__(cls, name, bases, attrs, **kwargs)
 
 
-class Func(metaclass=FuncMeta):
+class Func(with_metaclass(FuncMeta, object)):
 
     def __call__(self, params):
         raise NotImplementedError

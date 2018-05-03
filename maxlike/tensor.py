@@ -1,9 +1,9 @@
 import abc
 import numpy as np
+from six import with_metaclass
 
 
-class BaseTensor(object):
-    __metaclass__ = abc.ABCMeta
+class BaseTensor(with_metaclass(abc.ABCMeta)):
 
     @abc.abstractmethod
     def __init__(self, p1=0, p2=0, n=0, dim=0):
