@@ -1,7 +1,11 @@
 import numpy as np
 from six import with_metaclass, moves
-from tensor import *
-from common import *
+try:
+    from tensor import *
+    from common import *
+except:
+    from .tensor import *
+    from .common import *
 
 
 class FuncMeta(type):
@@ -439,16 +443,16 @@ class CollapseMatrix(Func):
 
     def grad(self, params, i):
         frame_shape = np.asarray(params[0]).shape
-        ones_frame = np.ones(frame_shape[:-2])
+        ones_frame = np.ones(frame_shape)
         rng_x = np.arange(frame_shape[-2])
         rng_y = np.arange(frame_shape[-1])
         val = []
         for x, y, c, s in self.conditions:
             filt = np.sign(x * rng_x[:, None] +
                            y * rng_y[None, :] + c) == s
-            val.append(ones_frame * filt.sum((-1, -2)))
+            val.append(ones_frame * filt)
         val = np.stack(val, -1)
-        return grad_tensor(val, [ones_frame], i, p1_mapping=True, dim=1)
+        return grad_tensor(val, params, i, p1_mapping=True, dim=1)
 
     def hess(self, params, i, j):
         return Tensor()
@@ -471,7 +475,7 @@ class Compose(Func):
 
     def grad(self, params, i):
         f_arg = self.__f_arg(params)
-        return sum([self.f.grad(f_arg, k).dot(g.grad(params, i))
+        return sum([self.f.grad(f_arg, k).dot(g.grad(params, i).drop_dim())
                     for k, g in enumerate(self.g_list)])
 
     def hess(self, params, i, j):
@@ -480,7 +484,8 @@ class Compose(Func):
         for k, g_k in enumerate(self.g_list):
             for l, g_l in enumerate(self.g_list):
                 h_val += self.f.hess(f_arg, k, l).\
-                    dot(g_k.grad(params, i)).\
-                    dot(g_l.grad(params, j).transpose())
-            h_val += self.f.grad(f_arg, k).dot(g_k.hess(params, i, j))
+                    dot(g_k.grad(params, i).drop_dim()).\
+                    dot(g_l.grad(params, j).drop_dim().transpose())
+            h_val += self.f.grad(f_arg, k).\
+                    dot(g_k.hess(params, i, j).drop_dim())
         return h_val
