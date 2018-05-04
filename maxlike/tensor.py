@@ -33,6 +33,10 @@ class BaseTensor(with_metaclass(abc.ABCMeta)):
         pass
 
     @abc.abstractmethod
+    def drop_dim(self):
+        pass
+
+    @abc.abstractmethod
     def dot(self, other):
         pass
 
@@ -112,8 +116,14 @@ class GenericTensor(BaseTensor):
         return gt
 
     def transpose(self):
-        self.p1, self.p2 = self.p2, self.p1
-        self.elements = [el.transpose() for el in self.elements]
+        return GenericTensor(
+            self.p2, self.p1, self.n, self.dim,
+            [el.transpose() for el in self.elements])
+
+    def drop_dim(self):
+        return GenericTensor(
+            self.p1, self.p2, self.n + self.dim, 0,
+            [el.drop_dim() for el in self.elements])
 
     def dot(self, other):
         if isinstance(other, Tensor):
@@ -348,7 +358,12 @@ class Tensor(BaseTensor):
         t.p2_mapping = self.p1_mapping
         return t
 
+    def drop_dim(self):
+         return Tensor(self.values,p1=self.p1, p2=self.p2, dim=0,
+                       p1_mapping=self.p1_mapping, p2_mapping=self.p2_mapping)
+
     def dot(self, other):
+
         assert (self.dim == 0) | (other.dim == 0) | (self.dim == other.dim)
         dim = max(self.dim, other.dim)
 
@@ -366,6 +381,11 @@ class Tensor(BaseTensor):
 
                 assert self.p2 == 0
                 assert self.p1 == other.n
+
+                if isinstance(other, GenericTensor):
+                    return GenericTensor(
+                        other.p1, other.p2, self.n, dim,
+                        [self.dot(el) for el in other.elements])
 
                 p = other.p1 + other.p2
                 dim = max(self.dim, other.dim)
@@ -431,6 +451,11 @@ class Tensor(BaseTensor):
             #    x
 
             assert self.p1 == other.n
+
+            if isinstance(other, GenericTensor):
+                return GenericTensor(
+                    other.p1, self.p2, self.n, dim,
+                    [self.dot(el) for el in other.elements])
 
             p = self.p1 + self.p2
 
