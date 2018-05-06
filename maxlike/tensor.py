@@ -96,9 +96,10 @@ class GenericTensor(BaseTensor):
             self.elements = []
 
     def sum(self, dim=True):
+        dim = 0 if dim is True else self.dim
         return Tensor(
             sum([el.sum(dim).values for el in self.elements]),
-            p1=self.p1, p2=self.p2, dim=self.dim)
+            p1=self.p1, p2=self.p2, dim=dim)
 
     def expand(self, xmap, newsize, dim=False):
         if dim:
@@ -250,17 +251,19 @@ class Tensor(BaseTensor):
 
         if self.p1_mapping is not None:
             for k, f in enumerate(self.p1_mapping):
-                t.values = t.values.swapaxes(k, p + f)
+                if f is not None:
+                    t.values = t.values.swapaxes(k, p + f)
         if self.p2_mapping is not None:
             for k, f in enumerate(self.p2_mapping):
-                if self.p1_mapping is not None and f in self.p1_mapping:
-                    idx = np.zeros(self.values.ndim, dtype=np.bool)
-                    idx[self.p1_mapping.index(f)] = True
-                    idx[self.p1 + k] = True
-                    idx = [slice(None) if x else None for x in idx]
-                    t.values = t.values * np.eye(t.values.shape[k])[idx]
-                else:
-                    t.values = t.values.swapaxes(self.p1 + k, p + f)
+                if f is not None:
+                    if self.p1_mapping is not None and f in self.p1_mapping:
+                        idx = np.zeros(self.values.ndim, dtype=np.bool)
+                        idx[self.p1_mapping.index(f)] = True
+                        idx[self.p1 + k] = True
+                        idx = [slice(None) if x else None for x in idx]
+                        t.values = t.values * np.eye(t.values.shape[k])[idx]
+                    else:
+                        t.values = t.values.swapaxes(self.p1 + k, p + f)
         if dim is True:
             idx = tuple(p + np.arange(self.n + self.dim))
             t.dim = 0
@@ -300,9 +303,19 @@ class Tensor(BaseTensor):
             p1_mapping = None
             p2_mapping = None
             if self.p1_mapping is not None:
-                p1_mapping = [xmap[k] for k in self.p1_mapping]
+                p1_mapping = []
+                for k in self.p1_mapping:
+                    if k is None:
+                        p1_mapping.append(None)
+                    else:
+                        p1_mapping.append(xmap[k])
             if self.p2_mapping is not None:
-                p2_mapping = [xmap[k] for k in self.p2_mapping]
+                p2_mapping = []
+                for k in self.p2_mapping:
+                    if k is None:
+                        p2_mapping.append(None)
+                    else:
+                        p2_mapping.append(xmap[k])
             return Tensor(
                 self.values[idx],
                 p1=self.p1,
@@ -359,8 +372,9 @@ class Tensor(BaseTensor):
         return t
 
     def drop_dim(self):
-         return Tensor(self.values,p1=self.p1, p2=self.p2, dim=0,
-                       p1_mapping=self.p1_mapping, p2_mapping=self.p2_mapping)
+        return Tensor(
+            self.values, p1=self.p1, p2=self.p2, dim=0,
+            p1_mapping=self.p1_mapping, p2_mapping=self.p2_mapping)
 
     def dot(self, other):
 
@@ -398,37 +412,52 @@ class Tensor(BaseTensor):
                 p1_mapping = None
                 p2_mapping = None
                 val = self.values.copy()
-                if self.p1_mapping:
+                if self.p1_mapping is not None:
                     for k, f in enumerate(self.p1_mapping):
-                        val = val.swapaxes(k, self.p1 + f)
+                        if f is not None:
+                            val = val.swapaxes(k, self.p1 + f)
                 val = other.values[l_idx] * val[r_idx]
 
-                if self.p1_mapping:
+                if self.p1_mapping is not None:
                     for k, f in enumerate(self.p1_mapping):
-                        val = val.swapaxes(p + k, p + self.n + f)
+                        if f is not None:
+                            val = val.swapaxes(p + k, p + self.n + f)
 
-                    if other.p1_mapping:
-                        p1_mapping = [self.p1_mapping[f]
-                                      for f in other.p1_mapping]
-                    if other.p2_mapping:
-                        p2_mapping = [self.p1_mapping[f]
-                                      for f in other.p2_mapping]
-                else:
-                    if other.p1_mapping:
-                        for k, f in enumerate(other.p1_mapping):
-                            val = val.swapaxes(k, p + f)
-                    if other.p2_mapping:
-                        for k, f in enumerate(other.p2_mapping):
-                            if other.p1_mapping and f in other.p1_mapping:
-                                # overlap
-                                idx = np.zeros(val.ndim, dtype=np.bool)
-                                idx[other.p1_mapping.index(f)] = True
-                                idx[other.p1 + k] = True
-                                idx = [slice(None) if x else None for x in idx]
-                                val = val * np.eye(val.shape[k])[idx]
+                    if other.p1_mapping is not None:
+                        p1_mapping = []
+                        for k in other.p1_mapping:
+                            if k is None:
+                                p1_mapping.append(None)
                             else:
-                                # no overlap
-                                val = val.swapaxes(other.p1 + k, p + f)
+                                p1_mapping.append(self.p1_mapping[k])
+
+                    if other.p2_mapping:
+                        p2_mapping = []
+                        for k in other.p2_mapping:
+                            if k is None:
+                                p2_mapping.append(None)
+                            else:
+                                p2_mapping.append(self.p1_mapping[k])
+                else:
+                    if other.p1_mapping is not None:
+                        for k, f in enumerate(other.p1_mapping):
+                            if f is not None:
+                                val = val.swapaxes(k, p + f)
+                    if other.p2_mapping is not None:
+                        for k, f in enumerate(other.p2_mapping):
+                            if f is not None:
+                                if other.p1_mapping is not None and \
+                                        f in other.p1_mapping:
+                                    # overlap
+                                    idx = np.zeros(val.ndim, dtype=np.bool)
+                                    idx[other.p1_mapping.index(f)] = True
+                                    idx[other.p1 + k] = True
+                                    idx = [slice(None) if x else None
+                                           for x in idx]
+                                    val = val * np.eye(val.shape[k])[idx]
+                                else:
+                                    # no overlap
+                                    val = val.swapaxes(other.p1 + k, p + f)
 
                 val = val.sum(tuple(p + np.arange(other.n)))
                 return Tensor(val, p1=other.p1, p2=other.p2, dim=dim,
@@ -467,21 +496,28 @@ class Tensor(BaseTensor):
             p1_mapping = None
             val = self.values.copy()
 
-            if self.p1_mapping:
+            if self.p1_mapping is not None:
                 for k, f in enumerate(self.p1_mapping):
-                    val = val.swapaxes(k, p + f)
+                    if f is not None:
+                        val = val.swapaxes(k, p + f)
             val = other.values[l_idx] * val[r_idx]
 
-            if self.p1_mapping:
+            if self.p1_mapping is not None:
                 for k, f in enumerate(self.p1_mapping):
-                    val = val.swapaxes(other.p1 + k, other.p1 + p + f)
-                if other.p1_mapping:
-                    p1_mapping = [self.p1_mapping[f]
-                                  for f in other.p1_mapping]
+                    if f is not None:
+                        val = val.swapaxes(other.p1 + k, other.p1 + p + f)
+                if other.p1_mapping is not None:
+                    p1_mapping = []
+                    for f in other.p1_mapping:
+                        if f is None:
+                            p1_mapping.append(None)
+                        else:
+                            p1_mapping.append(self.p1_mapping[f])
             else:
-                if other.p1_mapping:
+                if other.p1_mapping is not None:
                     for k, f in enumerate(other.p1_mapping):
-                        val = val.swapaxes(k, other.p1 + f)
+                        if f is not None:
+                            val = val.swapaxes(k, other.p1 + f)
 
             val = val.sum(tuple(other.p1 + np.arange(self.n)))
             return Tensor(val, p1=other.p1, p2=self.p2, dim=dim,
@@ -490,10 +526,10 @@ class Tensor(BaseTensor):
 
         elif other.p2 > 0:
             return self.transpose().dot(other.transpose()).transpose()
-        
+
         elif other.values == 0:
             return 0
-        
+
         raise ValueError
 
     def copy(self):

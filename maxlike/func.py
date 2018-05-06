@@ -452,7 +452,8 @@ class CollapseMatrix(Func):
                            y * rng_y[None, :] + c) == s
             val.append(ones_frame * filt)
         val = np.stack(val, -1)
-        return grad_tensor(val, params, i, p1_mapping=True, dim=1)
+        return grad_tensor(
+            val, params, i, p1_mapping=[0, 1, 2, None, None], dim=1)
 
     def hess(self, params, i, j):
         return Tensor()
