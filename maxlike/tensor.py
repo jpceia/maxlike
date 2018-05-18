@@ -175,7 +175,7 @@ class GenericTensor(BaseTensor):
         if isinstance(other, GenericTensor):
             gt = self.copy()
             for el in other.elements:
-                gt = gt.__add(el, sgn)
+                gt = gt._add(el, sgn)
             return gt
 
         raise ValueError

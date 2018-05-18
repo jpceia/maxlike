@@ -145,7 +145,9 @@ class Sum(Func):
         """
         if isinstance(param_map, int):
             param_map = [param_map]
-        if isinstance(feat_map, int):
+        if feat_map is None:
+            feat_map = []
+        elif isinstance(feat_map, int):
             feat_map = [feat_map]
         if dim_map is None:
             dim_map = []
