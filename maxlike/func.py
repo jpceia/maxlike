@@ -430,27 +430,26 @@ class CollapseMatrix(Func):
         CollapseMatrix function assumes that there is just one param that is
         a Tensor with dim=2 (frame)
         """
-        frame = np.asarray(params[0])
-        rng_x = np.arange(frame.shape[-2])
-        rng_y = np.arange(frame.shape[-1])
+        arr = np.asarray(params[0])
+        rng_x = np.arange(arr.shape[-2])
+        rng_y = np.arange(arr.shape[-1])
         val = []
         for x, y, c, s in self.conditions:
             filt = np.sign(x * rng_x[:, None] +
                            y * rng_y[None, :] + c) == s
-            val.append((frame * filt).sum((-1, -2)))
+            val.append((arr * filt).sum((-1, -2)))
         val = np.stack(val, -1)
         return Tensor(val, dim=1)
 
     def grad(self, params, i):
-        shape = np.asarray(params[0]).shape
-        ones_frame = np.ones(shape)
-        rng_x = np.arange(shape[-2])
-        rng_y = np.arange(shape[-1])
+        ones = np.ones(np.asarray(params[0]).shape)
+        rng_x = np.arange(ones.shape[-2])
+        rng_y = np.arange(ones.shape[-1])
         val = []
         for x, y, c, s in self.conditions:
             filt = np.sign(x * rng_x[:, None] +
                            y * rng_y[None, :] + c) == s
-            val.append(ones_frame * filt)
+            val.append((ones * filt).sum((-1, -2)))
         val = np.stack(val, -1)
         return grad_tensor(
             val, params, i, p1_mapping=[0, 1, 2, None, None], dim=1)
