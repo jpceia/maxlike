@@ -17,7 +17,7 @@ class BaseTensor(with_metaclass(abc.ABCMeta)):
         self.dim = dim
 
     @abc.abstractmethod
-    def sum(self, dim=True):
+    def sum(self, sum_val=True, sum_dim=True):
         pass
 
     @abc.abstractmethod
@@ -95,10 +95,10 @@ class GenericTensor(BaseTensor):
         else:
             self.elements = []
 
-    def sum(self, dim=True):
-        dim = 0 if dim is True else self.dim
+    def sum(self, sum_val=True, sum_dim=True):
+        dim = 0 if sum_dim is True else self.dim
         return Tensor(
-            sum([el.sum(dim).values for el in self.elements]),
+            sum([el.sum(sum_val, sum_dim).values for el in self.elements]),
             p1=self.p1, p2=self.p2, dim=dim)
 
     def expand(self, xmap, newsize, dim=False):
@@ -146,12 +146,34 @@ class GenericTensor(BaseTensor):
             self.p1, self.p2, self.n, self.dim,
             [el.copy() for el in self.elements])
 
-    def _add(self, other, sgn):
+    def shape(self):
+        return "(p1:%d, p2:%d, n:%d, v:%d)" % \
+            (self.p1, self.p2, self.n, self.dim)
+
+    def __add__(self, other):
+        return self._bin_op(other, "sum")
+
+    def __sub__(self, other):
+        return self._bin_op(other, "sub")
+
+    def __len__(self):
+        return len(self.elements)
+
+    def __mul__(self, other):
+        return self._bin_op(other, "mul")
+
+    def __div__(self, other):
+        return self._bin_op(other, "div")
+
+    def __neg__(self, other):
+        return self.__mul__(-1.0)
+
+    def _bin_op(self, other, op_type):
         # Scalar
         # Array
         #  -> are converted to tensor
         if isinstance(other, (int, float, np.ndarray)):
-            return self._add(Tensor(other), sgn)
+            return self._bin_op(Tensor(other), op_type)
 
         p1 = max(self.p1, other.p1)
         p2 = max(self.p2, other.p2)
@@ -162,7 +184,16 @@ class GenericTensor(BaseTensor):
         if isinstance(other, Tensor):
             new_elements = self.elements[:]
             for k, el in enumerate(new_elements):
-                new_el = el + sgn * other
+                if op_type == "sum":
+                    new_el = el.__add__(other)
+                elif op_type == "sub":
+                    new_el = el.__sub__(other)
+                elif op_type == "mul":
+                    new_el = el.__mul__(other)
+                elif op_type == "div":
+                    new_el = el.__div__(other)
+                else:
+                    raise NotImplementedError
                 if isinstance(new_el, Tensor):
                     new_elements[k] = new_el
                     break
@@ -175,39 +206,10 @@ class GenericTensor(BaseTensor):
         if isinstance(other, GenericTensor):
             gt = self.copy()
             for el in other.elements:
-                gt = gt._add(el, sgn)
+                gt = gt._bin_op(el, op_type)
             return gt
 
         raise ValueError
-
-    def shape(self):
-        return "(p1:%d, p2:%d, n:%d, v:%d)" % \
-            (self.p1, self.p2, self.n, self.dim)
-
-    def __add__(self, other):
-        return self._add(other, 1.0)
-
-    def __sub__(self, other):
-        return self._add(other, -1.0)
-
-    def __len__(self):
-        return len(self.elements)
-
-    def _scalar_mul(self, a):
-        assert isinstance(a, (int, float))
-        return GenericTensor(
-            self.p1, self.p2, self.n, self.dim,
-            [el * a for el in self.elements])
-
-    # multiplication / division just with scalars
-    def __mul__(self, other):
-        return self._scalar_mul(other)
-
-    def __div__(self, other):
-        return self._scalar_mul(1.0 / other)
-
-    def __neg__(self, other):
-        return self._scalar_mul(-1.0)
 
 
 class Tensor(BaseTensor):
@@ -238,12 +240,12 @@ class Tensor(BaseTensor):
             else:
                 raise ValueError("p2_mapping defined incorrectly")
 
-    def sum(self, val=True, dim=True):
+    def sum(self, sum_val=True, sum_dim=True):
         t = self.copy()
         p = self.p1 + self.p2
 
-        if not val:
-            if dim:
+        if not sum_val:
+            if sum_dim:
                 t.values = t.values.sum(tuple(
                     p + self.n + np.arange(self.dim)))
                 t.dim = 0
@@ -264,7 +266,7 @@ class Tensor(BaseTensor):
                         t.values = t.values * np.eye(t.values.shape[k])[idx]
                     else:
                         t.values = t.values.swapaxes(self.p1 + k, p + f)
-        if dim is True:
+        if sum_dim is True:
             idx = tuple(p + np.arange(self.n + self.dim))
             t.dim = 0
         else:
@@ -519,7 +521,7 @@ class Tensor(BaseTensor):
                         if f is not None:
                             val = val.swapaxes(k, other.p1 + f)
 
-            val = val.sum(tuple(other.p1 + np.arange(self.n)))
+            val = val.sum(tuple(other.p1 + np.arange(other.n)))
             return Tensor(val, p1=other.p1, p2=self.p2, dim=dim,
                           p1_mapping=p1_mapping,
                           p2_mapping=self.p2_mapping)
@@ -529,7 +531,6 @@ class Tensor(BaseTensor):
 
         elif other.values == 0:
             return 0
-
         raise ValueError
 
     def copy(self):
@@ -537,6 +538,9 @@ class Tensor(BaseTensor):
                       p1_mapping=self.p1_mapping, p2_mapping=self.p2_mapping)
 
     def _bin_op(self, other, op_type):
+
+        if isinstance(other, GenericTensor):
+            return other._bin_op(self, op_type)
 
         if isinstance(other, (int, float, np.ndarray)):
             return self._bin_op(Tensor(other), op_type)
@@ -583,7 +587,7 @@ class Tensor(BaseTensor):
             if self.p1_mapping == other.p1_mapping:
                 p1_mapping = self.p1_mapping
             else:
-                if op_type == "sum":
+                if op_type == "sum":  # synthetic sum
                     return GenericTensor(
                         p1, p2, n, dim, [self.copy(), other.copy()])
                 elif op_type == "sub":
@@ -602,7 +606,7 @@ class Tensor(BaseTensor):
             if self.p2_mapping == other.p2_mapping:
                 p2_mapping = self.p2_mapping
             else:
-                if op_type == "sum":
+                if op_type == "sum":  # synthetic sum
                     return GenericTensor(
                         p1, p2, n, dim, [self.copy(), other.copy()])
                 elif op_type == "sub":

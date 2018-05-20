@@ -447,7 +447,7 @@ class Finite(MaxLike):
             Z(k) := sum_u p(x=u|k)
         """
         p = self.model(params)
-        z = p.sum(val=False)
+        z = p.sum(False)
         return (self.N * (np.log(p) - np.log(z))).sum()
 
     def grad_like(self, params):
