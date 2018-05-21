@@ -1,11 +1,13 @@
 import numpy as np
-from six import with_metaclass, moves
+from six import with_metaclass
 try:
     from tensor import *
     from common import *
 except:
     from .tensor import *
     from .common import *
+
+
 
 
 class FuncMeta(type):
@@ -58,13 +60,17 @@ class FuncWrap(Func):
         self.foo = foo
         self.n_feat = n_feat
         self.n_dim = n_dim
+        if param_map is None:
+            param_map = []
         self.param_map = IndexMap(param_map)
-        self.feat_map = feat_map
+        if feat_map is None:
+            feat_map = []
+        self.feat_map = IndexMap(feat_map)
         self.feat_flip = feat_flip
         if dim_map is None:
-            self.dim_map = list(range(n_dim))
+            self.dim_map = IndexMap(range(n_dim))
         else:
-            self.dim_map = dim_map
+            self.dim_map = IndexMap(dim_map)
 
     def __call__(self, params):
         return self.foo(self.param_map(params)).\
@@ -218,13 +224,11 @@ class Product(Func):
 
     @staticmethod
     def _prod(arr, except_idx):
-        try:
-            return moves.reduce(
-                lambda x, y: x * y,
-                (el for i, el in enumerate(arr) if i not in except_idx)
-            )
-        except TypeError:
-            return 0
+        p = 1
+        for i, el in enumerate(arr):
+            if i not in except_idx:
+                p *= el
+        return p
 
     def __call__(self, params):
         return Product._prod([atom(params) for atom in self.atoms], [])
@@ -233,7 +237,7 @@ class Product(Func):
         f_val = [atom(params) for atom in self.atoms]
         grad = 0
         for k, atom in enumerate(self.atoms):
-            f_prod = Product._prod(f_val, k)
+            f_prod = Product._prod(f_val, [k])
             grad += f_prod * atom.grad(params, i)
         return grad
 
@@ -244,10 +248,10 @@ class Product(Func):
             hess_k = 0
             for l, a_l in enumerate(self.atoms):
                 if k != l:
-                    f_prod = Product._prod(f_val, (k, l))
+                    f_prod = Product._prod(f_val, [k, l])
                     hess_k += f_prod * a_l.grad(params, j).transpose()
             hess_k *= a_k.grad(params, i)
-            f_prod = Product._prod(f_val, k)
+            f_prod = Product._prod(f_val, [k])
             hess_k += f_prod * a_k.hess(params, i, j)
             hess_val += hess_k
         return hess_val
@@ -266,13 +270,11 @@ class Linear(Func):
                     for w, p in zip(params, self.weights)))
 
     def grad(self, params, i):
-        return grad_tensor(self.weights[i] * np.ones(params[i].shape),
+        return grad_tensor(self.weights[i] * np.ones((1, ) * params[i].ndim),
                            params, i)
 
     def hess(self, params, i, j):
-        return hess_tensor(np.multiply.outer(
-            np.zeros(params[j].shape),
-            np.zeros(params[i].shape)),
+        return hess_tensor(np.zeros((1, )* (params[j].ndim + params[i].ndim)),
             params, i, j)
 
     def add_feature(self, weight):
@@ -309,10 +311,10 @@ class Encode(Func):
         return Tensor(params[0])
 
     def grad(self, params, i):
-        return grad_tensor(np.ones(params[0].shape), params, i, True)
+        return grad_tensor(np.ones((1, ) * params[0].ndim), params, i, True)
 
     def hess(self, params, i, j):
-        return hess_tensor(np.zeros(params[0].shape), params, i, j, True, True)
+        return hess_tensor(np.zeros((1, ) * params[0].ndim), params, i, j, True, True)
 
 
 class Constant(Func):
@@ -327,6 +329,17 @@ class Constant(Func):
 
     def hess(self, params, i, j):
         return Tensor(np.zeros(self.vector.shape))
+
+
+class Scalar(Func):
+    def __call__(self, params):
+        return Tensor(params[0])
+
+    def grad(self, params, i):
+        return Tensor(1)
+
+    def hess(self, params, i, j):
+        return Tensor(0)
 
 
 class Vector(Func):
