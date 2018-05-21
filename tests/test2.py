@@ -11,9 +11,12 @@ class SymbolicFunc(Func):
 	def __init__(self, x, f_list):
 		Df_list = [diff(f) for f in f_list]
 		Hf_list = [diff(Df) for Df in Df_list]
-		self.f = lambda u: np.stack(lambdify(x, f_list, 'numpy')(u))
-		self.Df = lambda u: np.stack(lambdify(x, Df_list, 'numpy')(u))
-		self.Hf = lambda u: np.stack(lambdify(x, Hf_list, 'numpy')(u))
+		self.f = lambda u: np.stack(
+			lambdify(x, f_list, 'numpy')(u)).swapaxes(0, -1)
+		self.Df = lambda u: np.stack(
+			lambdify(x, Df_list, 'numpy')(u)).swapaxes(0, -1)
+		self.Hf = lambda u: np.stack(
+			lambdify(x, Hf_list, 'numpy')(u)).swapaxes(0, -1)
 
 	def __call__(self, params):
 		return Tensor(self.f(params[0].values), dim=1)
@@ -35,7 +38,7 @@ class Logistic(Func):
 
 	def hess(self, params, i, j):
 		f = self.__call__(params).values
-		return grad_tensor(f * (1 - f) * (1 - 2 * f), params, i, j, True, True)
+		return hess_tensor(f * (1 - f) * (1 - 2 * f), params, i, j, True, True)
 
 if __name__ == "__main__":
 	x = symbols('x')
@@ -77,4 +80,4 @@ if __name__ == "__main__":
 	s.add(-Encode(), 0, 1)
 	F = proba @ Logistic() @ s
 
-	print(F([a]))
+	print(F.hess([a], 0, 0).sum())
