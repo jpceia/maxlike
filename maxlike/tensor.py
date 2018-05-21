@@ -380,6 +380,10 @@ class Tensor(BaseTensor):
 
     def dot(self, other):
 
+        if self.values.ndim == 0:
+            if self.values == 0:
+                return self
+
         assert (self.dim == 0) | (other.dim == 0) | (self.dim == other.dim)
         dim = max(self.dim, other.dim)
 
@@ -471,7 +475,7 @@ class Tensor(BaseTensor):
             else:
                 raise ValueError
 
-        elif other.p1 > 0:
+        elif (other.p1 > 0) | ((other.p1 == 0) & (other.p2 == 0) & (other.n == self.p1)):
 
             # P1 -  N E (other)
             # N  P2 M E (self)
@@ -568,6 +572,8 @@ class Tensor(BaseTensor):
                 raise NotImplementedError
             return t
 
+        values = None
+
         assert self.n == other.n
         n = self.n
 
@@ -593,6 +599,18 @@ class Tensor(BaseTensor):
                 elif op_type == "sub":
                     return GenericTensor(
                         p1, p2, n, dim, [self.copy(), -other.copy()])
+                elif op_type in ["mul", "div"]:
+                    if values is None:
+                        values = self.values.copy()
+                    p1_mapping = self.p1_mapping
+                    p = self.p1 + self.p2
+                    for fs, fo in zip(p1_mapping, other.p1_mapping):
+                        if fs != fo:
+                            idx = np.zeros(values.ndim, dtype=np.bool)
+                            idx[p + fs] = True
+                            idx[p + fo] = True
+                            idx = [slice(None) if i else None for i in idx]
+                            values *= np.eye(values.shape[p + fs])[idx]
                 else:
                     raise NotImplementedError
         elif other.p1 == 0:
@@ -612,6 +630,18 @@ class Tensor(BaseTensor):
                 elif op_type == "sub":
                     return GenericTensor(
                         p1, p2, n, dim, [self.copy(), -other.copy()])
+                elif op_type in ["mul", "div"]:
+                    if values is None:
+                        values = self.values.copy()
+                    p2_mapping = self.p2_mapping
+                    p = self.p1 + self.p2
+                    for fs, fo in zip(p2_mapping, other.p2_mapping):
+                        if fs != fo:
+                            idx = np.zeros(values.ndim, dtype=np.bool)
+                            idx[p + fs] = True
+                            idx[p + fo] = True
+                            idx = [slice(None) if i else None for i in idx]
+                            values *= np.eye(values.shape[p + fs])[idx]
                 else:
                     raise NotImplementedError
 
@@ -626,14 +656,17 @@ class Tensor(BaseTensor):
         l_idx = self.__reshape_idx(p1, p2, n, dim)
         r_idx = other.__reshape_idx(p1, p2, n, dim)
 
+        if values is None:
+            values = self.values.copy()
+
         if op_type == "sum":
-            values = self.values[l_idx] + other.values[r_idx]
+            values = values[l_idx] + other.values[r_idx]
         elif op_type == "sub":
-            values = self.values[l_idx] - other.values[r_idx]
+            values = values[l_idx] - other.values[r_idx]
         elif op_type == "mul":
-            values = self.values[l_idx] * other.values[r_idx]
+            values = values[l_idx] * other.values[r_idx]
         elif op_type == "div":
-            values = self.values[l_idx] / other.values[r_idx]
+            values = values[l_idx] / other.values[r_idx]
         else:
             raise NotImplementedError
 
