@@ -259,11 +259,12 @@ class Tensor(BaseTensor):
             for k, f in enumerate(self.p2_mapping):
                 if f is not None:
                     if self.p1_mapping is not None and f in self.p1_mapping:
+                        l = self.p1_mapping.index(f)
                         idx = np.zeros(self.values.ndim, dtype=np.bool)
-                        idx[self.p1_mapping.index(f)] = True
+                        idx[l] = True
                         idx[self.p1 + k] = True
                         idx = [slice(None) if x else None for x in idx]
-                        t.values = t.values * np.eye(t.values.shape[k])[idx]
+                        t.values = t.values * np.eye(t.values.shape[l])[idx]
                     else:
                         t.values = t.values.swapaxes(self.p1 + k, p + f)
         if sum_dim is True:
