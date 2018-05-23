@@ -102,13 +102,11 @@ class GenericTensor(BaseTensor):
             p1=self.p1, p2=self.p2, dim=dim)
 
     def expand(self, xmap, newsize, dim=False):
-        if dim:
-            self.dim = newsize
-        else:
-            self.n = newsize
-
-        self.elements = [el.expand(xmap, newsize, dim)
-                         for el in self.elements]
+        new_n = self.n if dim else newsize
+        new_dim = newsize if dim else self.dim
+        return GenericTensor(
+            self.p1, self.p2, new_n, new_dim, 
+            [el.expand(xmap, newsize, dim) for el in self.elements])
 
     def flip(self, xmap, dim=False):
         gt = GenericTensor()
