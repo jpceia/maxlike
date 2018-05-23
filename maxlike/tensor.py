@@ -289,6 +289,10 @@ class Tensor(BaseTensor):
         """
         assert max(xmap or [-1]) < newsize
 
+        if self.values.ndim == 0:
+            if self.values == 0:
+                return Tensor()
+
         if dim is True:
             assert len(xmap) == self.dim
             idx = [slice(None)] * (self.p1 + self.p2 + self.n)
