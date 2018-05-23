@@ -256,26 +256,31 @@ class Tensor(BaseTensor):
                 if f is not None:
                     t.values = t.values.swapaxes(k, p + f)
         if self.p2_mapping is not None:
-            for k, f in enumerate(self.p2_mapping):
+            for l, f in enumerate(self.p2_mapping):
                 if f is not None:
                     if self.p1_mapping is not None and f in self.p1_mapping:
-                        l = self.p1_mapping.index(f)
+                        k = self.p1_mapping.index(f)
                         idx = np.zeros(self.values.ndim, dtype=np.bool)
-                        idx[l] = True
-                        idx[self.p1 + k] = True
+                        idx[k] = True
+                        idx[self.p1 + l] = True
                         idx = [slice(None) if x else None for x in idx]
-                        t.values = t.values * np.eye(t.values.shape[l])[idx]
+                        t.values = t.values * np.eye(t.values.shape[k])[idx]
                     else:
-                        t.values = t.values.swapaxes(self.p1 + k, p + f)
+                        t.values = t.values.swapaxes(self.p1 + l, p + f)
+
+
+        
         if sum_dim is True:
             idx = tuple(p + np.arange(self.n + self.dim))
             t.dim = 0
         else:
             idx = tuple(p + np.arange(self.n))
+
         t.values = t.values.sum(idx).transpose()
         t.p1_mapping = None
         t.p2_mapping = None
         t.n = 0
+
         return t
 
     def expand(self, xmap, newsize, dim=False):
