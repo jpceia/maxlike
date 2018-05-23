@@ -4,7 +4,7 @@ import maxlike
 import numpy as np
 import pandas as pd
 from sympy import symbols, lambdify, diff
-from maxlike.func import Func, Sum, Encode, Linear
+from maxlike.func import Func, Sum, X, Linear
 from maxlike.tensor import Tensor, grad_tensor, hess_tensor
 from maxlike.utils import prepare_dataframe
 
@@ -77,8 +77,8 @@ if __name__ == "__main__":
     proba = SymbolicFunc(x, s_list)
     a = np.array([.1, .2, .3, .5, .6, .7, .8])
     s = Sum(2)
-    s.add(Encode(), 0, 0)
-    s.add(-Encode(), 0, 1)
+    s.add(X(), 0, 0)
+    s.add(-X(), 0, 1)
     F = proba @ Logistic() @ s
 
     df = pd.read_csv("test_data_finite2.csv", sep=";", index_col=[0, 1]).stack().to_frame('g')
@@ -93,7 +93,7 @@ if __name__ == "__main__":
     mle.add_constraint([0], Linear([1]))
 
     idx1 = (N + N.swapaxes(0, 1)).sum(0)[:, 1:].sum(-1) != 0  # only 0:6
-    idx2 = (N + N.swapaxes(0, 1)).sum(0)[:, :-1].sum(-1) != 0  # only 0:6
+    idx2 = (N + N.swapaxes(0, 1)).sum(0)[:, :-1].sum(-1) != 0  # only 6:0
     idx = idx1 | idx2
     N = N[idx, :, :][:, idx, :]
     n = idx.sum()

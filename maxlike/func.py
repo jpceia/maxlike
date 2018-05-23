@@ -305,7 +305,7 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
             params, i, j, True, True).sum()
 
 
-class Encode(Func):
+class X(Func):
 
     def __call__(self, params):
         return Tensor(params[0])

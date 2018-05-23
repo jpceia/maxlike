@@ -5,17 +5,16 @@ import sys
 sys.path.insert(0, "..")
 import maxlike
 from maxlike.func import (
-    Encode, Vector, Linear, Quadratic, Compose, Exp, Constant, Scalar,
+    X, Vector, Linear, Quadratic, Compose, Exp, Constant, Scalar, 
     Poisson, Sum, Product, CollapseMatrix)
 
 
 class Test(unittest.TestCase):
-
     def test_poisson(self):
         mle = maxlike.Poisson()
         mle.model = maxlike.func.Sum(3)
-        mle.model.add(Encode(), 0, 0)
-        mle.model.add(-Encode(), 1, 1)
+        mle.model.add(X(), 0, 0)
+        mle.model.add(-X(), 1, 1)
         mle.model.add(Vector(np.arange(2) - .5), 2, 2)
         mle.add_constraint([0, 1], Linear([1, 1]))
         g = pd.read_csv("test_data1.csv", index_col=[0, 1, 2])['g']
@@ -48,8 +47,8 @@ class Test(unittest.TestCase):
         mle = maxlike.Poisson()
         mle.model = Sum(3)
         s = Sum(2)
-        s.add(Encode(), 0, 0)
-        s.add(-Encode(), 1, 1)
+        s.add(X(), 0, 0)
+        s.add(-X(), 1, 1)
         k = Constant(np.arange(2) - .5)
         f_h = Product(1).add(k, None, 0).add(Scalar(), 0, None)
         mle.model.add(s, [0, 1], [0, 1])
@@ -81,10 +80,11 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
+    @unittest.skip
     def test_poisson3(self):
         mle = maxlike.Poisson()
         mle.model = Sum(3)
-        s = Sum(2).add(Encode(), 0, 0).add(-Encode(), 1, 1)
+        s = Sum(2).add(X(), 0, 0).add(-X(), 1, 1)
         prod = Product(2).add(s, [0, 1], [0, 1]).add(Scalar(), 2, None)
         s_h = Sum(2).add(Scalar(), 2, None).add(prod, [0, 1, 3], [0, 1])
         k = Constant(np.arange(2) - .5)
@@ -100,24 +100,20 @@ class Test(unittest.TestCase):
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean()
-        a_fix = 2
-        b_fix = 3
-        a[a_fix] = 1
-        b[b_fix] = -1
-        mle.add_param(a.values, np.arange(a.size) == a_fix)
-        mle.add_param(b.values, np.arange(b.size) == b_fix)
+        mle.add_param(a.values)
+        mle.add_param(b.values)
         mle.add_param(h, False)
         mle.add_param(h1, False)
         tol = 1e-8
-        mle.fit(tol=tol, verbose=True, **prepared_data)
-        a, b, h = mle.params_
-        s_a, s_b, s_h = mle.std_error()
+        mle.fit(tol=tol, **prepared_data)
+        a, b, h, h1 = mle.params_
+        s_a, s_b, s_h, s_h1 = mle.std_error()
 
     def test_poisson_reg(self):
         mle = maxlike.Poisson()
         mle.model = Sum(2)
-        mle.model.add(Encode(), 0, 0)
-        mle.model.add(-Encode(), 1, 1)
+        mle.model.add(X(), 0, 0)
+        mle.model.add(-X(), 1, 1)
         mle.add_constraint([0, 1], Linear([1, 1]))
         mle.add_regularization([0, 1], Quadratic(0, 1))
         g = pd.read_csv("test_data1.csv", index_col=[0, 1])['g']
@@ -141,8 +137,8 @@ class Test(unittest.TestCase):
     def test_logistic(self):
         mle = maxlike.Logistic()
         mle.model = Sum(2)
-        mle.model.add(Encode(), 0, 0)
-        mle.model.add(-Encode(), 1, 1)
+        mle.model.add(X(), 0, 0)
+        mle.model.add(-X(), 1, 1)
         mle.add_constraint([0, 1], Linear([1, 1]))
         g = pd.read_csv("test_data1.csv", index_col=[0, 1])['g'] > 1
         prepared_data, _ = maxlike.utils.prepare_series(
@@ -165,8 +161,8 @@ class Test(unittest.TestCase):
     def test_negative_binomial(self):
         mle = maxlike.NegativeBinomial()
         mle.model = Sum(2)
-        mle.model.add(Encode(), 0, 0)
-        mle.model.add(-Encode(), 1, 1)
+        mle.model.add(X(), 0, 0)
+        mle.model.add(-X(), 1, 1)
         mle.add_constraint([0, 1], Linear([1, 1]))
         g = pd.read_csv("test_data1.csv", index_col=[0, 1])['g']
         prepared_data, _ = maxlike.utils.prepare_series(
@@ -190,8 +186,8 @@ class Test(unittest.TestCase):
         L = 10
         mle = maxlike.Finite()
         foo = Sum(2)
-        foo.add(Encode(), 0, 0)
-        foo.add(-Encode(), 1, 1)
+        foo.add(X(), 0, 0)
+        foo.add(-X(), 1, 1)
         mle.model = Compose(Poisson(L), Compose(Exp(), foo))
         mle.add_constraint([0, 1], Linear([1, 1]))
         g = pd.read_csv("test_data1.csv", index_col=[0, 1])['g']
@@ -212,6 +208,7 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
+    @unittest.skip
     def test_kullback_leibler(self):
         
         mle = maxlike.Finite()
@@ -233,8 +230,8 @@ class Test(unittest.TestCase):
         # define functions
         L = 10
         f = maxlike.func.Sum(2)
-        f.add(Encode(), 0, 0)
-        f.add(-Encode(), 1, 1)
+        f.add(X(), 0, 0)
+        f.add(-X(), 1, 1)
         foo = Poisson(L) @ Exp() @ f
 
         F = Product(2, 2)
@@ -247,7 +244,6 @@ class Test(unittest.TestCase):
         mle.fit(tol=tol, max_steps=20, **prepared_data)
         a, b = mle.params_
         s_a, s_b = mle.std_error()
-
 
 if __name__ == '__main__':
     unittest.main()
