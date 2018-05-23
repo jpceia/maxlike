@@ -83,14 +83,23 @@ class Test(unittest.TestCase):
     @unittest.skip
     def test_poisson3(self):
         mle = maxlike.Poisson()
-        mle.model = Sum(3)
         s = Sum(2).add(X(), 0, 0).add(-X(), 1, 1)
-        prod = Product(2).add(s, [0, 1], [0, 1]).add(Scalar(), 2, None)
-        s_h = Sum(2).add(Scalar(), 2, None).add(prod, [0, 1, 3], [0, 1])
-        k = Constant(np.arange(2) - .5)
-        f_h = Product(3).add(k, None, 2).add(s_h, [0, 1, 2, 3], [0, 1])
-        mle.model.add(s, [0, 1], [0, 1])
-        mle.model.add(f_h, [0, 1, 2, 3], [0, 1, 2])
+        s_diff = Sum(2)
+        s_diff.add(s, [0, 1], [0, 1])
+        s_diff.add(-s, [0, 1], [1, 0])
+        hs = Product(2)
+        hs.add(Scalar(), 2, None)
+        hs.add(s_diff, [0, 1], [0, 1])
+        h_diff = Sum(2)
+        h_diff.add(Scalar(), 2, None)
+        h_diff.add(hs, [0, 1, 3], [0, 1])
+        H = Product(3)
+        H.add(Constant(np.arange(2) - .5), [], 2)
+        H.add(h_diff, [0, 1, 2, 3], [0, 1])
+        F = Sum(3)
+        F.add(s, [0, 1], [0, 1])
+        F.add(H, [0, 1, 2, 3], [0, 1, 2])
+        mle.model = F
         mle.add_constraint([0, 1], Linear([1, 1]))
         g = pd.read_csv("test_data1.csv", index_col=[0, 1, 2])['g']
         prepared_data, _ = maxlike.utils.prepare_series(
