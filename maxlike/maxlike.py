@@ -267,7 +267,8 @@ class MaxLike(object):
         # 3rd phase: Reshape and flatten
         # --------------------------------------------------------------------
         flat_params = [p.compressed() for p in self.params_]
-        grad = [grad[i][~p.mask] for i, p in enumerate(self.params_)] + grad[n:]
+        grad = [grad[i].values[~p.mask]
+                for i, p in enumerate(self.params_)] + grad[n:]
 
         # ------
         # | aa |
@@ -279,7 +280,7 @@ class MaxLike(object):
         #
         # then hess[i][j].shape = shape[j] x shape[i]
 
-        hess = [[hess[j][i][np.multiply.outer(
+        hess = [[hess[j][i].values[np.multiply.outer(
             ~self.params_[i].mask, ~p_j.mask)].reshape(
             (self.params_[i].count(), p_j.count()))
             for i in range(j + 1)] for j, p_j in enumerate(self.params_)]

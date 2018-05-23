@@ -209,6 +209,9 @@ class GenericTensor(BaseTensor):
 
         raise ValueError
 
+    def __getitem__(self, i):
+        return self.elements[i]
+
 
 class Tensor(BaseTensor):
     def __init__(self, values=0, p1=0, p2=0, dim=0,
@@ -266,8 +269,6 @@ class Tensor(BaseTensor):
                     else:
                         t.values = t.values.swapaxes(self.p1 + l, p + f)
 
-
-        
         if sum_dim is True:
             idx = tuple(p + np.arange(self.n + self.dim))
             t.dim = 0
@@ -684,9 +685,6 @@ class Tensor(BaseTensor):
     def shape(self):
         return "(p1:%d, p2:%d, n:%d, v:%d)" % \
             (self.p1, self.p2, self.n, self.dim)
-
-    def __getitem__(self, i):
-        return self.values[i]
 
     def __str__(self):
         s = str(self.values)
