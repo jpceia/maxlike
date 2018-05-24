@@ -97,8 +97,8 @@ class GenericTensor(BaseTensor):
 
     def sum(self, sum_val=True, sum_dim=True):
         dim = 0 if sum_dim is True else self.dim
+        
         # step to consider the impact of broadcasting
-
         shape = [0] * self.n
         sizes = []
         for el in self.elements:
@@ -114,8 +114,8 @@ class GenericTensor(BaseTensor):
             size *= k
 
         values = 0
-        for k, el in enumerate(self.elements):
-            values += el.sum(sum_val, sum_dim).values * (size / sizes[k])
+        for el, el_size in zip(self.elements, sizes):
+            values += el.sum(sum_val, sum_dim).values * (size / el_size)
 
         return Tensor(values, p1=self.p1, p2=self.p2, dim=dim)
 
@@ -167,7 +167,7 @@ class GenericTensor(BaseTensor):
             (self.p1, self.p2, self.n, self.dim)
 
     def __add__(self, other):
-        return self._bin_op(other, "sum")
+        return self._bin_op(other, "add")
 
     def __sub__(self, other):
         return self._bin_op(other, "sub")
@@ -199,14 +199,20 @@ class GenericTensor(BaseTensor):
         # Tensor
         if isinstance(other, Tensor):
             new_elements = self.elements[:]
-            for k, el in enumerate(new_elements):
-                new_el = el._bin_op(other, op_type)
-                if isinstance(new_el, Tensor):
-                    new_elements[k] = new_el
-                    break
+            if op_type in ["add", "sub"]:
+                for k, el in enumerate(new_elements):
+                    new_el = el._bin_op(other, op_type)
+                    if isinstance(new_el, Tensor):
+                        new_elements[k] = new_el
+                        break
+                else:
+                    # other isn't coherent with any of the current elements
+                    new_elements.append(other)
+            elif op_type in ["mul", "div"]:
+                for k, el in enumerate(new_elements):
+                    new_elements[k] = el._bin_op(other, op_type)
             else:
-                # other isn't coherent with any of the current elements
-                new_elements.append(other)
+                raise ValueError
 
             return GenericTensor(p1, p2, n, dim, new_elements)
 
@@ -594,7 +600,7 @@ class Tensor(BaseTensor):
                 t = self.copy()
             else:
                 t = other.copy()
-            if op_type == "sum":
+            if op_type == "add":
                 t.values = np.asarray(self.values + other.values)
             elif op_type == "sub":
                 t.values = np.asarray(self.values - other.values)
@@ -627,7 +633,7 @@ class Tensor(BaseTensor):
             if self.p1_mapping == other.p1_mapping:
                 p1_mapping = self.p1_mapping
             else:
-                if op_type == "sum":  # synthetic sum
+                if op_type == "add":  # synthetic sum
                     return GenericTensor(
                         p1, p2, n, dim, [self.copy(), other.copy()])
                 elif op_type == "sub":
@@ -644,7 +650,7 @@ class Tensor(BaseTensor):
                             idx[p + fs] = True
                             idx[p + fo] = True
                             idx = [slice(None) if i else None for i in idx]
-                            values *= np.eye(values.shape[p + fs])[idx]
+                            values = values * np.eye(values.shape[p + fs])[idx]
                 else:
                     raise NotImplementedError
         elif other.p1 == 0:
@@ -658,7 +664,7 @@ class Tensor(BaseTensor):
             if self.p2_mapping == other.p2_mapping:
                 p2_mapping = self.p2_mapping
             else:
-                if op_type == "sum":  # synthetic sum
+                if op_type == "add":  # synthetic sum
                     return GenericTensor(
                         p1, p2, n, dim, [self.copy(), other.copy()])
                 elif op_type == "sub":
@@ -675,7 +681,7 @@ class Tensor(BaseTensor):
                             idx[p + fs] = True
                             idx[p + fo] = True
                             idx = [slice(None) if i else None for i in idx]
-                            values *= np.eye(values.shape[p + fs])[idx]
+                            values = values * np.eye(values.shape[p + fs])[idx]
                 else:
                     raise NotImplementedError
 
@@ -693,7 +699,7 @@ class Tensor(BaseTensor):
         if values is None:
             values = self.values.copy()
 
-        if op_type == "sum":
+        if op_type == "add":
             values = values[l_idx] + other.values[r_idx]
         elif op_type == "sub":
             values = values[l_idx] - other.values[r_idx]
@@ -757,7 +763,7 @@ class Tensor(BaseTensor):
         return idx
 
     def __add__(self, other):
-        return self._bin_op(other, "sum")
+        return self._bin_op(other, "add")
 
     def __sub__(self, other):
         return self._bin_op(other, "sub")
