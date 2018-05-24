@@ -182,20 +182,12 @@ class GenericTensor(BaseTensor):
         if isinstance(other, Tensor):
             new_elements = self.elements[:]
             for k, el in enumerate(new_elements):
-                if op_type == "sum":
-                    new_el = el.__add__(other)
-                elif op_type == "sub":
-                    new_el = el.__sub__(other)
-                elif op_type == "mul":
-                    new_el = el.__mul__(other)
-                elif op_type == "div":
-                    new_el = el.__div__(other)
-                else:
-                    raise NotImplementedError
+                new_el = el._bin_op(other, op_type)
                 if isinstance(new_el, Tensor):
                     new_elements[k] = new_el
                     break
             else:
+                # other isn't coherent with any of the current elements
                 new_elements.append(other)
 
             return GenericTensor(p1, p2, n, dim, new_elements)
@@ -553,7 +545,22 @@ class Tensor(BaseTensor):
     def _bin_op(self, other, op_type):
 
         if isinstance(other, GenericTensor):
-            return other._bin_op(self, op_type)
+            p1 = max(self.p1, other.p1)
+            p2 = max(self.p2, other.p2)
+            n = max(self.n, other.n)
+            dim = max(self.dim, other.dim)
+
+            new_elements = other.elements[:]
+            for k, el in enumerate(new_elements):
+                new_el = self._bin_op(el, op_type)
+                if isinstance(new_el, Tensor):
+                    new_elements[k] = new_el
+                    break
+            else:
+                # other isn't coherent with any of the current elements
+                new_elements.append(other)
+
+            return GenericTensor(p1, p2, n, dim, new_elements)
 
         if isinstance(other, (int, float, np.ndarray)):
             return self._bin_op(Tensor(other), op_type)
