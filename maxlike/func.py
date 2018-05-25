@@ -249,11 +249,9 @@ class Product(Func):
             for l, a_l in enumerate(self.atoms):
                 if k != l:
                     f_prod = Product._prod(f_val, [k, l])
-                    hess_k += f_prod * a_l.grad(params, j).transpose()
-            hess_k *= a_k.grad(params, i)
-            f_prod = Product._prod(f_val, [k])
-            hess_k += f_prod * a_k.hess(params, i, j)
+                    hess_k += f_prod * a_k.grad(params, i) * a_l.grad(params, j).transpose()
             hess_val += hess_k
+            hess_val += Product._prod(f_val, [k]) * a_k.hess(params, i, j)
         return hess_val
 
 
@@ -311,10 +309,10 @@ class X(Func):
         return Tensor(params[0])
 
     def grad(self, params, i):
-        return grad_tensor(np.ones((1, ) * params[0].ndim), params, i, True)
+        return grad_tensor(np.ones((params[0].shape)), params, i, True)
 
     def hess(self, params, i, j):
-        return hess_tensor(np.zeros((1, ) * params[0].ndim), params, i, j, True, True)
+        return hess_tensor(np.zeros((params[0].shape)), params, i, j, True, True)
 
 
 class Constant(Func):
