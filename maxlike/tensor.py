@@ -181,9 +181,6 @@ class GenericTensor(BaseTensor):
     def __div__(self, other):
         return self._bin_op(other, "div")
 
-    def __neg__(self, other):
-        return self.__mul__(-1.0)
-
     def _bin_op(self, other, op_type):
         # Scalar
         # Array
