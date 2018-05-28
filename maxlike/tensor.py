@@ -123,7 +123,7 @@ class GenericTensor(BaseTensor):
 
         values = 0
         for el, el_size in zip(self.elements, sizes):
-            values += el.sum(sum_val, sum_dim).values * (size / el_size)
+            values = values + el.sum(sum_val, sum_dim).values * (size / el_size)
 
         dim = 0 if sum_dim is True else self.dim
         return Tensor(values, p1=self.p1, p2=self.p2, dim=dim)
@@ -274,6 +274,7 @@ class Tensor(BaseTensor):
     def sum(self, sum_val=True, sum_dim=True):
         t = self.copy()
         p = self.p1 + self.p2
+        cross_map = {}
 
         if not sum_val:
             if sum_dim:
@@ -291,11 +292,7 @@ class Tensor(BaseTensor):
                 if f >= 0:
                     if len(self.p1_mapping) > 0 and f in self.p1_mapping:
                         k = self.p1_mapping.index(f)
-                        idx = np.zeros(self.values.ndim, dtype=np.bool)
-                        idx[k] = True
-                        idx[self.p1 + l] = True
-                        idx = [slice(None) if x else None for x in idx]
-                        t.values = t.values * np.eye(t.values.shape[k])[idx]
+                        cross_map[k] = l
                     else:
                         t.values = t.values.swapaxes(self.p1 + l, p + f)
 
@@ -309,6 +306,13 @@ class Tensor(BaseTensor):
         t.p1_mapping = array('b')
         t.p2_mapping = array('b')
         t.n = 0
+
+        for k, l in cross_map.items():
+            idx = np.zeros(t.values.ndim, dtype=np.bool)
+            idx[k] = True
+            idx[self.p1 + l] = True
+            idx = [slice(None) if x else None for x in idx]
+            t.values = t.values * np.eye(t.values.shape[self.p1 + l])[idx]
 
         return t
 
