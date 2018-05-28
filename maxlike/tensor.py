@@ -1,5 +1,6 @@
 import abc
 import numpy as np
+from array import array
 from six import with_metaclass
 
 
@@ -249,24 +250,24 @@ class Tensor(BaseTensor):
         self.values = np.asarray(values)
         super(Tensor, self).__init__(
             p1, p2, self.values.ndim - p1 - p2 - dim, dim)
-        self.p1_mapping = None
-        self.p2_mapping = None
-        if p1_mapping is not None:
+        self.p1_mapping = array('b')
+        self.p2_mapping = array('b')
+        if p1_mapping:
             if p1_mapping is True:
                 assert p1 == self.n
-                self.p1_mapping = range(self.n)
-            elif isinstance(p1_mapping, (list, tuple, range)):
+                self.p1_mapping = array('b', range(p1))
+            elif isinstance(p1_mapping, (list, tuple, range, array)):
                 assert len(p1_mapping) == p1
-                self.p1_mapping = p1_mapping
+                self.p1_mapping = array('b', p1_mapping)
             else:
                 raise ValueError("p1_mapping defined incorrectly")
-        if p2_mapping is not None:
+        if p2_mapping:
             if p2_mapping is True:
                 assert p2 == self.n
-                self.p2_mapping = range(self.n)
-            elif isinstance(p2_mapping, (list, tuple, range)):
+                self.p2_mapping = array('b', range(p2))
+            elif isinstance(p2_mapping, (list, tuple, range, array)):
                 assert len(p2_mapping) == p2
-                self.p2_mapping = p2_mapping
+                self.p2_mapping = array('b', p2_mapping)
             else:
                 raise ValueError("p2_mapping defined incorrectly")
 
@@ -281,14 +282,14 @@ class Tensor(BaseTensor):
                 t.dim = 0
             return t
 
-        if self.p1_mapping is not None:
+        if len(self.p1_mapping) > 0:
             for k, f in enumerate(self.p1_mapping):
-                if f is not None:
+                if f >= 0:
                     t.values = t.values.swapaxes(k, p + f)
-        if self.p2_mapping is not None:
+        if len(self.p2_mapping) > 0:
             for l, f in enumerate(self.p2_mapping):
-                if f is not None:
-                    if self.p1_mapping is not None and f in self.p1_mapping:
+                if f >= 0:
+                    if len(self.p1_mapping) > 0 and f in self.p1_mapping:
                         k = self.p1_mapping.index(f)
                         idx = np.zeros(self.values.ndim, dtype=np.bool)
                         idx[k] = True
@@ -305,8 +306,8 @@ class Tensor(BaseTensor):
             idx = tuple(p + np.arange(self.n))
 
         t.values = t.values.sum(idx).transpose()
-        t.p1_mapping = None
-        t.p2_mapping = None
+        t.p1_mapping = array('b')
+        t.p2_mapping = array('b')
         t.n = 0
 
         return t
@@ -340,20 +341,18 @@ class Tensor(BaseTensor):
             idx += [slice(None) if k in xmap else None
                     for k in range(newsize)]
             idx += [slice(None)] * self.dim
-            p1_mapping = None
-            p2_mapping = None
-            if self.p1_mapping is not None:
-                p1_mapping = []
+            p1_mapping = array('b')
+            p2_mapping = array('b')
+            if len(self.p1_mapping) > 0:
                 for k in self.p1_mapping:
-                    if k is None:
-                        p1_mapping.append(None)
+                    if k < 0:
+                        p1_mapping.append(-1)
                     else:
                         p1_mapping.append(xmap[k])
-            if self.p2_mapping is not None:
-                p2_mapping = []
+            if len(self.p2_mapping) > 0:
                 for k in self.p2_mapping:
-                    if k is None:
-                        p2_mapping.append(None)
+                    if k < 0:
+                        p2_mapping.append(-1)
                     else:
                         p2_mapping.append(xmap[k])
             return Tensor(
@@ -380,11 +379,9 @@ class Tensor(BaseTensor):
 
         else:
             assert max(xmap) < self.n
-            mappings = []
-            if self.p1_mapping:
-                mappings += self.p1_mapping
-            if self.p2_mapping:
-                mappings += self.p2_mapping
+            mappings = array('b')
+            mappings += self.p1_mapping
+            mappings += self.p2_mapping
             for k in xmap:
                 if k in mappings:
                     raise NotImplementedError
@@ -453,44 +450,44 @@ class Tensor(BaseTensor):
                         [slice(None)] * other.dim + [None] * (dim - other.dim)
                 r_idx = [None] * p + [Ellipsis] + [None] * (dim - self.dim)
 
-                p1_mapping = None
-                p2_mapping = None
+                p1_mapping = array('b')
+                p2_mapping = array('b')
                 val = self.values.copy()
-                if self.p1_mapping is not None:
+                if len(self.p1_mapping) > 0:
                     for k, f in enumerate(self.p1_mapping):
-                        if f is not None:
+                        if f >= 0:
                             val = val.swapaxes(k, self.p1 + f)
                 val = other.values[l_idx] * val[r_idx]
 
-                if self.p1_mapping is not None:
+                if len(self.p1_mapping) > 0:
                     for k, f in enumerate(self.p1_mapping):
-                        if f is not None:
+                        if f >= 0:
                             val = val.swapaxes(p + k, p + self.n + f)
 
-                    if other.p1_mapping is not None:
-                        p1_mapping = []
+                    if len(other.p1_mapping) > 0:
+                        p1_mapping = array('b')
                         for k in other.p1_mapping:
-                            if k is None:
-                                p1_mapping.append(None)
+                            if k < 0:
+                                p1_mapping.append(-1)
                             else:
                                 p1_mapping.append(self.p1_mapping[k])
 
-                    if other.p2_mapping:
-                        p2_mapping = []
+                    if len(other.p2_mapping) > 0:
+                        p2_mapping = array('b')
                         for k in other.p2_mapping:
-                            if k is None:
-                                p2_mapping.append(None)
+                            if k < 0:
+                                p2_mapping.append(-1)
                             else:
                                 p2_mapping.append(self.p1_mapping[k])
                 else:
-                    if other.p1_mapping is not None:
+                    if len(other.p1_mapping) > 0:
                         for k, f in enumerate(other.p1_mapping):
-                            if f is not None:
+                            if f >= 0:
                                 val = val.swapaxes(k, p + f)
-                    if other.p2_mapping is not None:
+                    if len(other.p2_mapping) > 0:
                         for k, f in enumerate(other.p2_mapping):
                             if f is not None:
-                                if other.p1_mapping is not None and \
+                                if len(other.p1_mapping) > 0 and \
                                         f in other.p1_mapping:
                                     # overlap
                                     idx = np.zeros(val.ndim, dtype=np.bool)
@@ -537,30 +534,30 @@ class Tensor(BaseTensor):
                     [None] * (dim - other.dim)
             r_idx = [None] * other.p1 + [Ellipsis] + [None] * (dim - self.dim)
 
-            p1_mapping = None
+            p1_mapping = array('b')
             val = self.values.copy()
 
-            if self.p1_mapping is not None:
+            if len(self.p1_mapping) > 0:
                 for k, f in enumerate(self.p1_mapping):
-                    if f is not None:
+                    if f >= 0:
                         val = val.swapaxes(k, p + f)
             val = other.values[l_idx] * val[r_idx]
 
-            if self.p1_mapping is not None:
+            if len(self.p1_mapping) > 0:
                 for k, f in enumerate(self.p1_mapping):
-                    if f is not None:
+                    if f >= 0:
                         val = val.swapaxes(other.p1 + k, other.p1 + p + f)
-                if other.p1_mapping is not None:
-                    p1_mapping = []
+                if len(other.p1_mapping) > 0:
+                    p1_mapping = array('b')
                     for f in other.p1_mapping:
-                        if f is None:
-                            p1_mapping.append(None)
+                        if f < 0:
+                            p1_mapping.append(-1)
                         else:
                             p1_mapping.append(self.p1_mapping[f])
             else:
-                if other.p1_mapping is not None:
+                if len(other.p1_mapping) > 0:
                     for k, f in enumerate(other.p1_mapping):
-                        if f is not None:
+                        if f >= 0:
                             val = val.swapaxes(k, other.p1 + f)
 
             val = val.sum(tuple(other.p1 + np.arange(other.n)))
