@@ -96,27 +96,35 @@ class GenericTensor(BaseTensor):
             self.elements = []
 
     def sum(self, sum_val=True, sum_dim=True):
-        dim = 0 if sum_dim is True else self.dim
-        
-        # step to consider the impact of broadcasting
-        shape = [0] * self.n
+        # consider the impact of broadcasting
+        if not sum_val and not sum_dim:
+            return self.copy()
+        i0 = 0
+        i1 = self.n + self.dim
+        if not sum_val:
+            i0 = self.n
+        if not sum_dim:
+            i1 = self.dim
+
+        shape_n = [0] * (i1 - i0)
         sizes = []
         for el in self.elements:
             p = el.p1 + el.p2
             el_size = 1
-            for i, k in enumerate(el.values.shape[p:]):
+            for i, k in enumerate(el.values.shape[p+i0:p+i1]):
                 el_size *= k
-                shape[i] = max(shape[i], k)
+                shape_n[i] = max(shape_n[i], k)
             sizes.append(el_size)
 
         size = 1
-        for k in shape:
+        for k in shape_n:
             size *= k
 
         values = 0
         for el, el_size in zip(self.elements, sizes):
             values += el.sum(sum_val, sum_dim).values * (size / el_size)
 
+        dim = 0 if sum_dim is True else self.dim
         return Tensor(values, p1=self.p1, p2=self.p2, dim=dim)
 
     def expand(self, xmap, newsize, dim=False):
