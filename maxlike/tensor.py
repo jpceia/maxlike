@@ -610,9 +610,9 @@ class Tensor(BaseTensor):
             return self._bin_op(Tensor(other), op_type)
 
         scalar_op = False
-        if other.values.shape == ():
+        if other.values.ndim == 0:
             scalar_op = True
-        elif self.values.shape == ():
+        elif self.values.ndim == 0:
             scalar_op = True
 
         if scalar_op:
