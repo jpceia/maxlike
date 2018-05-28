@@ -181,9 +181,6 @@ class GenericTensor(BaseTensor):
     def __div__(self, other):
         return self._bin_op(other, "div")
 
-    def __neg__(self, other):
-        return self.__mul__(-1.0)
-
     def _bin_op(self, other, op_type):
         # Scalar
         # Array
@@ -218,10 +215,18 @@ class GenericTensor(BaseTensor):
 
         # GenericTensor
         if isinstance(other, GenericTensor):
-            gt = self.copy()
-            for el in other.elements:
-                gt = gt._bin_op(el, op_type)
-            return gt
+            if op_type in ["add", "sub"]:
+                gt = self.copy()
+                for el in other.elements:
+                    gt = gt._bin_op(el, op_type)
+                return gt
+            elif op_type == "mul":
+                gt = GenericTensor(p1, p2, n, dim)
+                for el in other.elements:
+                    gt += self * el
+                return gt
+            else:
+                raise ValueError
 
         raise ValueError
 
@@ -575,14 +580,20 @@ class Tensor(BaseTensor):
             dim = max(self.dim, other.dim)
 
             new_elements = other.elements[:]
-            for k, el in enumerate(new_elements):
-                new_el = self._bin_op(el, op_type)
-                if isinstance(new_el, Tensor):
-                    new_elements[k] = new_el
-                    break
+            if op_type in ["add", "sub"]:
+                for k, el in enumerate(new_elements):
+                    new_el = self._bin_op(el, op_type)
+                    if isinstance(new_el, Tensor):
+                        new_elements[k] = new_el
+                        break
+                else:
+                    # other isn't coherent with any of the current elements
+                    new_elements.append(other)
+            elif op_type in ["mul", "div"]:
+                for k, el in enumerate(new_elements):
+                    new_elements[k] = self._bin_op(el, op_type)
             else:
-                # other isn't coherent with any of the current elements
-                new_elements.append(other)
+                raise ValueError
 
             return GenericTensor(p1, p2, n, dim, new_elements)
 
