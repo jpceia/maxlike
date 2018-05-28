@@ -464,7 +464,7 @@ class CollapseMatrix(Func):
                            y * rng_y[None, :] + c) == s
             val.append((ones * filt).sum((-1, -2)))
         val = np.stack(val, -1)
-        p1_mapping = list(range(ones.ndim - 2)) + [None, None]
+        p1_mapping = list(range(ones.ndim - 2)) + [-1, -1]
         return grad_tensor(
             val, params, i, p1_mapping=p1_mapping, dim=1)
 
