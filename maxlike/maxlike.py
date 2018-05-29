@@ -403,11 +403,11 @@ class Logistic(MaxLike):
              = - ((N - X) * y + N * ln(1 + e^-y))
         """
         y = self.model(params)
-        return (self.N * np.log(1 + np.exp(-y)) + (self.N - self.X) * y).sum()
+        return -(self.N * np.log(1 + np.exp(-y)) + (self.N - self.X) * y).sum()
 
     def grad_like(self, params):
         # (X - p * N) * d_y
-        delta = self.X - (self.N / (1 + np.exp(-self.model(params))))
+        delta = self.X - self.N / (1 + np.exp(-self.model(params)))
         return [(d * delta).sum() for d in self.model.grad(params)]
 
     def hess_like(self, params):
