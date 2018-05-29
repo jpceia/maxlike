@@ -49,42 +49,38 @@ class BaseTensor(with_metaclass(abc.ABCMeta)):
     def shape(self):
         pass
 
-    @abc.abstractmethod
-    def __add__(self, other):
-        pass
-
-    @abc.abstractmethod
-    def __sub__(self, other):
-        pass
-
-    @abc.abstractmethod
-    def __mul__(self, other):
-        pass
-
-    @abc.abstractmethod
-    def __div__(self, other):
-        pass
-
     def __neg__(self):
         return self * (-1.0)
 
-    def __truediv__(self, other):
-        return self.__div__(other)
+    def __add__(self, other):
+        return self._bin_op(other, "add")
 
     def __radd__(self, other):
-        return self + other
+        return self._bin_op(other, "add")
+
+    def __sub__(self, other):
+        return self._bin_op(other, "sub")
 
     def __rsub__(self, other):
-        return self - other
+        return self._bin_op(other, "rsub")
+
+    def __mul__(self, other):
+        return self._bin_op(other, "mul")
 
     def __rmul__(self, other):
-        return self * other
+        return self._bin_op(other, "mul")
+
+    def __div__(self, other):
+        return self._bin_op(other, "div")
+
+    def __truediv__(self, other):
+        return self._bin_op(other, "div")
 
     def __rdiv__(self, other):
-        return self.__rtruediv__(other)
+        return self._bin_op(other, "rdiv")
 
     def __rtruediv__(self, other):
-        return self / other
+        return self._bin_op(other, "rdiv")
 
 
 class GenericTensor(BaseTensor):
@@ -175,20 +171,8 @@ class GenericTensor(BaseTensor):
         return "(p1:%d, p2:%d, n:%d, v:%d)" % \
             (self.p1, self.p2, self.n, self.dim)
 
-    def __add__(self, other):
-        return self._bin_op(other, "add")
-
-    def __sub__(self, other):
-        return self._bin_op(other, "sub")
-
     def __len__(self):
         return len(self.elements)
-
-    def __mul__(self, other):
-        return self._bin_op(other, "mul")
-
-    def __div__(self, other):
-        return self._bin_op(other, "div")
 
     def _bin_op(self, other, op_type):
         # Scalar
@@ -214,7 +198,7 @@ class GenericTensor(BaseTensor):
                 else:
                     # other isn't coherent with any of the current elements
                     new_elements.append(other)
-            elif op_type in ["mul", "div"]:
+            elif op_type in ["mul", "div", "rdiv"]:
                 for k, el in enumerate(new_elements):
                     new_elements[k] = el._bin_op(other, op_type)
             else:
@@ -616,7 +600,7 @@ class Tensor(BaseTensor):
             scalar_op = True
 
         if scalar_op:
-            if other.values.shape == ():
+            if other.values.ndim == 0:
                 t = self.copy()
             else:
                 t = other.copy()
@@ -624,10 +608,14 @@ class Tensor(BaseTensor):
                 t.values = np.asarray(self.values + other.values)
             elif op_type == "sub":
                 t.values = np.asarray(self.values - other.values)
+            elif op_type == "rsub":
+                t.values = np.asarray(other.values - self.values)
             elif op_type == "mul":
                 t.values = np.asarray(self.values * other.values)
             elif op_type == "div":
                 t.values = np.asarray(self.values / other.values)
+            elif op_type == "rdiv":
+                t.values = np.asarray(other.values / self.values)
             else:
                 raise NotImplementedError
             return t
@@ -781,18 +769,6 @@ class Tensor(BaseTensor):
         elif (self.dim == 0) & (dim > 0):
             idx += [None] * dim
         return idx
-
-    def __add__(self, other):
-        return self._bin_op(other, "add")
-
-    def __sub__(self, other):
-        return self._bin_op(other, "sub")
-
-    def __mul__(self, other):
-        return self._bin_op(other, "mul")
-
-    def __div__(self, other):
-        return self._bin_op(other, "div")
 
 
 def grad_tensor(values, params, i=0, p1_mapping=None, dim=0):
