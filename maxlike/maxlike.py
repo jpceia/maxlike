@@ -222,7 +222,7 @@ class MaxLike(object):
             self.flat_hess_))[:cut]))
 
     def __step(self):
-        max_steps = 50
+        max_steps = 20
         n = len(self.params_)
         c_len = len(self.constraint)
 
@@ -241,16 +241,14 @@ class MaxLike(object):
         # --------------------------------------------------------------------
         # 2nd phase: Add constraints / regularization to grad and hess
         # --------------------------------------------------------------------
-        count = -1
-        for param_map, gamma, g in self.constraint:
-            count += 1
+        for k, (param_map, gamma, g) in enumerate(self.constraint):
             args = param_map(self.params_)
             grad_g = g.grad(args)
             hess_g = g.hess(args)
             for i, idx in enumerate(param_map):
                 grad[idx] += gamma * grad_g[i]
-                grad[n + count] = np.asarray([g(args)])
-                hess_c[count][idx] += np.array(grad_g[i])
+                grad[n + k] = np.asarray([g(args)])
+                hess_c[k][idx] += np.array(grad_g[i])
                 for j in range(i + 1):
                     hess[idx][param_map[j]] += gamma * hess_g[i][j]
 
@@ -327,7 +325,7 @@ class MaxLike(object):
         raise RuntimeError("Error: the objective function did not increase",
                            "after %d steps" % max_steps)
 
-    def fit(self, tol=1e-8, max_steps=100, verbose=False, **kwargs):
+    def fit(self, tol=1e-8, max_steps=50, verbose=False, **kwargs):
         """
         Run the algorithm to find the best fit.
 
