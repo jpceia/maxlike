@@ -4,9 +4,10 @@ import maxlike
 import numpy as np
 import pandas as pd
 from sympy import symbols, lambdify, diff
+from mpmath import findroot
 from maxlike.func import Func, Sum, X, Linear
 from maxlike.tensor import Tensor, grad_tensor, hess_tensor
-from maxlike.utils import prepare_dataframe
+from maxlike.utils import prepare_dataframe, prepare_series
 
 class SymbolicFunc(Func):
     def __init__(self, x, f_list):
@@ -73,36 +74,45 @@ if __name__ == "__main__":
     s16 = 6 * (1-g) ** 6 * g
     s06 = (1-g) ** 6
     s_list = [s06, s16, s26, s36, s46, s57, s67, s76, s75, s64, s63, s62, s61, s60]
+    s_expectation = np.array([
+        0.167222654998731,
+        0.329429564250229,
+        0.391283676196813,
+        0.430437536668106,
+        0.459073098050209,
+        0.466058286268619,
+        0.480953138435057,
+        0.519046861564943,
+        0.533941713731381,
+        0.540926901949791,
+        0.569562463331894,
+        0.608716323803187,
+        0.670570435749771,
+        0.832777345001269])
+    mass_s = sum([k * s for k, s in zip(s_expectation, s_list)])
+    dd = lambdify(x, diff(mass_s))(.5)
+
+    df = pd.read_csv("test_data_finite2.csv", sep=";", index_col=[0, 1]).stack()
+    axis1 = list(set(df.index.levels[0]).union(set(df.index.levels[1])))
+    axis = {'t1': axis1, 't2': axis1}
+    N = prepare_series(df, add_axis=axis)[0]['N']
+    R = N + np.flip(N.swapaxes(0, 1), 2)
+    m = (R * s_expectation[None, None, :]).sum((1, 2)) / R.sum((1, 2))
+    a = (0.5 - m) / dd
 
     proba = SymbolicFunc(x, s_list)
-    a = np.array([.1, .2, .3, .5, .6, .7, .8])
     s = Sum(2)
     s.add(X(), 0, 0)
     s.add(-X(), 0, 1)
-    F = proba @ Logistic() @ s
-
-    df = pd.read_csv("test_data_finite2.csv", sep=";", index_col=[0, 1]).stack().to_frame('g')
-    df['w'] = 1
-    L = 14
-    n = max(df.index.levels[0].max(), df.index.levels[1].max())
-    axis = {'t1': list(range(n)), 't2': list(range(n)), '': list(range(L))}
-    N = prepare_dataframe(df, 'w', 'g', {'N': np.sum}, axis)[0]['N']
-
+    f = proba @ Logistic()
     mle = maxlike.Finite()
-    mle.model = F
+    mle.model = f @ s
     mle.add_constraint([0], Linear([1]))
 
-    idx1 = (N + N.swapaxes(0, 1)).sum(0)[:, 1:].sum(-1) != 0  # only 0:6
-    idx2 = (N + N.swapaxes(0, 1)).sum(0)[:, :-1].sum(-1) != 0  # only 6:0
-    idx = idx1 | idx2
-    N = N[idx, :, :][:, idx, :]
-    n = idx.sum()
-
-    a = np.zeros(n)
     mle.add_param(a)
     tol = 1e-8
 
     mle.fit(tol=tol, verbose=True, N=N)
-    a = mle.params_
-    s_a = mle.std_error()
+    a = mle.params_[0]
+    s_a = mle.std_error()[0]
     print(pd.DataFrame({'a': a, 's_a': s_a}))
