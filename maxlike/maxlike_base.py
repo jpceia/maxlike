@@ -325,7 +325,7 @@ class MaxLike(object):
         raise RuntimeError("Error: the objective function did not increase",
                            "after %d steps" % max_steps)
 
-    def fit(self, tol=1e-8, max_steps=20, scipy=False, verbose=False, **kwargs):
+    def fit(self, tol=1e-8, scipy=False, verbose=False, max_steps=None, **kwargs):
         """
         Run the algorithm to find the best fit.
 
@@ -347,6 +347,9 @@ class MaxLike(object):
             self.__dict__[k] = Tensor(v, dim=dim)
 
         if scipy:
+            if max_steps is None:
+                max_steps = 50  # default value for scipy
+
             from scipy.optimize import minimize
 
             def opt_like(flat_params):
@@ -357,7 +360,7 @@ class MaxLike(object):
             for param_map, _, g in self.constraint:
                 def scipy_constraint(flat_params):
                     params = self.__reshape_params(flat_params)
-                    return g(IndexMap(params))
+                    return g(param_map(params))
                 constraints.append({
                     'type': 'eq',
                     'fun': scipy_constraint})
@@ -365,19 +368,16 @@ class MaxLike(object):
             flat_params = np.concatenate(
                 [p.compressed() for p in self.params_])
 
-            if 'method' in kwargs:
-                method = kwargs['method']
-            else:
-                method = "SLSQP"  # default method
-
             res = minimize(
                 opt_like, flat_params,
-                method=method,
+                method="SLSQP",
                 tol=tol,
                 constraints=constraints,
                 options={
                     'maxiter': max_steps,
-                    'disp': True,
+                    'disp': verbose,
+                    'ftol': tol,
+                    'iprint': 1,
                 })
 
             self.params_ = self.__reshape_params(res.x)
@@ -385,6 +385,9 @@ class MaxLike(object):
             if not res.success:
                 RuntimeError(res.message)
         else:
+            if max_steps is None:
+                max_steps = 20  # default value for custom model
+
             self.g_last = self.g(self.params_)
             for i in range(max_steps):
                 old_g = self.g_last
