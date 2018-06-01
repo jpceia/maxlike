@@ -325,7 +325,7 @@ class MaxLike(object):
         raise RuntimeError("Error: the objective function did not increase",
                            "after %d steps" % max_steps)
 
-    def fit(self, tol=1e-8, max_steps=20, verbose=False, **kwargs):
+    def fit(self, tol=1e-8, max_steps=20, scipy=False, verbose=False, **kwargs):
         """
         Run the algorithm to find the best fit.
 
@@ -346,13 +346,52 @@ class MaxLike(object):
         for k, v in kwargs.items():
             self.__dict__[k] = Tensor(v, dim=dim)
 
-        self.g_last = self.g(self.params_)
-        for i in range(max_steps):
-            old_g = self.g_last
-            self.__step()
-            if verbose:
-                print(i, self.g_last)
-            if abs(old_g / self.g_last - 1) < tol:
-                return None
-        raise RuntimeError("Error: the objective function did not converge",
-                           "after %d steps" % max_steps)
+        if scipy:
+            from scipy.optimize import minimize
+
+            def opt_like(flat_params):
+                params = self.__reshape_params(flat_params)
+                return -self.g(params)
+
+            constraints = []
+            for param_map, _, g in self.constraint:
+                def scipy_constraint(flat_params):
+                    params = self.__reshape_params(flat_params)
+                    return g(IndexMap(params))
+                constraints.append({
+                    'type': 'eq',
+                    'fun': scipy_constraint})
+
+            flat_params = np.concatenate(
+                [p.compressed() for p in self.params_])
+
+            if 'method' in kwargs:
+                method = kwargs['method']
+            else:
+                method = "SLSQP"  # default method
+
+            res = minimize(
+                opt_like, flat_params,
+                method=method,
+                tol=tol,
+                constraints=constraints,
+                options={
+                    'maxiter': max_steps,
+                    'disp': True,
+                })
+
+            self.params_ = self.__reshape_params(res.x)
+            self.g_last = -res.fun
+            if not res.success:
+                RuntimeError(res.message)
+        else:
+            self.g_last = self.g(self.params_)
+            for i in range(max_steps):
+                old_g = self.g_last
+                self.__step()
+                if verbose:
+                    print(i, self.g_last)
+                if abs(old_g / self.g_last - 1) < tol:
+                    return None
+            raise RuntimeError("Error: the objective function did not converge",
+                               "after %d steps" % max_steps)
