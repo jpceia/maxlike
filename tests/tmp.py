@@ -59,6 +59,7 @@ if __name__ == '__main__':
     flat_hess = np.vstack(list(map(np.hstack, flat_hess)))
     like0 = mle.like(mle.params_).values
     bump = 1e-3
+    """
     for k in range(flat_params.size):
         bumped_flat_params = flat_params.copy()
         bumped_flat_params[k] += bump
@@ -80,7 +81,22 @@ if __name__ == '__main__':
             if abs(hess_ij) > 1e-2:
                 if abs(flat_hess[i][j] - hess_ij) > 1e-2:
                     print(i, j, '\t', flat_hess[i][j], '\t', hess_ij, '\t', flat_hess[i][j] - hess_ij)
-
+    """
     #s_a, s_b, s_h, s_h1 = mle.std_error()
-    # der * der.transpose())[2].values wrong sign
+    der = mle.model.grad(mle.params_, 0)
+    y = np.exp(mle.model(mle.params_))
+    u = der[0]
+    v = der[1].transpose()
+    uu = u.values * np.eye(20)[:, :, None, None][:, None, :, :, :]
+    vv = v.values * np.eye(20)[:, None, :, None][None, :, :, :, :]
+    yy = y.values[None, None, :, :, :]
+    print(u.p1_mapping)
+    print(u)
+    print(v)
+    print(y)
+
+    print((u * v * y).sum().values[1, 0])
+    print((uu * vv * yy).sum((2, 3, 4))[1, 0])
+    # sinal deve ser positivo 0.0329
+    #der * der.transpose())[2].values wrong sign
     
