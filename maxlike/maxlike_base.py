@@ -120,7 +120,7 @@ class MaxLike(object):
     def _sum_feat(self):
         return tuple(-np.arange(self.N.ndim) - 1)
 
-    def __reshape_array(self, flat_array, val=np.nan):
+    def _reshape_array(self, flat_array, val=np.nan):
         """
         Reshapes as array in order to have the same format as self.params_
 
@@ -163,12 +163,12 @@ class MaxLike(object):
                 f_0 = f_1
         return shaped_array
 
-    def __reshape_params(self, params_free):
-        return self.__reshape_array(
+    def _reshape_params(self, params_free):
+        return self._reshape_array(
             params_free,
             np.concatenate([p[p.mask].data for p in self.params_]))
 
-    def __reshape_matrix(self, matrix, val=np.nan):
+    def _reshape_matrix(self, matrix, val=np.nan):
         if matrix.ndim != 2:
             raise ValueError("matrix.ndim != 2")
         elif matrix.shape[0] != matrix.shape[1]:
@@ -203,13 +203,13 @@ class MaxLike(object):
                 for i, p_i in enumerate(self.params_)]
 
     def fisher_matrix(self):
-        return self.__reshape_matrix(self.flat_hess_, 0)
+        return self._reshape_matrix(self.flat_hess_, 0)
 
     def error_matrix(self):
         """
         Covariance Matrix.
         """
-        return self.__reshape_matrix(-np.linalg.inv(self.flat_hess_))
+        return self._reshape_matrix(-np.linalg.inv(self.flat_hess_))
 
     def std_error(self):
         """
@@ -218,7 +218,7 @@ class MaxLike(object):
         cut = -len(self.constraint)
         if cut == 0:
             cut = None
-        return self.__reshape_array(np.sqrt(np.diag(-np.linalg.inv(
+        return self._reshape_array(np.sqrt(np.diag(-np.linalg.inv(
             self.flat_hess_))[:cut]))
 
     def __step(self):
@@ -312,7 +312,7 @@ class MaxLike(object):
 
         # change = np.linalg.norm(d) / np.linalg.norm(params)
         for i in range(max_steps):
-            new_params = self.__reshape_params(flat_params - u * d)
+            new_params = self._reshape_params(flat_params - u * d)
             new_g = self.g(new_params)
             if new_g - self.g_last >= 0:
                 self.params_ = new_params
@@ -353,13 +353,13 @@ class MaxLike(object):
             from scipy.optimize import minimize
 
             def opt_like(flat_params):
-                params = self.__reshape_params(flat_params)
+                params = self._reshape_params(flat_params)
                 return -self.g(params)
 
             constraints = []
             for param_map, _, g in self.constraint:
                 def scipy_constraint(flat_params):
-                    params = self.__reshape_params(flat_params)
+                    params = self._reshape_params(flat_params)
                     return g(param_map(params))
                 constraints.append({
                     'type': 'eq',
@@ -380,7 +380,7 @@ class MaxLike(object):
                     'iprint': 1,
                 })
 
-            self.params_ = self.__reshape_params(res.x)
+            self.params_ = self._reshape_params(res.x)
             self.g_last = -res.fun
             if not res.success:
                 RuntimeError(res.message)
