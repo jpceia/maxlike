@@ -103,21 +103,18 @@ class GenericTensor(BaseTensor):
         if not sum_dim:
             i1 = self.dim
 
-        shape_n = [0] * (i1 - i0)
-        sizes = []
-        for el in self.elements:
+        shape_n = np.zeros(i1 - i0, dtype=np.int)
+        sizes = np.zeros(len(self.elements), dtype=np.int)
+        for k, el in enumerate(self.elements):
             p = el.p1 + el.p2
             el_size = 1
-            for i, k in enumerate(el.values.shape[p+i0:p+i1]):
-                el_size *= k
-                shape_n[i] = max(shape_n[i], k)
-            sizes.append(el_size)
-
-        size = 1
-        for k in shape_n:
-            size *= k
+            for i, u in enumerate(el.values.shape[p+i0:p+i1]):
+                el_size *= u
+                shape_n[i] = max(shape_n[i], u)
+            sizes[k] = el_size
 
         values = 0
+        size = shape_n.prod()
         for el, el_size in zip(self.elements, sizes):
             values = values + el.sum(sum_val, sum_dim).values * (size / el_size)
 
