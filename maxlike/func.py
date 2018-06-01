@@ -35,13 +35,22 @@ class Func(with_metaclass(FuncMeta, object)):
     def __add__(self, b):
         return Affine(self, 1, b)
 
+    def __radd__(self, b):
+        return Affine(self, 1, b)
+
     def __sub__(self, b):
         return Affine(self, 1, -b)
+
+    def __rsub__(self, b):
+        return Affine(self, -1, b)
 
     def __neg__(self):
         return Affine(self, -1, 0)
 
     def __mul__(self, a):
+        return Affine(self, a, 0)
+
+    def __rmul__(self, a):
         return Affine(self, a, 0)
 
     def __div__(self, a):
