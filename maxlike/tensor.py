@@ -437,7 +437,7 @@ class Tensor(BaseTensor):
 
                 p1_mapping = array('b')
                 p2_mapping = array('b')
-                val = self.values.copy()
+                val = self.values
                 if len(self.p1_mapping) > 0:
                     for k, f in enumerate(self.p1_mapping):
                         if f >= 0:
@@ -520,7 +520,7 @@ class Tensor(BaseTensor):
             r_idx = [None] * other.p1 + [Ellipsis] + [None] * (dim - self.dim)
 
             p1_mapping = array('b')
-            val = self.values.copy()
+            val = self.values
 
             if len(self.p1_mapping) > 0:
                 for k, f in enumerate(self.p1_mapping):
@@ -646,7 +646,7 @@ class Tensor(BaseTensor):
                         p1, p2, n, dim, [self.copy(), -other.copy()])
                 elif op_type in ["mul", "div"]:
                     if values is None:
-                        values = self.values.copy()
+                        values = self.values
                     p1_mapping = self.p1_mapping
                     p = self.p1 + self.p2
                     for fs, fo in zip(p1_mapping, other.p1_mapping):
@@ -677,7 +677,7 @@ class Tensor(BaseTensor):
                         p1, p2, n, dim, [self.copy(), -other.copy()])
                 elif op_type in ["mul", "div"]:
                     if values is None:
-                        values = self.values.copy()
+                        values = self.values
                     p2_mapping = self.p2_mapping
                     p = self.p1 + self.p2
                     for fs, fo in zip(p2_mapping, other.p2_mapping):
@@ -702,7 +702,7 @@ class Tensor(BaseTensor):
         r_idx = other.__reshape_idx(p1, p2, n, dim)
 
         if values is None:
-            values = self.values.copy()
+            values = self.values
 
         if op_type == "add":
             values = values[l_idx] + other.values[r_idx]
