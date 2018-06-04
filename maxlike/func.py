@@ -420,14 +420,16 @@ class GaussianCopula(Func):
 
     @staticmethod
     def _normalize(x):
-        x = ndtri(np.asarray(x).cumsum(-1))
-        x[x == np.inf] = 999
-        return x
+        n = np.asarray(x).cumsum(-1)
+        n /= n[..., -1][..., None]
+        n = ndtri(n)
+        n[n == np.inf] = 999
+        return n
 
     def __call__(self, params):
-        X = self._normalize(params[0])
-        Y = self._normalize(params[1])
-        F_xy = gauss_bivar(X[..., None, :], Y[..., None], self.rho)
+        x = self._normalize(params[0])
+        y = self._normalize(params[1])
+        F_xy = gauss_bivar(x[..., None, :], y[..., None], self.rho)
         F_xy = np.insert(F_xy, 0, 0, -1)
         F_xy = np.insert(F_xy, 0, 0, -2)
         return Tensor(np.diff(np.diff(F_xy, 1, -1), 1, -2))
