@@ -453,11 +453,11 @@ class ClaytonCopula(Func):
     or
     a = 2 t / (1 - t)
 
-    a > -1
-    a != 0
+    a > 0
     """
 
     def __init__(self, a):
+        assert a > 0
         self.a = a
 
     @copula
@@ -476,10 +476,11 @@ class GumbelCopula(Func):
     or
     a = 1 / (1 - t)
 
-    a > 1
+    a >= 1
     """
 
     def __init__(self, a):
+        assert a >= 1
         self.a = a
 
     @copula
@@ -497,6 +498,7 @@ class FrankCopula(Func):
     """
 
     def __init__(self, a):
+        assert a != 0
         self.a = a
 
     @copula
@@ -505,6 +507,7 @@ class FrankCopula(Func):
             (np.exp(-self.a * x) - 1) *
             (np.exp(-self.a * y) - 1) /
             (np.exp(-self.a) - 1))
+
 
 class AMHCopula(Func):
     """
