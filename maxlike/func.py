@@ -61,7 +61,7 @@ class Func(with_metaclass(FuncMeta, object)):
 
 
 class FuncWrap(Func):
-    def __init__(self, foo, param_map, feat_map, n_feat=None,
+    def __init__(self, foo, param_map, feat_map=None, n_feat=None,
                  dim_map=None, n_dim=0, feat_flip=None):
         assert isinstance(foo, Func)
         # assert max(feat_map) <= n_feat
@@ -78,6 +78,7 @@ class FuncWrap(Func):
         self.feat_flip = feat_flip
         if dim_map is None:
             self.dim_map = IndexMap(range(n_dim))
+            n_dim = 0
         else:
             self.dim_map = IndexMap(dim_map)
 
@@ -409,30 +410,116 @@ class Poisson(Func):
         return hess_tensor(vec, params, i, j, True, True, dim=1)
 
 
+def copula(C):
+    """
+    Decorator to transform a copula function
+    in a function that accepts unnormalized marginal pdf's
+    and return a (normalized) joint distribution.
+    """
+    def wrap(obj, params, *args, **kwargs):
+        x = np.asarray(params[0]).cumsum(-1)
+        y = np.asarray(params[1]).cumsum(-1)
+        x /= x[..., -1][..., None]
+        y /= y[..., -1][..., None]
+        F_xy = C(obj, x[..., None, :], y[..., None], *args, **kwargs)
+        F_xy = np.insert(F_xy, 0, 0, -1)
+        F_xy = np.insert(F_xy, 0, 0, -2)
+        return Tensor(np.diff(np.diff(F_xy, 1, -1), 1, -2))
+    return wrap
+
+
 class GaussianCopula(Func):
     """
     Receives the marginals of X and Y and returns
-    a joint distribution of XY using a gaussian copula
+    a joint distribution of XY using a gaussian copula.
+
+    -1 < rho < 1
     """
 
     def __init__(self, rho):
         self.rho = rho
 
-    @staticmethod
-    def _normalize(x):
-        n = np.asarray(x).cumsum(-1)
-        n /= n[..., -1][..., None]
-        n = ndtri(n)
-        n[n == np.inf] = 999
-        return n
+    @copula
+    def __call__(self, x, y):
+        return gauss_bivar(ndtri(x), ndtri(y), self.rho)
 
-    def __call__(self, params):
-        x = self._normalize(params[0])
-        y = self._normalize(params[1])
-        F_xy = gauss_bivar(x[..., None, :], y[..., None], self.rho)
-        F_xy = np.insert(F_xy, 0, 0, -1)
-        F_xy = np.insert(F_xy, 0, 0, -2)
-        return Tensor(np.diff(np.diff(F_xy, 1, -1), 1, -2))
+
+class ClaytonCopula(Func):
+    """
+    C(u,v) = (u^-a + v^-a - 1)^(-1/a)
+
+    Kendall's tau:
+    t = a / (2 + a)
+    or
+    a = 2 t / (1 - t)
+
+    a > -1
+    a != 0
+    """
+
+    def __init__(self, a):
+        self.a = a
+
+    @copula
+    def __call__(self, x, y):
+        return np.power(
+            np.power(x, -self.a) + np.power(y, -self.a) - 1,
+            -1 / self.a)
+
+
+class GumbelCopula(Func):
+    """
+    C(u,v) = exp(-((-log u)^a + (-log v)^a)^(1/a))
+
+    Kendall's tau:
+    t = 1 - 1 / a
+    or
+    a = 1 / (1 - t)
+
+    a > 1
+    """
+
+    def __init__(self, a):
+        self.a = a
+
+    @copula
+    def __call__(self, x, y):
+        return np.exp(-np.power(
+            np.power(-np.log(x), self.a) + np.power(-np.log(y), self.a),
+            1 / self.a))
+
+
+class FrankCopula(Func):
+    """
+    C(u, v) = -(1/a) * log(1 + (e^(-a*u) - 1) * (e^(-a*v) - 1) / (e^-a - 1) )
+
+    a != 0
+    """
+
+    def __init__(self, a):
+        self.a = a
+
+    @copula
+    def __call__(self, x, y):
+        return (-1 / self.a) * np.log(1 +
+            (np.exp(-self.a * x) - 1) *
+            (np.exp(-self.a * y) - 1) /
+            (np.exp(-self.a) - 1))
+
+class AMHCopula(Func):
+    """
+    Aki-Mikhail-Haq Copula
+    C(u,v) = uv / (1 - a(1-u)(1-v))
+
+    -1 < a < 1
+    """
+
+    def __init__(self, a):
+        self.a = a
+
+    @copula
+    def __call__(self, x, y):
+        return x * y / (1 - self.a * (1 - x) * (1 - y))
 
 
 class CollapseMatrix(Func):
