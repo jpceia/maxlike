@@ -22,8 +22,7 @@ def vectorize(n_in, n_out):
 @no_divwarn
 @vectorize(3, 1)
 def gauss_bivar(x, y, rho):
-    return mvnun(-999 * np.ones((2)), (x, y), (0, 0),
-                 np.array([[1, rho], [rho, 1]]))[0]
+    return mvnun((-999, -999), (x, y), (0, 0), ((1, rho), (rho, 1)))[0]
 
 
 class Params(list):
