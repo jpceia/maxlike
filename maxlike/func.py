@@ -437,6 +437,7 @@ class GaussianCopula(Func):
     """
 
     def __init__(self, rho):
+        assert (rho <= 1) & (rho >= -1)
         self.rho = rho
 
     @copula
@@ -518,6 +519,7 @@ class AMHCopula(Func):
     """
 
     def __init__(self, a):
+        assert (a < 1) & (a > -1)
         self.a = a
 
     @copula
