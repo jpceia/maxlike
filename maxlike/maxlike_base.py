@@ -221,8 +221,8 @@ class MaxLike(object):
         return self._reshape_array(np.sqrt(np.diag(-np.linalg.inv(
             self.flat_hess_))[:cut]))
 
-    def __step(self):
-        max_steps = 20
+    def __step(self, verbose=False):
+        max_steps = 10
         n = len(self.params_)
         c_len = len(self.constraint)
 
@@ -321,11 +321,13 @@ class MaxLike(object):
                 return None
             else:
                 u *= .5
+                if verbose:
+                    print("\tu=", u)
 
         raise RuntimeError("Error: the objective function did not increase",
                            "after %d steps" % max_steps)
 
-    def fit(self, tol=1e-8, scipy=False, verbose=False, max_steps=None, **kwargs):
+    def fit(self, tol=1e-8,  max_steps=None, verbose=0, scipy=0, **kwargs):
         """
         Run the algorithm to find the best fit.
 
@@ -333,8 +335,21 @@ class MaxLike(object):
         ----------
         tol : float (optional)
             Tolerance for termination.
+
         max_steps : int (optional)
             Maximum number of steps that the algorithm will perform.
+            Default =50 when scipy option is enabled, otherwise =20.
+
+        verbose : int (optional)
+            Sets the verbosity of the algorithm.
+            0 : no messages (default)
+            1 : low verbosity
+            2 : high verbosity
+
+        scipy: int (optional)
+            0 : scipy is not used (default)
+            1 : scipy using func values
+            2 : scipy using func and grad values 
 
         Returns
         -------
@@ -346,15 +361,27 @@ class MaxLike(object):
         for k, v in kwargs.items():
             self.__dict__[k] = Tensor(v, dim=dim)
 
-        if scipy:
+        if scipy > 0:
             if max_steps is None:
                 max_steps = 50  # default value for scipy
 
             from scipy.optimize import minimize
 
-            def opt_like(flat_params):
-                params = self._reshape_params(flat_params)
-                return -self.g(params)
+            use_jac = scipy > 1  # scipy==2 to use gradient for optimization
+
+            if use_jac:
+                def opt_like(flat_params):
+                    params = self._reshape_params(flat_params)
+                    jac = self.grad_like(params)
+                    n = self.N.sum().values
+                    flat_jac = np.concatenate([
+                        jac[i].values[~p.mask]
+                        for i, p in enumerate(self.params_)])
+                    return -self.g(params), -flat_jac / n
+            else:
+                def opt_like(flat_params):
+                    params = self._reshape_params(flat_params)
+                    return -self.g(params)
 
             constraints = []
             for param_map, _, g in self.constraint:
@@ -371,13 +398,14 @@ class MaxLike(object):
             res = minimize(
                 opt_like, flat_params,
                 method="SLSQP",
+                jac=use_jac,
                 tol=tol,
                 constraints=constraints,
                 options={
                     'maxiter': max_steps,
-                    'disp': verbose,
+                    'disp': verbose > 0,
                     'ftol': tol,
-                    'iprint': 1,
+                    'iprint': verbose,
                 })
 
             self.params_ = self._reshape_params(res.x)
@@ -391,8 +419,8 @@ class MaxLike(object):
             self.g_last = self.g(self.params_)
             for i in range(max_steps):
                 old_g = self.g_last
-                self.__step()
-                if verbose:
+                self.__step(verbose > 1)
+                if verbose > 0:
                     print(i, self.g_last)
                 if abs(old_g / self.g_last - 1) < tol:
                     return None
