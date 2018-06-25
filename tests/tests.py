@@ -80,13 +80,14 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
-    @unittest.skip
     def test_poisson3(self):
         mle = maxlike.Poisson()
         s = Sum(2).add(X(), 0, 0).add(-X(), 1, 1)
+        # s_ij = a_i - b_j
         s_diff = Sum(2)
         s_diff.add(s, [0, 1], [0, 1])
         s_diff.add(-s, [0, 1], [1, 0])
+        # s_diff_ij = a_i - a_j + b_i - b_j
         hs = Product(2)
         hs.add(Scalar(), 2, None)
         hs.add(s_diff, [0, 1], [0, 1])
@@ -114,9 +115,13 @@ class Test(unittest.TestCase):
         mle.add_param(h, False)
         mle.add_param(h1, False)
         tol = 1e-8
-        mle.fit(tol=tol, **prepared_data)
+        mle.fit(tol=tol, max_steps=50, **prepared_data)
         a, b, h, h1 = mle.params_
         s_a, s_b, s_h, s_h1 = mle.std_error()
+        self.assertAlmostEqual(h.data, 0.1511744522920073, delta=tol)
+        self.assertAlmostEqual(s_h, 0.10857347159088017, delta=tol)
+        self.assertAlmostEqual(h1.data, 0.4323755506313965, delta=tol)
+        self.assertAlmostEqual(s_h1, 0.15681526061653295, delta=tol)
 
     def test_poisson_reg(self):
         mle = maxlike.Poisson()
@@ -166,6 +171,29 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
+
+    @unittest.skip
+    def test_logistic2(self):
+        mle = maxlike.Logistic()
+        mle.model = Sum(2)
+        mle.model.add(X(), 0, 0)
+        mle.model.add(-X(), 0, 1)
+        mle.add_constraint([0], Linear([1]))
+
+        # fetch and prepare data
+        df = pd.read_csv("test_data_proba.csv", index_col=[0, 1, 2])['p'].unstack(level=2)
+        _N = maxlike.utils.prepare_series(df[-1] + df[1], {'N': np.sum})[0]['N']
+        _X = maxlike.utils.prepare_series(df[1], {'X': np.sum})[0]['X']
+        prepared_data = {'N': _N, 'X': _X}
+        a = 4 * _X.sum(0) / _N.sum(0)
+        a -= a.mean()
+        mle.add_param(a)
+        print(a)
+
+        tol = 1e-8
+        mle.fit(tol=tol, max_steps=20, **prepared_data)
+        a = mle.params_
+        s_a = mle.std_error()
 
     def test_negative_binomial(self):
         mle = maxlike.NegativeBinomial()
