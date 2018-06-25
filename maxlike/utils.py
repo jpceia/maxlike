@@ -27,8 +27,10 @@ def prepare_series(observations, transformations=None, add_axis=None):
     axis : list[list]
         feature index names
     """
+    assert isinstance(observations, pd.Series)
+
     if transformations is None:
-        transformations = {"N": np.size}
+        transformations = {"N": np.sum}
 
     if isinstance(observations.index, pd.MultiIndex):
         axis = [level.sort_values() for level in observations.index.levels]
