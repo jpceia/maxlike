@@ -262,7 +262,7 @@ class Product(Func):
                     hess_k += f_prod * a_k.grad(params, i) * a_l.grad(params, j).transpose()
             hess_val += hess_k
             hess_val += Product._prod(f_val, [k]) * a_k.hess(params, i, j)
-        return hess_val
+        return hess_val / 2
 
 
 class Linear(Func):
@@ -319,10 +319,10 @@ class X(Func):
         return Tensor(params[0])
 
     def grad(self, params, i):
-        return grad_tensor(np.ones((params[0].shape)), params, i, True)
+        return grad_tensor(np.ones_like(params[0]), params, i, True)
 
     def hess(self, params, i, j):
-        return hess_tensor(np.zeros((params[0].shape)), params, i, j, True, True)
+        return hess_tensor(np.zeros_like(params[0]), params, i, j, True, True)
 
 
 class Constant(Func):
@@ -333,10 +333,10 @@ class Constant(Func):
         return Tensor(self.vector)
 
     def grad(self, params, i):
-        return Tensor(np.zeros(self.vector.shape))
+        return Tensor(np.zeros_like(self.vector))
 
     def hess(self, params, i, j):
-        return Tensor(np.zeros(self.vector.shape))
+        return Tensor(np.zeros_like(self.vector))
 
 
 class Scalar(Func):
@@ -361,7 +361,7 @@ class Vector(Func):
         return grad_tensor(self.vector, params, i, None)
 
     def hess(self, params, i, j):
-        return hess_tensor(np.zeros(self.vector.shape),
+        return hess_tensor(np.zeros_like(self.vector),
                            params, i, j, None, None)
 
 
