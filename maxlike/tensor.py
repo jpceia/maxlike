@@ -564,28 +564,16 @@ class Tensor(BaseTensor):
     def _bin_op(self, other, op_type):
 
         if isinstance(other, GenericTensor):
-            p1 = max(self.p1, other.p1)
-            p2 = max(self.p2, other.p2)
-            n = max(self.n, other.n)
-            dim = max(self.dim, other.dim)
 
-            new_elements = other.elements[:]
-            if op_type in ["add", "sub"]:
-                for k, el in enumerate(new_elements):
-                    new_el = self._bin_op(el, op_type)
-                    if isinstance(new_el, Tensor):
-                        new_elements[k] = new_el
-                        break
-                else:
-                    # other isn't coherent with any of the current elements
-                    new_elements.append(other)
-            elif op_type in ["mul", "div"]:
-                for k, el in enumerate(new_elements):
-                    new_elements[k] = self._bin_op(el, op_type)
+            if op_type in ["add", "mul"]:  # commutative operations
+                return other._bin_op(self, op_type)
+
+            elif op_type == "sub":
+                return (-other)._bin_op(self, "add")
+
             else:
                 raise ValueError
 
-            return GenericTensor(p1, p2, n, dim, new_elements)
 
         if isinstance(other, (int, float, np.ndarray)):
             return self._bin_op(Tensor(other), op_type)
