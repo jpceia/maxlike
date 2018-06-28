@@ -262,7 +262,7 @@ class Product(Func):
                     hess_k += f_prod * a_k.grad(params, i) * a_l.grad(params, j).transpose()
             hess_val += hess_k
             hess_val += Product._prod(f_val, [k]) * a_k.hess(params, i, j)
-        return hess_val / 2
+        return hess_val
 
 
 class Linear(Func):
@@ -282,7 +282,7 @@ class Linear(Func):
                            params, i)
 
     def hess(self, params, i, j):
-        return hess_tensor(np.zeros((1, )* (params[j].ndim + params[i].ndim)),
+        return hess_tensor(np.zeros((1, ) * (params[j].ndim + params[i].ndim)),
             params, i, j)
 
     def add_feature(self, weight):
