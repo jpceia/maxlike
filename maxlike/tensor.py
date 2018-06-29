@@ -18,6 +18,10 @@ class BaseTensor(with_metaclass(abc.ABCMeta)):
         self.dim = dim
 
     @abc.abstractmethod
+    def toarray(self):
+        pass
+
+    @abc.abstractmethod
     def sum(self, sum_val=True, sum_dim=True):
         pass
 
@@ -91,6 +95,9 @@ class GenericTensor(BaseTensor):
             self.elements = elements
         else:
             self.elements = []
+
+    def toarray(self):
+        return sum([el.toarray() for el in self.elements])
 
     def sum(self, sum_val=True, sum_dim=True):
         # consider the impact of broadcasting
@@ -251,6 +258,31 @@ class Tensor(BaseTensor):
                 self.p2_mapping = array('b', p2_mapping)
             else:
                 raise ValueError("p2_mapping defined incorrectly")
+
+    def toarray(self):
+        arr = self.values
+
+        p = self.p1
+        for k, l in enumerate(self.p1_mapping):
+            if l < 0:
+                continue
+            idx = np.zeros(arr.ndim, dtype=np.bool)
+            idx[k] = True
+            idx[p + l] = True
+            idx = [slice(None) if x else None for x in idx]
+            arr = arr * np.eye(arr.shape[p + l])[idx]
+
+        p = self.p1 + self.p2
+        for k, l in enumerate(self.p2_mapping):
+            if l < 0:
+                continue
+            idx = np.zeros(arr.ndim, dtype=np.bool)
+            idx[k] = True
+            idx[p + l] = True
+            idx = [slice(None) if x else None for x in idx]
+            arr = arr * np.eye(arr.shape[p + l])[idx]
+
+        return arr
 
     def sum(self, sum_val=True, sum_dim=True):
         t = self.copy()
