@@ -30,40 +30,49 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y: x - y, A, B)
         self.check_comm(lambda x, y: x * y, A, B)
         self.check_comm(lambda x, y: x / y, A, B)
+        self.check_comm(lambda x, y: -(x + y), A, B)
 
         self.check_comm(lambda x, y: x + y, A, B1)
         self.check_comm(lambda x, y: x - y, A, B1)
         self.check_comm(lambda x, y: x * y, A, B1)
+        self.check_comm(lambda x, y: -(x + y), A, B1)
 
         self.check_comm(lambda x, y: x + y, A1, B)
         self.check_comm(lambda x, y: x - y, A1, B)
         self.check_comm(lambda x, y: x * y, A1, B)
         self.check_comm(lambda x, y: x / y, A1, B)
+        self.check_comm(lambda x, y: -(x + y), A1, B)
 
         self.check_comm(lambda x, y: x + y, A1, B1)
         self.check_comm(lambda x, y: x - y, A1, B1)
         self.check_comm(lambda x, y: x * y, A1, B1)
+        self.check_comm(lambda x, y: -(x + y), A1, B1)
 
         self.check_comm(lambda x, y: x + y, A1, B2)
         self.check_comm(lambda x, y: x - y, A1, B2)
         self.check_comm(lambda x, y: x * y, A1, B2)
+        self.check_comm(lambda x, y: -(x + y), A1, B2)
 
         self.check_comm(lambda x, y: x + y, A12, B12)
         self.check_comm(lambda x, y: x - y, A12, B12)
         self.check_comm(lambda x, y: x * y, A12, B12)
+        self.check_comm(lambda x, y: -(x + y), A12, B12)
 
         #self.check_comm(lambda x, y: x + y, A1, B12)
         #self.check_comm(lambda x, y: x - y, A1, B12)
         #self.check_comm(lambda x, y: x * y, A1, B12)
+        self.check_comm(lambda x, y: -(x + y), A1, B12)
 
         #self.check_comm(lambda x, y: x + y, A12, B1)
         #self.check_comm(lambda x, y: x - y, A12, B1)
         #self.check_comm(lambda x, y: x * y, A12, B1)
+        #self.check_comm(lambda x, y: -(x + y), A12, B1)
 
         self.check_comm(lambda x, y: x + y, A12, B)
         self.check_comm(lambda x, y: x - y, A12, B)
         self.check_comm(lambda x, y: x * y, A12, B)
         self.check_comm(lambda x, y: x / y, A12, B)
+        self.check_comm(lambda x, y: -(x + y), A12, B)
 
         self.check_comm(lambda x, y: x + y, A, B12)
         self.check_comm(lambda x, y: x - y, A, B12)
@@ -80,12 +89,6 @@ class Test(unittest.TestCase):
         A12 = Tensor(a[None, None, :, :], 1, 1, 0, [0], [1])
         B12 = Tensor(a[None, None, :, :], 1, 1, 0, [1], [0])
 
-        self.check_comm(lambda x, y: -(x + y), A, B)
-        self.check_comm(lambda x, y: -(x + y), A1, B)
-        self.check_comm(lambda x, y: -(x + y), A1, B2)
-        self.check_comm(lambda x, y: -(x + y), A12, B)
-        #self.check_comm(lambda x, y: -(x + y), A12, B1)
-        self.check_comm(lambda x, y: -(x + y), A12, B12)
 
         self.check_comm(lambda x, y, z: x + (y + z), A, B1, B2)
         self.check_comm(lambda x, y, z: x - (y + z), A, B1, B2)
@@ -112,7 +115,7 @@ class Test(unittest.TestCase):
         # self.check_comm(lambda x, y, z: (x + y) + z, A1, A2, B12)
         # self.check_comm(lambda x, y, z: (x + y) - z, A1, A2, B12)
         # self.check_comm(lambda x, y, z: (x + y) * z, A1, A2, B12)
-
+        
 
 if __name__ == "__main__":
     unittest.main()
