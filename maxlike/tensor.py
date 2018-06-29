@@ -678,10 +678,26 @@ class Tensor(BaseTensor):
                             values = values * np.eye(values.shape[p + fs])[idx]
                 else:
                     raise NotImplementedError
-        elif other.p1 == 0:
-            p1_mapping = self.p1_mapping
-        elif self.p1 == 0:
-            p1_mapping = other.p1_mapping
+
+        elif other.p1 == 0:  # self.p1 > 0
+            if op_type == "add":  # synthetic sum
+                return GenericTensor(
+                    p1, p2, n, dim, [self.copy(), other.copy()])
+            elif op_type == "sub":
+                return GenericTensor(
+                    p1, p2, n, dim, [self.copy(), -other.copy()])
+            elif op_type in ["mul", "div"]:
+                p1_mapping = self.p1_mapping
+
+        elif self.p1 == 0:  # other.p1 > 0
+            if op_type == "add":  # synthetic sum
+                return GenericTensor(
+                    p1, p2, n, dim, [self.copy(), other.copy()])
+            elif op_type == "sub":
+                return GenericTensor(
+                    p1, p2, n, dim, [self.copy(), -other.copy()])
+            elif op_type in ["mul", "div"]:
+                p1_mapping = other.p1_mapping
         else:
             raise ValueError
 
