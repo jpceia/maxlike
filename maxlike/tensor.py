@@ -6,6 +6,16 @@ from six import with_metaclass
 
 class BaseTensor(with_metaclass(abc.ABCMeta)):
 
+    lambda_op = {
+        'add': lambda x, y: x + y,
+        'sub': lambda x, y: x - y,
+        'rsub': lambda x, y: y - x,
+        'mul': lambda x, y: x * y,
+        'div': lambda x, y: x / y,
+        'rdiv': lambda x, y: y / x,
+        'neg': lambda x: -x,
+    }
+
     @abc.abstractmethod
     def __init__(self, p1=0, p2=0, n=0, dim=0):
         assert p1 >= 0
@@ -201,7 +211,12 @@ class GenericTensor(BaseTensor):
                         break
                 else:
                     # other isn't coherent with any of the current elements
-                    new_elements.append(other)
+                    if op_type == "add":
+                        new_elements.append(other)
+                    elif op_type == "sub":
+                        new_elements.append(-other)
+                    else:
+                        raise ValueError
             elif op_type in ["mul", "div", "rdiv"]:
                 for k, el in enumerate(new_elements):
                     new_elements[k] = el._bin_op(other, op_type)
@@ -633,20 +648,9 @@ class Tensor(BaseTensor):
                 t = self.copy()
             else:
                 t = other.copy()
-            if op_type == "add":
-                t.values = np.asarray(self.values + other.values)
-            elif op_type == "sub":
-                t.values = np.asarray(self.values - other.values)
-            elif op_type == "rsub":
-                t.values = np.asarray(other.values - self.values)
-            elif op_type == "mul":
-                t.values = np.asarray(self.values * other.values)
-            elif op_type == "div":
-                t.values = np.asarray(self.values / other.values)
-            elif op_type == "rdiv":
-                t.values = np.asarray(other.values / self.values)
-            else:
-                raise NotImplementedError
+
+            t.values = np.asarray(Tensor.lambda_op[op_type](self.values, other.values))
+
             return t
 
         values = None
@@ -666,30 +670,53 @@ class Tensor(BaseTensor):
         p2 = max(self.p2, other.p2)
         assert (self.p2 == 0) | (other.p2 == 0) | (self.p2 == other.p2)
 
+        # --------------------------------------------------------------------
+        # Adition and Multiplication
+        # --------------------------------------------------------------------
+        if op_type in ["add", "sub"]:
+            if (self.p1_mapping == other.p1_mapping) and (self.p2_mapping == other.p2_mapping):
+                # self.p1 == other.p1
+                # self.p2 == other.p2
+                l_idx = self.__reshape_idx(p1, p2, n, dim)  # this can be simplified
+                r_idx = other.__reshape_idx(p1, p2, n, dim) # this can be simplified
+                values = Tensor.lambda_op[op_type](self.values[l_idx], other.values[r_idx])
+                return Tensor(values, p1=p1, p2=p2, dim=dim,
+                              p1_mapping=self.p1_mapping,
+                              p2_mapping=self.p2_mapping)
+            
+            # there are other cases where we can do merging
+            # when the shame of one of the arrays 'contains' the other
+
+            if op_type == "add":
+                elements = [self.copy(), other.copy()]
+            elif op_type == "sub":
+                elements = [self.copy(), -other.copy()]
+            elif op_type == "rsub":
+                elements = [-self.copy(), other.copy()]
+            else:
+                raise ValueError
+
+            return GenericTensor(p1, p2, n, dim, elements)
+
+
+        # --------------------------------------------------------------------
+        # Multiplication and Division
+        # --------------------------------------------------------------------
         if self.p1 == other.p1:
             if self.p1_mapping == other.p1_mapping:
                 p1_mapping = self.p1_mapping
             else:
-                if op_type == "add":  # synthetic sum
-                    return GenericTensor(
-                        p1, p2, n, dim, [self.copy(), other.copy()])
-                elif op_type == "sub":
-                    return GenericTensor(
-                        p1, p2, n, dim, [self.copy(), -other.copy()])
-                elif op_type in ["mul", "div"]:
-                    if values is None:
-                        values = self.values
-                    p1_mapping = self.p1_mapping
-                    p = self.p1 + self.p2
-                    for fs, fo in zip(p1_mapping, other.p1_mapping):
-                        if fs != fo:
-                            idx = np.zeros(values.ndim, dtype=np.bool)
-                            idx[p + fs] = True
-                            idx[p + fo] = True
-                            idx = [slice(None) if i else None for i in idx]
-                            values = values * np.eye(values.shape[p + fs])[idx]
-                else:
-                    raise NotImplementedError
+                if values is None:
+                    values = self.values
+                p1_mapping = self.p1_mapping
+                p = self.p1 + self.p2
+                for fs, fo in zip(p1_mapping, other.p1_mapping):
+                    if fs != fo:
+                        idx = np.zeros(values.ndim, dtype=np.bool)
+                        idx[p + fs] = True
+                        idx[p + fo] = True
+                        idx = [slice(None) if i else None for i in idx]
+                        values = values * np.eye(values.shape[p + fs])[idx]
         elif other.p1 == 0:
             p1_mapping = self.p1_mapping
         elif self.p1 == 0:
@@ -701,27 +728,17 @@ class Tensor(BaseTensor):
             if self.p2_mapping == other.p2_mapping:
                 p2_mapping = self.p2_mapping
             else:
-                if op_type == "add":  # synthetic sum
-                    return GenericTensor(
-                        p1, p2, n, dim, [self.copy(), other.copy()])
-                elif op_type == "sub":
-                    return GenericTensor(
-                        p1, p2, n, dim, [self.copy(), -other.copy()])
-                elif op_type in ["mul", "div"]:
-                    if values is None:
-                        values = self.values
-                    p2_mapping = self.p2_mapping
-                    p = self.p1 + self.p2
-                    for fs, fo in zip(p2_mapping, other.p2_mapping):
-                        if fs != fo:
-                            idx = np.zeros(values.ndim, dtype=np.bool)
-                            idx[p + fs] = True
-                            idx[p + fo] = True
-                            idx = [slice(None) if i else None for i in idx]
-                            values = values * np.eye(values.shape[p + fs])[idx]
-                else:
-                    raise NotImplementedError
-
+                if values is None:
+                    values = self.values
+                p2_mapping = self.p2_mapping
+                p = self.p1 + self.p2
+                for fs, fo in zip(p2_mapping, other.p2_mapping):
+                    if fs != fo:
+                        idx = np.zeros(values.ndim, dtype=np.bool)
+                        idx[p + fs] = True
+                        idx[p + fo] = True
+                        idx = [slice(None) if i else None for i in idx]
+                        values = values * np.eye(values.shape[p + fs])[idx]
         elif other.p2 == 0:
             p2_mapping = self.p2_mapping
         elif self.p2 == 0:
@@ -736,16 +753,7 @@ class Tensor(BaseTensor):
         if values is None:
             values = self.values
 
-        if op_type == "add":
-            values = values[l_idx] + other.values[r_idx]
-        elif op_type == "sub":
-            values = values[l_idx] - other.values[r_idx]
-        elif op_type == "mul":
-            values = values[l_idx] * other.values[r_idx]
-        elif op_type == "div":
-            values = values[l_idx] / other.values[r_idx]
-        else:
-            raise NotImplementedError
+        values = Tensor.lambda_op[op_type](values[l_idx], other.values[r_idx])
 
         return Tensor(values, p1=p1, p2=p2, dim=dim,
                       p1_mapping=p1_mapping, p2_mapping=p2_mapping)
