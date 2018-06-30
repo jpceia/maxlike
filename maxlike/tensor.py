@@ -296,19 +296,19 @@ class Tensor(BaseTensor):
         arr = self.values
 
         p = self.p1 + self.p2
-        for k, l in enumerate(self.p1_mapping):
-            if l >= 0:
+        for k, f in enumerate(self.p1_mapping):
+            if f >= 0:
                 idx = [slice(None)] * arr.ndim
                 idx[k] = True
-                idx[p + l] = True
-                arr = arr * np.eye(arr.shape[p + l])[idx]
+                idx[p + f] = True
+                arr = arr * np.eye(arr.shape[p + f])[idx]
 
-        for k, l in enumerate(self.p2_mapping):
-            if l >= 0:
+        for k, f in enumerate(self.p2_mapping):
+            if f >= 0:
                 idx = [slice(None)] * arr.ndim
                 idx[self.p1 + k] = True
-                idx[p + l] = True
-                arr = arr * np.eye(arr.shape[p + l])[idx]
+                idx[p + f] = True
+                arr = arr * np.eye(arr.shape[p + f])[idx]
 
         return arr
 
@@ -329,13 +329,13 @@ class Tensor(BaseTensor):
                 if f >= 0:
                     t.values = t.values.swapaxes(k, p + f)
         if len(self.p2_mapping) > 0:
-            for l, f in enumerate(self.p2_mapping):
+            for k, f in enumerate(self.p2_mapping):
                 if f >= 0:
                     if len(self.p1_mapping) > 0 and f in self.p1_mapping:
                         k = self.p1_mapping.index(f)
-                        cross_map[k] = l
+                        cross_map[k] = k
                     else:
-                        t.values = t.values.swapaxes(self.p1 + l, p + f)
+                        t.values = t.values.swapaxes(self.p1 + k, p + f)
 
         if sum_dim is True:
             idx = tuple(p + np.arange(self.n + self.dim))
@@ -348,12 +348,12 @@ class Tensor(BaseTensor):
         t.p2_mapping = array('b')
         t.n = 0
 
-        for k, l in cross_map.items():
+        for k, f in cross_map.items():
             idx = np.zeros(t.values.ndim, dtype=np.bool)
             idx[k] = True
-            idx[self.p1 + l] = True
+            idx[self.p1 + f] = True
             idx = [slice(None) if x else None for x in idx]
-            t.values = t.values * np.eye(t.values.shape[self.p1 + l])[idx]
+            t.values = t.values * np.eye(t.values.shape[self.p1 + f])[idx]
 
         return t
 
@@ -723,20 +723,20 @@ class Tensor(BaseTensor):
                             l_values = l_values * np.eye(
                                 l_values.shape[p + fs])[idx]
             elif other.p1:
-                for k, l in enumerate(p1_mapping):
-                    if l >= 0:
+                for k, f in enumerate(p1_mapping):
+                    if f >= 0:
                         idx = [slice(None)] * r_values.ndim
                         idx[k] = None
                         r_values = _last_diag(
-                            r_values, k, other.p1 + other.p2 + l)[idx]
+                            r_values, k, other.p1 + other.p2 + f)[idx]
         else:
             p1_mapping = other.p1_mapping
             if p1_mapping and self.p1:
-                for k, l in enumerate(p1_mapping):
-                    if l >= 0:
+                for k, f in enumerate(p1_mapping):
+                    if f >= 0:
                         idx = [slice(None)] * l_values.ndim
                         idx[k] = None
-                        l_values = _last_diag(l_values, k, p + l)[idx]
+                        l_values = _last_diag(l_values, k, p + f)[idx]
 
         if self.p2_mapping:
             p2_mapping = self.p2_mapping
@@ -750,23 +750,23 @@ class Tensor(BaseTensor):
                             l_values = l_values * np.eye(
                                 l_values.shape[p + fs])[idx]
             elif other.p2:
-                for k, l in enumerate(p2_mapping):
-                    if l >= 0:
+                for k, f in enumerate(p2_mapping):
+                    if f >= 0:
                         idx = [slice(None)] * r_values.ndim
                         idx[self.p1 + k] = None
                         r_values = _last_diag(
                             r_values,
                             other.p1 + k,
-                            other.p1 + other.p2 + l)[idx]
+                            other.p1 + other.p2 + f)[idx]
         else:
             p2_mapping = other.p2_mapping
             if other.p2_mapping and self.p2:
-                for k, l in enumerate(p2_mapping):
-                    if l >= 0:
+                for k, f in enumerate(p2_mapping):
+                    if f >= 0:
                         idx = [slice(None)] * l_values.ndim
                         idx[self.p1 + k] = None
                         l_values = _last_diag(
-                            l_values, axis1=self.p1 + k, axis2=p + l)[idx]
+                            l_values, axis1=self.p1 + k, axis2=p + f)[idx]
 
         # adjusting the dimensions
         l_idx = self.__reshape_idx(p1, p2, n, dim)
