@@ -4,8 +4,12 @@ from array import array
 from six import with_metaclass
 
 
-class BaseTensor(with_metaclass(abc.ABCMeta)):
+def _last_diag(array, axis1, axis2):
+    return np.diagonal(array, axis1=axis1, axis2=axis2).\
+           swapaxes(-1, axis2 - 1)
 
+
+class BaseTensor(with_metaclass(abc.ABCMeta)):
     lambda_op = {
         'add': lambda x, y: x + y,
         'sub': lambda x, y: x - y,
@@ -63,8 +67,9 @@ class BaseTensor(with_metaclass(abc.ABCMeta)):
     def shape(self):
         pass
 
+    @abc.abstractmethod
     def __neg__(self):
-        return self * (-1.0)
+        pass
 
     def __add__(self, other):
         return self._bin_op(other, "add")
@@ -125,7 +130,7 @@ class GenericTensor(BaseTensor):
         for k, el in enumerate(self.elements):
             p = el.p1 + el.p2
             el_size = 1
-            for i, u in enumerate(el.values.shape[p+i0:p+i1]):
+            for i, u in enumerate(el.values.shape[p + i0:p + i1]):
                 el_size *= u
                 shape_n[i] = max(shape_n[i], u)
             sizes[k] = el_size
@@ -142,7 +147,7 @@ class GenericTensor(BaseTensor):
         new_n = self.n if dim else newsize
         new_dim = newsize if dim else self.dim
         return GenericTensor(
-            self.p1, self.p2, new_n, new_dim, 
+            self.p1, self.p2, new_n, new_dim,
             [el.expand(xmap, newsize, dim) for el in self.elements])
 
     def flip(self, xmap, dim=False):
@@ -183,10 +188,15 @@ class GenericTensor(BaseTensor):
 
     def shape(self):
         return "(p1:%d, p2:%d, n:%d, v:%d)" % \
-            (self.p1, self.p2, self.n, self.dim)
+               (self.p1, self.p2, self.n, self.dim)
 
     def __len__(self):
         return len(self.elements)
+
+    def __neg__(self):
+        return GenericTensor(
+            self.p1, self.p2, self.n, self.dim,
+            [-el for el in self.elements])
 
     def _bin_op(self, other, op_type):
         # Scalar
@@ -203,7 +213,7 @@ class GenericTensor(BaseTensor):
         # Tensor
         if isinstance(other, Tensor):
             new_elements = self.elements[:]
-            if op_type in ["add", "sub"]:
+            if op_type in ["add", "sub", "rsub"]:
                 for k, el in enumerate(new_elements):
                     new_el = el._bin_op(other, op_type)
                     if isinstance(new_el, Tensor):
@@ -215,9 +225,13 @@ class GenericTensor(BaseTensor):
                         new_elements.append(other)
                     elif op_type == "sub":
                         new_elements.append(-other)
+                    elif op_type == "rsub":
+                        new_elements = [-el for el in new_elements]
+                        new_elements.append(other)
                     else:
                         raise ValueError
-            elif op_type in ["mul", "div", "rdiv"]:
+
+            elif op_type in ["mul", "div"]:
                 for k, el in enumerate(new_elements):
                     new_elements[k] = el._bin_op(other, op_type)
             else:
@@ -277,25 +291,20 @@ class Tensor(BaseTensor):
     def toarray(self):
         arr = self.values
 
-        p = self.p1
-        for k, l in enumerate(self.p1_mapping):
-            if l < 0:
-                continue
-            idx = np.zeros(arr.ndim, dtype=np.bool)
-            idx[k] = True
-            idx[p + l] = True
-            idx = [slice(None) if x else None for x in idx]
-            arr = arr * np.eye(arr.shape[p + l])[idx]
-
         p = self.p1 + self.p2
+        for k, l in enumerate(self.p1_mapping):
+            if l >= 0:
+                idx = [slice(None)] * arr.ndim
+                idx[k] = True
+                idx[p + l] = True
+                arr = arr * np.eye(arr.shape[p + l])[idx]
+
         for k, l in enumerate(self.p2_mapping):
-            if l < 0:
-                continue
-            idx = np.zeros(arr.ndim, dtype=np.bool)
-            idx[k] = True
-            idx[p + l] = True
-            idx = [slice(None) if x else None for x in idx]
-            arr = arr * np.eye(arr.shape[p + l])[idx]
+            if l >= 0:
+                idx = [slice(None)] * arr.ndim
+                idx[self.p1 + k] = True
+                idx[p + l] = True
+                arr = arr * np.eye(arr.shape[p + l])[idx]
 
         return arr
 
@@ -608,31 +617,22 @@ class Tensor(BaseTensor):
         return Tensor(self.values, p1=self.p1, p2=self.p2, dim=self.dim,
                       p1_mapping=self.p1_mapping, p2_mapping=self.p2_mapping)
 
+    def __neg__(self):
+        return Tensor(
+            -self.values, p1=self.p1, p2=self.p2, dim=self.dim,
+            p1_mapping=self.p1_mapping, p2_mapping=self.p2_mapping)
+
     def _bin_op(self, other, op_type):
 
         if isinstance(other, GenericTensor):
-            p1 = max(self.p1, other.p1)
-            p2 = max(self.p2, other.p2)
-            n = max(self.n, other.n)
-            dim = max(self.dim, other.dim)
-
-            new_elements = other.elements[:]
-            if op_type in ["add", "sub"]:
-                for k, el in enumerate(new_elements):
-                    new_el = self._bin_op(el, op_type)
-                    if isinstance(new_el, Tensor):
-                        new_elements[k] = new_el
-                        break
-                else:
-                    # other isn't coherent with any of the current elements
-                    new_elements.append(other)
-            elif op_type in ["mul", "div"]:
-                for k, el in enumerate(new_elements):
-                    new_elements[k] = self._bin_op(el, op_type)
+            if op_type in ["add", "mul"]:
+                new_op = op_type
+            elif op_type == "sub":
+                new_op = "rsub"
             else:
-                raise ValueError
+                raise ValueError("Only +, -, * for T / GT operations")
 
-            return GenericTensor(p1, p2, n, dim, new_elements)
+            return other._bin_op(self, new_op)
 
         if isinstance(other, (int, float, np.ndarray)):
             return self._bin_op(Tensor(other), op_type)
@@ -649,11 +649,13 @@ class Tensor(BaseTensor):
             else:
                 t = other.copy()
 
-            t.values = np.asarray(Tensor.lambda_op[op_type](self.values, other.values))
+            t.values = np.asarray(Tensor.lambda_op[op_type](
+                self.values, other.values))
 
             return t
 
-        values = None
+        l_values = self.values
+        r_values = other.values
 
         assert self.n == other.n
         n = self.n
@@ -671,19 +673,22 @@ class Tensor(BaseTensor):
         assert (self.p2 == 0) | (other.p2 == 0) | (self.p2 == other.p2)
 
         # --------------------------------------------------------------------
-        # Adition and Multiplication
+        # Addition and Multiplication
         # --------------------------------------------------------------------
-        if op_type in ["add", "sub"]:
-            if (self.p1_mapping == other.p1_mapping) and (self.p2_mapping == other.p2_mapping):
+        if op_type in ["add", "sub", "rsub"]:
+            if (self.p1_mapping == other.p1_mapping) and \
+                    (self.p2_mapping == other.p2_mapping):
                 # self.p1 == other.p1
                 # self.p2 == other.p2
                 l_idx = self.__reshape_idx(p1, p2, n, dim)  # this can be simplified
-                r_idx = other.__reshape_idx(p1, p2, n, dim) # this can be simplified
-                values = Tensor.lambda_op[op_type](self.values[l_idx], other.values[r_idx])
-                return Tensor(values, p1=p1, p2=p2, dim=dim,
-                              p1_mapping=self.p1_mapping,
-                              p2_mapping=self.p2_mapping)
-            
+                r_idx = other.__reshape_idx(p1, p2, n, dim)  # this can be simplified
+                return Tensor(
+                    Tensor.lambda_op[op_type](
+                        l_values[l_idx], r_values[r_idx]),
+                    p1=p1, p2=p2, dim=dim,
+                    p1_mapping=self.p1_mapping,
+                    p2_mapping=self.p2_mapping)
+
             # there are other cases where we can do merging
             # when the shame of one of the arrays 'contains' the other
 
@@ -698,47 +703,85 @@ class Tensor(BaseTensor):
 
             return GenericTensor(p1, p2, n, dim, elements)
 
-
         # --------------------------------------------------------------------
         # Multiplication and Division
         # --------------------------------------------------------------------
+        p = self.p1 + self.p2
+        p1_mapping = None
+        p2_mapping = None
         if self.p1 == other.p1:
-            if self.p1_mapping == other.p1_mapping:
+            if len(self.p1_mapping) > 0 and len(other.p1_mapping) > 0:
+                if self.p1_mapping == other.p1_mapping:
+                    p1_mapping = self.p1_mapping
+                else:
+                    p1_mapping = self.p1_mapping
+                    for fs, fo in zip(p1_mapping, other.p1_mapping):
+                        if fs != fo:
+                            idx = np.zeros(l_values.ndim, dtype=np.bool)
+                            idx[p + fs] = True
+                            idx[p + fo] = True
+                            idx = [slice(None) if i else None for i in idx]
+                            l_values = l_values * np.eye(
+                                l_values.shape[p + fs])[idx]
+            elif len(self.p1_mapping) > 0:
                 p1_mapping = self.p1_mapping
+                for k, l in enumerate(p1_mapping):
+                    if l >= 0:
+                        idx = [slice(None)] * r_values.ndim
+                        idx[k] = None
+                        r_values = _last_diag(
+                            r_values, k, other.p1 + other.p2 + l)[idx]
+            elif len(other.p1_mapping) > 0:
+                p1_mapping = other.p1_mapping
+                for k, l in enumerate(p1_mapping):
+                    if l >= 0:
+                        idx = [slice(None)] * l_values.ndim
+                        idx[k] = None
+                        l_values = _last_diag(l_values, k, p + l)[idx]
             else:
-                if values is None:
-                    values = self.values
-                p1_mapping = self.p1_mapping
-                p = self.p1 + self.p2
-                for fs, fo in zip(p1_mapping, other.p1_mapping):
-                    if fs != fo:
-                        idx = np.zeros(values.ndim, dtype=np.bool)
-                        idx[p + fs] = True
-                        idx[p + fo] = True
-                        idx = [slice(None) if i else None for i in idx]
-                        values = values * np.eye(values.shape[p + fs])[idx]
+                pass
+
         elif other.p1 == 0:
             p1_mapping = self.p1_mapping
+
         elif self.p1 == 0:
             p1_mapping = other.p1_mapping
+
         else:
             raise ValueError
 
         if self.p2 == other.p2:
-            if self.p2_mapping == other.p2_mapping:
+            if len(self.p2_mapping) > 0 and len(other.p2_mapping) > 0:
+                if self.p2_mapping == other.p2_mapping:
+                    p2_mapping = self.p2_mapping
+                else:
+                    p2_mapping = self.p2_mapping
+                    p = self.p1 + self.p2
+                    for fs, fo in zip(p2_mapping, other.p2_mapping):
+                        if fs != fo:
+                            idx = [slice(None)] * l_values.ndim
+                            idx[p + fs] = True
+                            idx[p + fo] = True
+                            l_values = l_values * np.eye(
+                                l_values.shape[p + fs])[idx]
+            elif len(self.p2_mapping) > 0:
                 p2_mapping = self.p2_mapping
+                for k, l in enumerate(self.p2_mapping):
+                    if l >= 0:
+                        idx = [slice(None)] * r_values.ndim
+                        idx[self.p1 + k] = None
+                        r_values = _last_diag(
+                            r_values, other.p1 + k, other.p1 + other.p2 + l)[idx]
+            elif len(other.p2_mapping) > 0:
+                p2_mapping = other.p2_mapping
+                for k, l in enumerate(other.p2_mapping):
+                    if l >= 0:
+                        idx = [slice(None)] * l_values.ndim
+                        idx[self.p1 + k] = None
+                        l_values = _last_diag(
+                            l_values, axis1=self.p1 + k, axis2=p + l)[idx]
             else:
-                if values is None:
-                    values = self.values
-                p2_mapping = self.p2_mapping
-                p = self.p1 + self.p2
-                for fs, fo in zip(p2_mapping, other.p2_mapping):
-                    if fs != fo:
-                        idx = np.zeros(values.ndim, dtype=np.bool)
-                        idx[p + fs] = True
-                        idx[p + fo] = True
-                        idx = [slice(None) if i else None for i in idx]
-                        values = values * np.eye(values.shape[p + fs])[idx]
+                pass
         elif other.p2 == 0:
             p2_mapping = self.p2_mapping
         elif self.p2 == 0:
@@ -750,17 +793,15 @@ class Tensor(BaseTensor):
         l_idx = self.__reshape_idx(p1, p2, n, dim)
         r_idx = other.__reshape_idx(p1, p2, n, dim)
 
-        if values is None:
-            values = self.values
-
-        values = Tensor.lambda_op[op_type](values[l_idx], other.values[r_idx])
-
-        return Tensor(values, p1=p1, p2=p2, dim=dim,
-                      p1_mapping=p1_mapping, p2_mapping=p2_mapping)
+        return Tensor(
+            Tensor.lambda_op[op_type](l_values[l_idx], r_values[r_idx]),
+            p1=p1, p2=p2, dim=dim,
+            p1_mapping=p1_mapping,
+            p2_mapping=p2_mapping)
 
     def shape(self):
         return "(p1:%d, p2:%d, n:%d, v:%d)" % \
-            (self.p1, self.p2, self.n, self.dim)
+               (self.p1, self.p2, self.n, self.dim)
 
     def __str__(self):
         s = str(self.values)
@@ -779,7 +820,6 @@ class Tensor(BaseTensor):
             return ufunc(self.values, *inputs)
         values = ufunc(self.values)
         return Tensor(values, p1=0, p2=0, dim=self.dim)
-        #return self.values.__array_ufunc__(ufunc, method, *inputs, **kwargs)
 
     def __reshape_idx(self, p1, p2, n, dim):
         idx = []
