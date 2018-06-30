@@ -71,6 +71,10 @@ class BaseTensor(with_metaclass(abc.ABCMeta)):
     def __neg__(self):
         pass
 
+    @abc.abstractmethod
+    def _bin_op(self, op_type):
+        pass
+
     def __add__(self, other):
         return self._bin_op(other, "add")
 
