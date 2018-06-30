@@ -5,8 +5,8 @@ from six import with_metaclass
 
 
 def _last_diag(arr, axis1, axis2):
-    return np.diagonal(arr, axis1=axis1, axis2=axis2).\
-           swapaxes(-1, axis2 - 1)
+    return np.diagonal(arr, axis1=axis1, axis2=axis2). \
+        swapaxes(-1, axis2 - 1)
 
 
 class BaseTensor(with_metaclass(abc.ABCMeta)):
@@ -664,15 +664,15 @@ class Tensor(BaseTensor):
         assert self.n == other.n
         n = self.n
 
-        # set new_e
+        # set dim
         assert (self.dim == 0) | (other.dim == 0) | (self.dim == other.dim)
         dim = max(self.dim, other.dim)
 
-        # set new_p1
+        # set p1
         p1 = max(self.p1, other.p1)
         assert (self.p1 == 0) | (other.p1 == 0) | (self.p1 == other.p1)
 
-        # set new_p2
+        # set p2
         p2 = max(self.p2, other.p2)
         assert (self.p2 == 0) | (other.p2 == 0) | (self.p2 == other.p2)
 
@@ -710,8 +710,6 @@ class Tensor(BaseTensor):
         # Multiplication and Division
         # --------------------------------------------------------------------
         p = self.p1 + self.p2
-        p1_mapping = None
-        p2_mapping = None
 
         if len(self.p1_mapping) > 0:
             p1_mapping = self.p1_mapping
@@ -744,7 +742,7 @@ class Tensor(BaseTensor):
             p2_mapping = self.p2_mapping
             if len(other.p2_mapping) > 0:
                 if self.p2_mapping != other.p2_mapping:
-                    for fs, fo in zip(p2_mapping, other,p2_mapping):
+                    for fs, fo in zip(p2_mapping, other.p2_mapping):
                         if fs != fo:
                             idx = [None] * r_values.ndim
                             idx[p + fs] = slice(None)
