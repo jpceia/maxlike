@@ -294,8 +294,8 @@ class Tensor(BaseTensor):
 
     def toarray(self):
         arr = self.values
-
         p = self.p1 + self.p2
+
         for k, f in enumerate(self.p1_mapping):
             if f >= 0:
                 idx = [slice(None)] * arr.ndim
@@ -324,14 +324,14 @@ class Tensor(BaseTensor):
                 t.dim = 0
             return t
 
-        if len(self.p1_mapping) > 0:
+        if self.p1_mapping:
             for k, f in enumerate(self.p1_mapping):
                 if f >= 0:
                     t.values = t.values.swapaxes(k, p + f)
-        if len(self.p2_mapping) > 0:
+        if self.p2_mapping:
             for k, f in enumerate(self.p2_mapping):
                 if f >= 0:
-                    if len(self.p1_mapping) > 0 and f in self.p1_mapping:
+                    if self.p1_mapping and f in self.p1_mapping:
                         k = self.p1_mapping.index(f)
                         cross_map[k] = k
                     else:
@@ -349,10 +349,9 @@ class Tensor(BaseTensor):
         t.n = 0
 
         for k, f in cross_map.items():
-            idx = np.zeros(t.values.ndim, dtype=np.bool)
-            idx[k] = True
-            idx[self.p1 + f] = True
-            idx = [slice(None) if x else None for x in idx]
+            idx = [None] * t.values.ndim
+            idx[k] = slice(None)
+            idx[self.p1 + f] = slice(None)
             t.values = t.values * np.eye(t.values.shape[self.p1 + f])[idx]
 
         return t
@@ -388,13 +387,13 @@ class Tensor(BaseTensor):
             idx += [slice(None)] * self.dim
             p1_mapping = array('b')
             p2_mapping = array('b')
-            if len(self.p1_mapping) > 0:
+            if self.p1_mapping:
                 for k in self.p1_mapping:
                     if k < 0:
                         p1_mapping.append(-1)
                     else:
                         p1_mapping.append(xmap[k])
-            if len(self.p2_mapping) > 0:
+            if self.p2_mapping:
                 for k in self.p2_mapping:
                     if k < 0:
                         p2_mapping.append(-1)
@@ -498,18 +497,18 @@ class Tensor(BaseTensor):
                 p1_mapping = array('b')
                 p2_mapping = array('b')
                 val = self.values
-                if len(self.p1_mapping) > 0:
+                if self.p1_mapping:
                     for k, f in enumerate(self.p1_mapping):
                         if f >= 0:
                             val = val.swapaxes(k, self.p1 + f)
                 val = other.values[l_idx] * val[r_idx]
 
-                if len(self.p1_mapping) > 0:
+                if self.p1_mapping:
                     for k, f in enumerate(self.p1_mapping):
                         if f >= 0:
                             val = val.swapaxes(p + k, p + self.n + f)
 
-                    if len(other.p1_mapping) > 0:
+                    if other.p1_mapping:
                         p1_mapping = array('b')
                         for k in other.p1_mapping:
                             if k < 0:
@@ -517,7 +516,7 @@ class Tensor(BaseTensor):
                             else:
                                 p1_mapping.append(self.p1_mapping[k])
 
-                    if len(other.p2_mapping) > 0:
+                    if other.p2_mapping:
                         p2_mapping = array('b')
                         for k in other.p2_mapping:
                             if k < 0:
@@ -525,21 +524,18 @@ class Tensor(BaseTensor):
                             else:
                                 p2_mapping.append(self.p1_mapping[k])
                 else:
-                    if len(other.p1_mapping) > 0:
+                    if other.p1_mapping:
                         for k, f in enumerate(other.p1_mapping):
                             if f >= 0:
                                 val = val.swapaxes(k, p + f)
-                    if len(other.p2_mapping) > 0:
+                    if other.p2_mapping:
                         for k, f in enumerate(other.p2_mapping):
                             if f is not None:
-                                if len(other.p1_mapping) > 0 and \
-                                        f in other.p1_mapping:
+                                if other.p1_mapping and f in other.p1_mapping:
                                     # overlap
-                                    idx = np.zeros(val.ndim, dtype=np.bool)
-                                    idx[other.p1_mapping.index(f)] = True
-                                    idx[other.p1 + k] = True
-                                    idx = [slice(None) if x else None
-                                           for x in idx]
+                                    idx = [None] * val.ndim
+                                    idx[other.p1_mapping.index(f)] = slice(None)
+                                    idx[other.p1 + k] = slice(None)
                                     val = val * np.eye(val.shape[k])[idx]
                                 else:
                                     # no overlap
@@ -582,17 +578,17 @@ class Tensor(BaseTensor):
             p1_mapping = array('b')
             val = self.values
 
-            if len(self.p1_mapping) > 0:
+            if self.p1_mapping:
                 for k, f in enumerate(self.p1_mapping):
                     if f >= 0:
                         val = val.swapaxes(k, p + f)
             val = other.values[l_idx] * val[r_idx]
 
-            if len(self.p1_mapping) > 0:
+            if self.p1_mapping:
                 for k, f in enumerate(self.p1_mapping):
                     if f >= 0:
                         val = val.swapaxes(other.p1 + k, other.p1 + p + f)
-                if len(other.p1_mapping) > 0:
+                if other.p1_mapping:
                     p1_mapping = array('b')
                     for f in other.p1_mapping:
                         if f < 0:
@@ -600,7 +596,7 @@ class Tensor(BaseTensor):
                         else:
                             p1_mapping.append(self.p1_mapping[f])
             else:
-                if len(other.p1_mapping) > 0:
+                if other.p1_mapping:
                     for k, f in enumerate(other.p1_mapping):
                         if f >= 0:
                             val = val.swapaxes(k, other.p1 + f)
