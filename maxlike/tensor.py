@@ -682,6 +682,7 @@ class Tensor(BaseTensor):
                 # self.p2 == other.p2
                 l_idx = self.__reshape_idx(p1, p2, n, dim)  # this can be simplified
                 r_idx = other.__reshape_idx(p1, p2, n, dim)  # this can be simplified
+
                 return Tensor(
                     Tensor.lambda_op[op_type](
                         l_values[l_idx], r_values[r_idx]),
@@ -709,85 +710,63 @@ class Tensor(BaseTensor):
         p = self.p1 + self.p2
         p1_mapping = None
         p2_mapping = None
-        if self.p1 == other.p1:
-            if len(self.p1_mapping) > 0 and len(other.p1_mapping) > 0:
-                if self.p1_mapping == other.p1_mapping:
-                    p1_mapping = self.p1_mapping
-                else:
-                    p1_mapping = self.p1_mapping
+
+        if len(self.p1_mapping) > 0:
+            p1_mapping = self.p1_mapping
+            if len(other.p1_mapping) > 0:
+                if self.p1_mapping != other.p1_mapping:
                     for fs, fo in zip(p1_mapping, other.p1_mapping):
                         if fs != fo:
-                            idx = np.zeros(l_values.ndim, dtype=np.bool)
-                            idx[p + fs] = True
-                            idx[p + fo] = True
-                            idx = [slice(None) if i else None for i in idx]
+                            idx = [None] * l_values.ndim
+                            idx[p + fs] = slice(None)
+                            idx[p + fo] = slice(None)
                             l_values = l_values * np.eye(
                                 l_values.shape[p + fs])[idx]
-            elif len(self.p1_mapping) > 0:
-                p1_mapping = self.p1_mapping
+            elif other.p1 > 0:
                 for k, l in enumerate(p1_mapping):
                     if l >= 0:
                         idx = [slice(None)] * r_values.ndim
                         idx[k] = None
                         r_values = _last_diag(
                             r_values, k, other.p1 + other.p2 + l)[idx]
-            elif len(other.p1_mapping) > 0:
-                p1_mapping = other.p1_mapping
+        else:
+            p1_mapping = other.p1_mapping
+            if len(other.p1_mapping) > 0 and self.p1 > 0:
                 for k, l in enumerate(p1_mapping):
                     if l >= 0:
                         idx = [slice(None)] * l_values.ndim
                         idx[k] = None
                         l_values = _last_diag(l_values, k, p + l)[idx]
-            else:
-                pass
 
-        elif other.p1 == 0:
-            p1_mapping = self.p1_mapping
-
-        elif self.p1 == 0:
-            p1_mapping = other.p1_mapping
-
-        else:
-            raise ValueError
-
-        if self.p2 == other.p2:
-            if len(self.p2_mapping) > 0 and len(other.p2_mapping) > 0:
-                if self.p2_mapping == other.p2_mapping:
-                    p2_mapping = self.p2_mapping
-                else:
-                    p2_mapping = self.p2_mapping
-                    p = self.p1 + self.p2
-                    for fs, fo in zip(p2_mapping, other.p2_mapping):
+        if len(self.p2_mapping):
+            p2_mapping = self.p2_mapping
+            if len(other.p2_mapping) > 0:
+                if self.p2_mapping != other.p2_mapping:
+                    for fs, fo in zip(p2_mapping, other,p2_mapping):
                         if fs != fo:
-                            idx = [slice(None)] * l_values.ndim
-                            idx[p + fs] = True
-                            idx[p + fo] = True
+                            idx = [None] * r_values.ndim
+                            idx[p + fs] = slice(None)
+                            idx[p + fo] = slice(None)
                             l_values = l_values * np.eye(
                                 l_values.shape[p + fs])[idx]
-            elif len(self.p2_mapping) > 0:
-                p2_mapping = self.p2_mapping
-                for k, l in enumerate(self.p2_mapping):
+            elif other.p2 > 0:
+                for k, l in enumerate(p2_mapping):
                     if l >= 0:
                         idx = [slice(None)] * r_values.ndim
                         idx[self.p1 + k] = None
                         r_values = _last_diag(
-                            r_values, other.p1 + k, other.p1 + other.p2 + l)[idx]
-            elif len(other.p2_mapping) > 0:
-                p2_mapping = other.p2_mapping
-                for k, l in enumerate(other.p2_mapping):
+                            r_values,
+                            other.p1 + k,
+                            other.p1 + other.p2 + l)[idx]
+        else:
+            p2_mapping = other.p2_mapping
+            if len(other.p2_mapping) > 0 and self.p2 > 0:
+                for k, l in enumerate(p2_mapping):
                     if l >= 0:
                         idx = [slice(None)] * l_values.ndim
                         idx[self.p1 + k] = None
                         l_values = _last_diag(
                             l_values, axis1=self.p1 + k, axis2=p + l)[idx]
-            else:
-                pass
-        elif other.p2 == 0:
-            p2_mapping = self.p2_mapping
-        elif self.p2 == 0:
-            p2_mapping = other.p2_mapping
-        else:
-            raise ValueError
 
         # adjust the values
         l_idx = self.__reshape_idx(p1, p2, n, dim)
