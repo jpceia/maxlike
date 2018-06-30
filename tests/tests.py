@@ -33,7 +33,7 @@ class Test(unittest.TestCase):
         mle.add_param(h, False)
         tol = 1e-8
         mle.fit(tol=tol, **prepared_data)
-        a, b, h = mle.params_
+        a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
         self.assertAlmostEqual(h.data, 0.3496149212379256, delta=tol)
         self.assertAlmostEqual(s_h, 0.0804417430337, delta=tol)
@@ -70,7 +70,7 @@ class Test(unittest.TestCase):
         mle.add_param(h, False)
         tol = 1e-8
         mle.fit(tol=tol, **prepared_data)
-        a, b, h = mle.params_
+        a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
         self.assertAlmostEqual(h.data, 0.3496149212379256, delta=tol)
         self.assertAlmostEqual(s_h, 0.0804417430337, delta=tol)
@@ -116,7 +116,7 @@ class Test(unittest.TestCase):
         mle.add_param(h1, False)
         tol = 1e-8
         mle.fit(tol=tol, max_steps=50, **prepared_data)
-        a, b, h, h1 = mle.params_
+        a, b, h, h1 = mle.params
         s_a, s_b, s_h, s_h1 = mle.std_error()
         self.assertAlmostEqual(h.data, 0.1511744522920073, delta=tol)
         self.assertAlmostEqual(s_h, 0.10857347159088017, delta=tol)
@@ -140,7 +140,7 @@ class Test(unittest.TestCase):
         mle.add_param(b)
         tol = 1e-8
         mle.fit(tol=tol, **prepared_data)
-        a, b = mle.params_
+        a, b = mle.params
         s_a, s_b = mle.std_error()
         df = pd.read_csv("test_results_reg.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
@@ -164,7 +164,7 @@ class Test(unittest.TestCase):
         mle.add_param(b)
         tol = 1e-8
         mle.fit(tol=tol, **prepared_data)
-        a, b = mle.params_
+        a, b = mle.params
         s_a, s_b = mle.std_error()
         df = pd.read_csv("test_results_logistic.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
@@ -192,7 +192,7 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(tol=tol, max_steps=20, **prepared_data)
-        a = mle.params_
+        a = mle.params
         s_a = mle.std_error()
 
     def test_negative_binomial(self):
@@ -211,7 +211,7 @@ class Test(unittest.TestCase):
         mle.add_param(b)
         tol = 1e-8
         mle.fit(tol=tol, **prepared_data)
-        a, b = mle.params_
+        a, b = mle.params
         s_a, s_b = mle.std_error()
         df = pd.read_csv("test_negative_binomial.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
@@ -237,7 +237,7 @@ class Test(unittest.TestCase):
         prepared_data, _ = maxlike.utils.prepare_series(
             maxlike.utils.df_count(g, L).stack(), {'N': np.sum})
         mle.fit(tol=tol, **prepared_data)
-        a, b = mle.params_
+        a, b = mle.params
         s_a, s_b = mle.std_error()
         df = pd.read_csv("test_finite.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
@@ -279,7 +279,7 @@ class Test(unittest.TestCase):
         tol = 1e-8
 
         mle.fit(tol=tol, max_steps=20, **prepared_data)
-        a, b = mle.params_
+        a, b = mle.params
         s_a, s_b = mle.std_error()
 
 if __name__ == '__main__':
