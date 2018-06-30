@@ -711,10 +711,10 @@ class Tensor(BaseTensor):
         # --------------------------------------------------------------------
         p = self.p1 + self.p2
 
-        if len(self.p1_mapping) > 0:
+        if self.p1_mapping:
             p1_mapping = self.p1_mapping
-            if len(other.p1_mapping) > 0:
-                if self.p1_mapping != other.p1_mapping:
+            if other.p1_mapping:
+                if p1_mapping != other.p1_mapping:
                     for fs, fo in zip(p1_mapping, other.p1_mapping):
                         if fs != fo:
                             idx = [None] * l_values.ndim
@@ -722,7 +722,7 @@ class Tensor(BaseTensor):
                             idx[p + fo] = slice(None)
                             l_values = l_values * np.eye(
                                 l_values.shape[p + fs])[idx]
-            elif other.p1 > 0:
+            elif other.p1:
                 for k, l in enumerate(p1_mapping):
                     if l >= 0:
                         idx = [slice(None)] * r_values.ndim
@@ -731,16 +731,16 @@ class Tensor(BaseTensor):
                             r_values, k, other.p1 + other.p2 + l)[idx]
         else:
             p1_mapping = other.p1_mapping
-            if len(other.p1_mapping) > 0 and self.p1 > 0:
+            if p1_mapping and self.p1:
                 for k, l in enumerate(p1_mapping):
                     if l >= 0:
                         idx = [slice(None)] * l_values.ndim
                         idx[k] = None
                         l_values = _last_diag(l_values, k, p + l)[idx]
 
-        if len(self.p2_mapping):
+        if self.p2_mapping:
             p2_mapping = self.p2_mapping
-            if len(other.p2_mapping) > 0:
+            if other.p2_mapping:
                 if self.p2_mapping != other.p2_mapping:
                     for fs, fo in zip(p2_mapping, other.p2_mapping):
                         if fs != fo:
@@ -749,7 +749,7 @@ class Tensor(BaseTensor):
                             idx[p + fo] = slice(None)
                             l_values = l_values * np.eye(
                                 l_values.shape[p + fs])[idx]
-            elif other.p2 > 0:
+            elif other.p2:
                 for k, l in enumerate(p2_mapping):
                     if l >= 0:
                         idx = [slice(None)] * r_values.ndim
@@ -760,7 +760,7 @@ class Tensor(BaseTensor):
                             other.p1 + other.p2 + l)[idx]
         else:
             p2_mapping = other.p2_mapping
-            if len(other.p2_mapping) > 0 and self.p2 > 0:
+            if other.p2_mapping and self.p2:
                 for k, l in enumerate(p2_mapping):
                     if l >= 0:
                         idx = [slice(None)] * l_values.ndim
@@ -768,7 +768,7 @@ class Tensor(BaseTensor):
                         l_values = _last_diag(
                             l_values, axis1=self.p1 + k, axis2=p + l)[idx]
 
-        # adjust the values
+        # adjusting the dimensions
         l_idx = self.__reshape_idx(p1, p2, n, dim)
         r_idx = other.__reshape_idx(p1, p2, n, dim)
 
