@@ -678,10 +678,8 @@ class Tensor(BaseTensor):
         if op_type in ["add", "sub", "rsub"]:
             if (self.p1_mapping == other.p1_mapping) and \
                     (self.p2_mapping == other.p2_mapping):
-                # self.p1 == other.p1
-                # self.p2 == other.p2
-                l_idx = self.__reshape_idx(p1, p2, n, dim)  # this can be simplified
-                r_idx = other.__reshape_idx(p1, p2, n, dim)  # this can be simplified
+                l_idx = self.__reshape_idx(p1, p2, n, dim)
+                r_idx = other.__reshape_idx(p1, p2, n, dim)
 
                 return Tensor(
                     Tensor.lambda_op[op_type](
@@ -691,7 +689,7 @@ class Tensor(BaseTensor):
                     p2_mapping=self.p2_mapping)
 
             # there are other cases where we can do merging
-            # when the shame of one of the arrays 'contains' the other
+            # when the shape of one of the arrays 'contains' the other
 
             if op_type == "add":
                 elements = [self.copy(), other.copy()]
