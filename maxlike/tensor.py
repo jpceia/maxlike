@@ -4,8 +4,8 @@ from array import array
 from six import with_metaclass
 
 
-def _last_diag(array, axis1, axis2):
-    return np.diagonal(array, axis1=axis1, axis2=axis2).\
+def _last_diag(arr, axis1, axis2):
+    return np.diagonal(arr, axis1=axis1, axis2=axis2).\
            swapaxes(-1, axis2 - 1)
 
 
