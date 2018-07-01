@@ -6,112 +6,212 @@ from maxlike.tensor import *
 
 class Test(unittest.TestCase):
 
-    def test_same_mapping(self):
-        A = np.arange(1, 5).reshape((2, 2))
-        B = np.arange(5, 9).reshape((2, 2))
-        TA1 = Tensor(A[None, :, :], 1, 0, 0, [0])
-        TB1 = Tensor(B[None, :, :], 1, 0, 0, [0])
-        aA1 = A[None, :, :] * np.eye(2)[:, :, None]
-        aB1 = B[None, :, :] * np.eye(2)[:, :, None]
+    def check_comm(self, foo, *t_args):
+        M1 = foo(*t_args).toarray()
+        M2 = foo(*[t.toarray() for t in t_args])
+        msg = "\nM1=\n{}\n\nM2=\n{}\n"
+        self.assertTrue(np.allclose(M1, M2), msg.format(M1, M2))
 
-        M1 = (TA1 + TB1).sum().values
-        M2 = (aA1 + aB1).sum((-1, -2)).flatten()
-        np.testing.assert_array_equal(M1, M2)
+    def test_tensor(self):
+        n = 3
+        a = np.arange(1, n * n + 1).reshape((n, n))
+        b = np.arange(n * n + 1, 2 * n * n + 1).reshape((n, n))
+        c = np.arange(1, n * n * n + 1).reshape((n, n, n))
+        A, B = Tensor(a), Tensor(b)
+        A1 = Tensor(a[None, :, :], 1, 0, 0, [0])
+        A2 = Tensor(a[None, :, :], 1, 0, 0, [1])
+        B1 = Tensor(b[None, :, :], 1, 0, 0, [0])
+        B2 = Tensor(b[None, :, :], 1, 0, 0, [1])
+        C1 = Tensor(c, 1, 0, 0,)
+        A12 = Tensor(a[None, None, :, :], 1, 1, 0, [0], [1])
+        B21 = Tensor(b[None, None, :, :], 1, 1, 0, [0], [1])
 
-        M1 = (TA1 - TB1).sum().values
-        M2 = (aA1 - aB1).sum((-1, -2)).flatten()
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x: -x, A)
+        self.check_comm(lambda x: -x, A1)
+        self.check_comm(lambda x: -x, A12)
 
-        M1 = (TA1 * TB1).sum().values
-        M2 = (aA1 * aB1).sum((-1, -2)).flatten()
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x, y: -(x + y), A, B)
+        self.check_comm(lambda x, y: -(x + y), A, B1)
+        self.check_comm(lambda x, y: -(x + y), A1, B2)
 
-        M1 = (TA1 / B).sum().values
-        M2 = (aA1 / B).sum((-1, -2))
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x, y: -(x + y), A12, B)
+        self.check_comm(lambda x, y: -(x + y), A12, B1)
+        self.check_comm(lambda x, y: -(x + y), A12, B21)
 
-    def test_different_mapping(self):
-        A = np.arange(1, 5).reshape((2, 2))
-        B = np.arange(5, 9).reshape((2, 2))
-        TA1 = Tensor(A[None, :, :], 1, 0, 0, [0])
-        TB2 = Tensor(B[None, :, :], 1, 0, 0, [1])
-        aA1 = A[None, :, :] * np.eye(2)[:, :, None]
-        aB2 = B[None, :, :] * np.eye(2)[:, None, :]
+        self.check_comm(lambda x, y: x + y, A, B)
+        self.check_comm(lambda x, y: x - y, A, B)
+        self.check_comm(lambda x, y: x * y, A, B)
+        self.check_comm(lambda x, y: x / y, A, B)
 
-        M1 = (TA1 + TB2).sum().values
-        M2 = (aA1 + aB2).sum((-1, -2))
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x, y: x + y, A1, B)
+        self.check_comm(lambda x, y: x - y, A1, B)
+        self.check_comm(lambda x, y: x * y, A1, B)
+        self.check_comm(lambda x, y: x / y, A1, B)
 
-        M1 = (TA1 - TB2).sum().values
-        M2 = (aA1 - aB2).sum((-1, -2))
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x, y: x + y, A, B1)
+        self.check_comm(lambda x, y: x - y, A, B1)
+        self.check_comm(lambda x, y: x * y, A, B1)
 
-        M1 = (TA1 * TB2).sum().values
-        M2 = (aA1 * aB2).sum((-1, -2))
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x, y: x + y, A1, B1)
+        self.check_comm(lambda x, y: x - y, A1, B1)
+        self.check_comm(lambda x, y: x * y, A1, B1)
 
-        M1 = (TA1 / B).sum().values
-        M2 = (aA1 / B).sum((-1, -2))
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x, y: x + y, A1, B2)
+        self.check_comm(lambda x, y: x - y, A1, B2)
+        self.check_comm(lambda x, y: x * y, A1, B2)
 
-    @unittest.skip
-    def test_generic_mapping(self):
-        A = np.arange(1, 5).reshape((2, 2))
-        B = np.arange(5, 9).reshape((2, 2))
-        TA1 = Tensor(A[None, :, :], 1, 0, 0, [0])
-        TB1 = Tensor(B[None, :, :], 1, 0, 0, [0])
-        TB2 = Tensor(B[None, :, :], 1, 0, 0, [1])
-        aA1 = A[None, :, :] * np.eye(2)[:, :, None]
-        aB1 = B[None, :, :] * np.eye(2)[:, :, None]
-        aB2 = B[None, :, :] * np.eye(2)[:, None, :]
+        self.check_comm(lambda x, y: x + y, A12, B)
+        self.check_comm(lambda x, y: x - y, A12, B)
+        self.check_comm(lambda x, y: x * y, A12, B)
+        self.check_comm(lambda x, y: x / y, A12, B)
 
-        M1 = (TA1 + (TB1 + TB2)).sum().values
-        M2 = (aA1 + (aB1 + aB2)).sum((-1, -2))
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x, y: x + y, A, B21)
+        self.check_comm(lambda x, y: x - y, A, B21)
+        self.check_comm(lambda x, y: x * y, A, B21)
 
-        M1 = ((TB1 + TB2) + TA1).sum().values
-        M2 = ((aB1 + aB2) + aA1).sum((-1, -2))
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x, y: x + y, A12, B1)
+        self.check_comm(lambda x, y: x - y, A12, B1)
+        self.check_comm(lambda x, y: x * y, A12, B1)
 
-        M1 = (TA1 - (TB1 + TB2)).sum().values
-        M2 = (aA1 - (aB1 + aB2)).sum((-1, -2))
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x, y: x + y, A1, B21)
+        self.check_comm(lambda x, y: x - y, A1, B21)
+        self.check_comm(lambda x, y: x * y, A1, B21)
 
-        M1 = (TA1 * (TB1 + TB2)).sum().values
-        M2 = (aA1 * (aB1 + aB2)).sum((-1, -2))
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x, y: x + y, A12, A12)
+        self.check_comm(lambda x, y: x - y, A12, A12)
+        self.check_comm(lambda x, y: x * y, A12, A12)
 
-        M1 = ((TB1 + TB2) / A).sum().values
-        M2 = ((aB1 + aB2)  / A).sum((-1, -2))
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x, y: x + y, A12, B21)
+        self.check_comm(lambda x, y: x - y, A12, B21)
+        self.check_comm(lambda x, y: x * y, A12, B21)
 
-    @unittest.skip
-    def test_hess(self):
-        A = np.arange(1, 5).reshape((2, 2))
-        B = np.arange(5, 9).reshape((2, 2))
-        TA12 = Tensor(A[None, None, :, :], 1, 1, 0, [0], [0])
-        TB1 = Tensor(B[None, :, :], 1, 0, 0, [0])
-        TB2 = Tensor(B[None, :, :], 1, 0, 0, [1])
-        TB12 = Tensor(B[None, None, :, :], 1, 1, 0, [0], [1])
-        aA12 = A[None, None, :, :] * np.eye(2)[:, None, :, None] * np.eye(2)[None, :, None, :]
-        aB1 = B[None, :, :] * np.eye(2)[:, :, None]
-        aB2 = B[None, :, :] * np.eye(2)[:, None, :]
+        # Generic Tensor (left)
+        self.check_comm(lambda x, y, z: (x + y) + z, A, B, A)
+        self.check_comm(lambda x, y, z: (x + y) - z, A, B, A)
+        self.check_comm(lambda x, y, z: (x + y) * z, A, B, A)
+        self.check_comm(lambda x, y, z: (x + y) / z, A, B, A)
 
-        M1 = (TB1 + TB2 + TA12).sum().values
-        M2 = (aB1 + aB2 + aA12).sum((-1, -2))
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x, y, z: (x + y) + z, A1, B2, A)
+        self.check_comm(lambda x, y, z: (x + y) - z, A1, B2, A)
+        self.check_comm(lambda x, y, z: (x + y) * z, A1, B2, A)
+        self.check_comm(lambda x, y, z: (x + y) / z, A1, B2, A)
 
-        M1 = (TB1 + TB2 - TA12).sum().values
-        M2 = (aB1 + aB2 - aA12).sum((-1, -2))
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x, y, z: (x + y) + z, A1, B2, A)
+        self.check_comm(lambda x, y, z: (x + y) - z, A1, B2, A)
+        self.check_comm(lambda x, y, z: (x + y) * z, A1, B2, A)
+        self.check_comm(lambda x, y, z: (x + y) / z, A1, B2, A)
 
-        M1 = (TB1 * TA12).sum().values
-        M2 = (aB1 * aA12).sum((-1, -2))
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x, y, z: (x + y) + z, A12, B21, A)
+        self.check_comm(lambda x, y, z: (x + y) - z, A12, B21, A)
+        self.check_comm(lambda x, y, z: (x + y) * z, A12, B21, A)
+        self.check_comm(lambda x, y, z: (x + y) / z, A12, B21, A)
 
-        M1 = (TB12 / A).sum().values
-        M2 = (aB12 / A).sum((-1, -2))
-        np.testing.assert_array_equal(M1, M2)
+        self.check_comm(lambda x, y, z: x + (y + z), A, B1, B2)
+        self.check_comm(lambda x, y, z: x - (y + z), A, B1, B2)
+        self.check_comm(lambda x, y, z: x * (y + z), A, B1, B2)
+
+        self.check_comm(lambda x, y, z: x + (y + z), A1, A12, B21)
+        self.check_comm(lambda x, y, z: x - (y + z), A1, A12, B21)
+        self.check_comm(lambda x, y, z: x * (y + z), A1, A12, B21)
+
+        self.check_comm(lambda x, y, z: (x + y) + z, A12, B21, B1)
+        self.check_comm(lambda x, y, z: (x + y) - z, A12, B21, B1)
+        self.check_comm(lambda x, y, z: (x + y) * z, A12, B21, B1)
+
+        self.check_comm(lambda x, y, z: (x + y) + z, A12, B21, B)
+        self.check_comm(lambda x, y, z: (x + y) - z, A12, B21, B)
+        self.check_comm(lambda x, y, z: (x + y) * z, A12, B21, B)
+        self.check_comm(lambda x, y, z: (x + y) / z, A12, B21, B)
+
+        self.check_comm(lambda x: -x, C1)
+        self.check_comm(lambda x, y: -(x + y), A, C1)
+        self.check_comm(lambda x, y: -(x + y), A1, C1)
+
+        self.check_comm(lambda x, y: -(x + y), A12, B)
+        self.check_comm(lambda x, y: -(x + y), A12, B1)
+        self.check_comm(lambda x, y: -(x + y), A12, B21)
+
+        self.check_comm(lambda x, y: x + y, A, B)
+        self.check_comm(lambda x, y: x - y, A, B)
+        self.check_comm(lambda x, y: x * y, A, B)
+        self.check_comm(lambda x, y: x / y, A, B)
+
+        self.check_comm(lambda x, y: x + y, A1, B)
+        self.check_comm(lambda x, y: x - y, A1, B)
+        self.check_comm(lambda x, y: x * y, A1, B)
+        self.check_comm(lambda x, y: x / y, A1, B)
+
+        self.check_comm(lambda x, y: x + y, A, B1)
+        self.check_comm(lambda x, y: x - y, A, B1)
+        self.check_comm(lambda x, y: x * y, A, B1)
+
+        self.check_comm(lambda x, y: x + y, A, C1)
+        self.check_comm(lambda x, y: x - y, A, C1)
+        self.check_comm(lambda x, y: x * y, A, C1)
+
+        self.check_comm(lambda x, y: x + y, A1, B1)
+        self.check_comm(lambda x, y: x - y, A1, B1)
+        self.check_comm(lambda x, y: x * y, A1, B1)
+
+        self.check_comm(lambda x, y: x + y, A1, B2)
+        self.check_comm(lambda x, y: x - y, A1, B2)
+        self.check_comm(lambda x, y: x * y, A1, B2)
+
+        self.check_comm(lambda x, y: x + y, A1, C1)
+        self.check_comm(lambda x, y: x - y, A1, C1)
+        self.check_comm(lambda x, y: x * y, A1, C1)
+
+        self.check_comm(lambda x, y: x + y, A12, B)
+        self.check_comm(lambda x, y: x - y, A12, B)
+        self.check_comm(lambda x, y: x * y, A12, B)
+        self.check_comm(lambda x, y: x / y, A12, B)
+
+        self.check_comm(lambda x, y: x + y, A, B21)
+        self.check_comm(lambda x, y: x - y, A, B21)
+        self.check_comm(lambda x, y: x * y, A, B21)
+
+        self.check_comm(lambda x, y: x + y, A12, B1)
+        self.check_comm(lambda x, y: x - y, A12, B1)
+        self.check_comm(lambda x, y: x * y, A12, B1)
+
+        self.check_comm(lambda x, y: x + y, A1, B21)
+        self.check_comm(lambda x, y: x - y, A1, B21)
+        self.check_comm(lambda x, y: x * y, A1, B21)
+
+        self.check_comm(lambda x, y: x + y, A12, A12)
+        self.check_comm(lambda x, y: x - y, A12, A12)
+        self.check_comm(lambda x, y: x * y, A12, A12)
+
+        self.check_comm(lambda x, y: x + y, A12, B21)
+        self.check_comm(lambda x, y: x - y, A12, B21)
+        self.check_comm(lambda x, y: x * y, A12, B21)
+
+        # Generic Tensor (left)
+        self.check_comm(lambda x, y, z: (x + y) + z, A, C1, B)
+        self.check_comm(lambda x, y, z: (x + y) - z, A, C1, B)
+        self.check_comm(lambda x, y, z: (x + y) * z, A, C1, B)
+        self.check_comm(lambda x, y, z: (x + y) / z, A, C1, B)
+
+        self.check_comm(lambda x, y, z: (x + y) + z, A, B, C1)
+        self.check_comm(lambda x, y, z: (x + y) - z, A, B, C1)
+        self.check_comm(lambda x, y, z: (x + y) * z, A, B, C1)
+
+        self.check_comm(lambda x, y, z: (x + y) + z, A1, B2, C1)
+        self.check_comm(lambda x, y, z: (x + y) - z, A1, B2, C1)
+        self.check_comm(lambda x, y, z: (x + y) * z, A1, B2, C1)
+
+        self.check_comm(lambda x, y, z: (x + y) + z, A12, B21, C1)
+        self.check_comm(lambda x, y, z: (x + y) - z, A12, B21, C1)
+        self.check_comm(lambda x, y, z: (x + y) * z, A12, B21, C1)
+
+        # Generic Tensor (right)
+        self.check_comm(lambda x, y, z: x + (y + z), C1, B1, B2)
+        self.check_comm(lambda x, y, z: x - (y + z), C1, B1, B2)
+        self.check_comm(lambda x, y, z: x * (y + z), C1, B1, B2)
+
+        self.check_comm(lambda x, y, z: x + (y + z), C1, A12, B21)
+        self.check_comm(lambda x, y, z: x - (y + z), C1, A12, B21)
+        self.check_comm(lambda x, y, z: x * (y + z), C1, A12, B21)
 
 
 if __name__ == "__main__":
