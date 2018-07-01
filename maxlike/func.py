@@ -8,8 +8,6 @@ except:
     from .common import *
 
 
-
-
 class FuncMeta(type):
 
     def __new__(cls, name, bases, attrs, **kwargs):
@@ -424,7 +422,9 @@ def copula(C):
         F_xy = C(obj, x[..., None, :], y[..., None], *args, **kwargs)
         F_xy = np.insert(F_xy, 0, 0, -1)
         F_xy = np.insert(F_xy, 0, 0, -2)
-        return Tensor(np.diff(np.diff(F_xy, 1, -1), 1, -2))
+        res = np.diff(np.diff(F_xy, 1, -1), 1, -2)
+        # normalization ?
+        return Tensor(res)
     return wrap
 
 
@@ -445,12 +445,37 @@ class GaussianCopula(Func):
     """
 
     def __init__(self, rho):
-        assert (rho <= 1) & (rho >= -1)
+        assert rho < 1
+        assert rho > -1
         self.rho = rho
 
     @copula
     def __call__(self, x, y):
         return gauss_bivar(ndtri(x), ndtri(y), self.rho)
+
+
+class TStudentCopula(Func):
+    """
+    -1 < rho < 1
+    v > 0
+    """
+
+    def __init__(self, rho, v):
+        assert rho < 1
+        assert rho > -1
+        assert v > 0
+        self.rho = rho
+        self.v = v
+
+    @copula
+    def __call__(self, x, y):
+        u = stdtridf(x, self.v)
+        v = stdtridf(y, self.v)
+        u[..., -1] = 999
+        v[..., -1, :] = 999
+        t = np.sqrt((u * u + v * v - 2 * self.rho * u * v) /
+                    (1 - self.rho * self.rho))
+        return stdtr(t, self.v)
 
 
 class ClaytonCopula(Func):
