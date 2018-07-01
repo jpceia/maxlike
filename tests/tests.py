@@ -110,18 +110,32 @@ class Test(unittest.TestCase):
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean()
+        a_fix = 2
+        b_fix = 3
+        a[a_fix] = 1
+        b[b_fix] = -1
         mle.add_param(a.values)
         mle.add_param(b.values)
-        mle.add_param(h, False)
-        mle.add_param(h1, False)
+        mle.add_param(h)
+        mle.add_param(h1)
         tol = 1e-8
-        mle.fit(tol=tol, max_steps=50, **prepared_data)
+        mle.fit(tol=tol, **prepared_data)
         a, b, h, h1 = mle.params
         s_a, s_b, s_h, s_h1 = mle.std_error()
-        self.assertAlmostEqual(h.data, 0.1511744522920073, delta=tol)
-        self.assertAlmostEqual(s_h, 0.10857347159088017, delta=tol)
-        self.assertAlmostEqual(h1.data, 0.4323755506313965, delta=tol)
-        self.assertAlmostEqual(s_h1, 0.15681526061653295, delta=tol)
+        df = pd.DataFrame()
+        df['a'] = a
+        df['s_a'] = s_a
+        df['b'] = b
+        df['s_b'] = s_b
+        self.assertAlmostEqual(h.data, 0.15143588858069298, delta=tol)
+        self.assertAlmostEqual(s_h, 0.08620447831572678, delta=tol)
+        self.assertAlmostEqual(h1.data, 0.4357253337537907, delta=tol)
+        self.assertAlmostEqual(s_h1, 0.28768952817157456, delta=tol)
+        df = pd.read_csv("test_results2.csv")
+        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
+        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
+        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
+        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
     def test_poisson_reg(self):
         mle = maxlike.Poisson()
