@@ -434,6 +434,14 @@ class GaussianCopula(Func):
     a joint distribution of XY using a gaussian copula.
 
     -1 < rho < 1
+
+    Note:
+    Assuming a Bivariate Gaussian distribution
+    tau = (2 / pi) * arcsin(rho)
+
+    where:
+    tau := Kendall's tau
+    rho := Pearson's Rho
     """
 
     def __init__(self, rho):
@@ -513,18 +521,19 @@ class FrankCopula(Func):
 class AMHCopula(Func):
     """
     Aki-Mikhail-Haq Copula
-    C(u,v) = uv / (1 - a(1-u)(1-v))
+    C(u,v) = uv / (1 - rho * (1-u) * (1-v))
 
-    -1 < a < 1
+    -1 < rho < 1
     """
 
-    def __init__(self, a):
-        assert (a < 1) & (a > -1)
-        self.a = a
+    def __init__(self, rho):
+        assert rho < 1
+        assert rho > -1
+        self.rho = rho
 
     @copula
     def __call__(self, x, y):
-        return x * y / (1 - self.a * (1 - x) * (1 - y))
+        return x * y / (1 - self.rho * (1 - x) * (1 - y))
 
 
 class CollapseMatrix(Func):
