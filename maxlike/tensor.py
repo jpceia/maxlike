@@ -119,13 +119,16 @@ class GenericTensor(BaseTensor):
         return sum([el.toarray() for el in self.elements])
 
     def sum(self, sum_val=True, sum_dim=True):
-        # consider the impact of broadcasting
+        # considers the impact of broadcasting
         if not sum_val and not sum_dim:
-            return self.copy()
+            return self
+
         i0 = 0
         i1 = self.n + self.dim
+
         if not sum_val:
             i0 = self.n
+
         if not sum_dim:
             i1 = self.dim
 
@@ -142,7 +145,10 @@ class GenericTensor(BaseTensor):
         values = 0
         size = shape_n.prod()
         for el, el_size in zip(self.elements, sizes):
-            values = values + el.sum(sum_val, sum_dim).values * (size / el_size)
+            idx = [None] * (self.p1 - el.p1) + [slice(None)] * el.p1
+            idx += [None] * (self.p2 - el.p2) + [slice(None)] * el.p2
+            idx += [Ellipsis]
+            values = values + el.sum(sum_val, sum_dim).values[idx] * (size / el_size)
 
         dim = 0 if sum_dim is True else self.dim
         return Tensor(values, p1=self.p1, p2=self.p2, dim=dim)
@@ -295,21 +301,19 @@ class Tensor(BaseTensor):
     def toarray(self):
         arr = self.values
         p = self.p1 + self.p2
-
         for k, f in enumerate(self.p1_mapping):
             if f >= 0:
-                idx = [slice(None)] * arr.ndim
-                idx[k] = True
-                idx[p + f] = True
+                idx = [None] * arr.ndim
+                idx[k] = slice(None)
+                idx[p + f] = slice(None)
                 arr = arr * np.eye(arr.shape[p + f])[idx]
 
         for k, f in enumerate(self.p2_mapping):
             if f >= 0:
-                idx = [slice(None)] * arr.ndim
-                idx[self.p1 + k] = True
-                idx[p + f] = True
+                idx = [None] * arr.ndim
+                idx[self.p1 + k] = slice(None)
+                idx[p + f] = slice(None)
                 arr = arr * np.eye(arr.shape[p + f])[idx]
-
         return arr
 
     def sum(self, sum_val=True, sum_dim=True):
