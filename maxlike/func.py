@@ -8,8 +8,6 @@ except:
     from .common import *
 
 
-
-
 class FuncMeta(type):
 
     def __new__(cls, name, bases, attrs, **kwargs):
@@ -424,7 +422,9 @@ def copula(C):
         F_xy = C(obj, x[..., None, :], y[..., None], *args, **kwargs)
         F_xy = np.insert(F_xy, 0, 0, -1)
         F_xy = np.insert(F_xy, 0, 0, -2)
-        return Tensor(np.diff(np.diff(F_xy, 1, -1), 1, -2))
+        res = np.diff(np.diff(F_xy, 1, -1), 1, -2)
+        # normalization ?
+        return Tensor(res)
     return wrap
 
 
@@ -434,15 +434,48 @@ class GaussianCopula(Func):
     a joint distribution of XY using a gaussian copula.
 
     -1 < rho < 1
+
+    Note:
+    Assuming a Bivariate Gaussian distribution
+    tau = (2 / pi) * arcsin(rho)
+
+    where:
+    tau := Kendall's tau
+    rho := Pearson's Rho
     """
 
     def __init__(self, rho):
-        assert (rho <= 1) & (rho >= -1)
+        assert rho < 1
+        assert rho > -1
         self.rho = rho
 
     @copula
     def __call__(self, x, y):
         return gauss_bivar(ndtri(x), ndtri(y), self.rho)
+
+
+class TStudentCopula(Func):
+    """
+    -1 < rho < 1
+    v > 0
+    """
+
+    def __init__(self, rho, v):
+        assert rho < 1
+        assert rho > -1
+        assert v > 0
+        self.rho = rho
+        self.v = v
+
+    @copula
+    def __call__(self, x, y):
+        u = stdtridf(x, self.v)
+        v = stdtridf(y, self.v)
+        u[..., -1] = 999
+        v[..., -1, :] = 999
+        t = np.sqrt((u * u + v * v - 2 * self.rho * u * v) /
+                    (1 - self.rho * self.rho))
+        return stdtr(t, self.v)
 
 
 class ClaytonCopula(Func):
@@ -513,18 +546,19 @@ class FrankCopula(Func):
 class AMHCopula(Func):
     """
     Aki-Mikhail-Haq Copula
-    C(u,v) = uv / (1 - a(1-u)(1-v))
+    C(u,v) = uv / (1 - rho * (1-u) * (1-v))
 
-    -1 < a < 1
+    -1 < rho < 1
     """
 
-    def __init__(self, a):
-        assert (a < 1) & (a > -1)
-        self.a = a
+    def __init__(self, rho):
+        assert rho < 1
+        assert rho > -1
+        self.rho = rho
 
     @copula
     def __call__(self, x, y):
-        return x * y / (1 - self.a * (1 - x) * (1 - y))
+        return x * y / (1 - self.rho * (1 - x) * (1 - y))
 
 
 class CollapseMatrix(Func):

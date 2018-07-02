@@ -17,7 +17,7 @@ class Test(unittest.TestCase):
         mle.model.add(-X(), 1, 1)
         mle.model.add(Vector(np.arange(2) - .5), 2, 2)
         mle.add_constraint([0, 1], Linear([1, 1]))
-        g = pd.read_csv("test_data1.csv", index_col=[0, 1, 2])['g']
+        g = pd.read_csv(r"data\test_data1.csv", index_col=[0, 1, 2])['g']
         prepared_data, _ = maxlike.utils.prepare_series(
             g, {'N': np.size, 'X': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
@@ -33,11 +33,11 @@ class Test(unittest.TestCase):
         mle.add_param(h, False)
         tol = 1e-8
         mle.fit(tol=tol, **prepared_data)
-        a, b, h = mle.params_
+        a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
         self.assertAlmostEqual(h.data, 0.3496149212379256, delta=tol)
         self.assertAlmostEqual(s_h, 0.0804417430337, delta=tol)
-        df = pd.read_csv("test_results1.csv")
+        df = pd.read_csv(r"data\test_results1.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -54,7 +54,7 @@ class Test(unittest.TestCase):
         mle.model.add(s, [0, 1], [0, 1])
         mle.model.add(f_h, 2, 2)
         mle.add_constraint([0, 1], Linear([1, 1]))
-        g = pd.read_csv("test_data1.csv", index_col=[0, 1, 2])['g']
+        g = pd.read_csv(r"data\test_data1.csv", index_col=[0, 1, 2])['g']
         prepared_data, _ = maxlike.utils.prepare_series(
             g, {'N': np.size, 'X': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
@@ -70,11 +70,11 @@ class Test(unittest.TestCase):
         mle.add_param(h, False)
         tol = 1e-8
         mle.fit(tol=tol, **prepared_data)
-        a, b, h = mle.params_
+        a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
         self.assertAlmostEqual(h.data, 0.3496149212379256, delta=tol)
         self.assertAlmostEqual(s_h, 0.0804417430337, delta=tol)
-        df = pd.read_csv("test_results1.csv")
+        df = pd.read_csv(r"data\test_results1.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -102,7 +102,7 @@ class Test(unittest.TestCase):
         F.add(H, [0, 1, 2, 3], [0, 1, 2])
         mle.model = F
         mle.add_constraint([0, 1], Linear([1, 1]))
-        g = pd.read_csv("test_data1.csv", index_col=[0, 1, 2])['g']
+        g = pd.read_csv(r"data\test_data1.csv", index_col=[0, 1, 2])['g']
         prepared_data, _ = maxlike.utils.prepare_series(
             g, {'N': np.size, 'X': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
@@ -110,18 +110,32 @@ class Test(unittest.TestCase):
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean()
+        a_fix = 2
+        b_fix = 3
+        a[a_fix] = 1
+        b[b_fix] = -1
         mle.add_param(a.values)
         mle.add_param(b.values)
-        mle.add_param(h, False)
-        mle.add_param(h1, False)
+        mle.add_param(h)
+        mle.add_param(h1)
         tol = 1e-8
-        mle.fit(tol=tol, max_steps=50, **prepared_data)
-        a, b, h, h1 = mle.params_
+        mle.fit(tol=tol, **prepared_data)
+        a, b, h, h1 = mle.params
         s_a, s_b, s_h, s_h1 = mle.std_error()
-        self.assertAlmostEqual(h.data, 0.1511744522920073, delta=tol)
-        self.assertAlmostEqual(s_h, 0.10857347159088017, delta=tol)
-        self.assertAlmostEqual(h1.data, 0.4323755506313965, delta=tol)
-        self.assertAlmostEqual(s_h1, 0.15681526061653295, delta=tol)
+        df = pd.DataFrame()
+        df['a'] = a
+        df['s_a'] = s_a
+        df['b'] = b
+        df['s_b'] = s_b
+        self.assertAlmostEqual(h.data, 0.15143588858069298, delta=tol)
+        self.assertAlmostEqual(s_h, 0.08620447831572678, delta=tol)
+        self.assertAlmostEqual(h1.data, 0.4357253337537907, delta=tol)
+        self.assertAlmostEqual(s_h1, 0.28768952817157456, delta=tol)
+        df = pd.read_csv(r"data\test_results2.csv")
+        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
+        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
+        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
+        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
     def test_poisson_reg(self):
         mle = maxlike.Poisson()
@@ -130,7 +144,7 @@ class Test(unittest.TestCase):
         mle.model.add(-X(), 1, 1)
         mle.add_constraint([0, 1], Linear([1, 1]))
         mle.add_regularization([0, 1], Quadratic(0, 1))
-        g = pd.read_csv("test_data1.csv", index_col=[0, 1])['g']
+        g = pd.read_csv(r"data\test_data1.csv", index_col=[0, 1])['g']
         prepared_data, _ = maxlike.utils.prepare_series(
             g, {'N': np.size, 'X': np.sum})
         log_mean = np.log(g.mean()) / 2
@@ -140,9 +154,9 @@ class Test(unittest.TestCase):
         mle.add_param(b)
         tol = 1e-8
         mle.fit(tol=tol, **prepared_data)
-        a, b = mle.params_
+        a, b = mle.params
         s_a, s_b = mle.std_error()
-        df = pd.read_csv("test_results_reg.csv")
+        df = pd.read_csv(r"data\test_results_reg.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -154,7 +168,7 @@ class Test(unittest.TestCase):
         mle.model.add(X(), 0, 0)
         mle.model.add(-X(), 1, 1)
         mle.add_constraint([0, 1], Linear([1, 1]))
-        g = pd.read_csv("test_data1.csv", index_col=[0, 1])['g'] > 1
+        g = pd.read_csv(r"data\test_data1.csv", index_col=[0, 1])['g'] > 1
         prepared_data, _ = maxlike.utils.prepare_series(
             g, {'N': np.size, 'X': np.sum})
         m = np.log(g.mean())
@@ -164,9 +178,9 @@ class Test(unittest.TestCase):
         mle.add_param(b)
         tol = 1e-8
         mle.fit(tol=tol, **prepared_data)
-        a, b = mle.params_
+        a, b = mle.params
         s_a, s_b = mle.std_error()
-        df = pd.read_csv("test_results_logistic.csv")
+        df = pd.read_csv(r"data\test_results_logistic.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -181,7 +195,7 @@ class Test(unittest.TestCase):
         mle.add_constraint([0], Linear([1]))
 
         # fetch and prepare data
-        df = pd.read_csv("test_data_proba.csv", index_col=[0, 1, 2])['p'].unstack(level=2)
+        df = pd.read_csv(r"data\test_data_proba.csv", index_col=[0, 1, 2])['p'].unstack(level=2)
         _N = maxlike.utils.prepare_series(df[-1] + df[1], {'N': np.sum})[0]['N']
         _X = maxlike.utils.prepare_series(df[1], {'X': np.sum})[0]['X']
         prepared_data = {'N': _N, 'X': _X}
@@ -192,7 +206,7 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(tol=tol, max_steps=20, **prepared_data)
-        a = mle.params_
+        a = mle.params
         s_a = mle.std_error()
 
     def test_negative_binomial(self):
@@ -201,7 +215,7 @@ class Test(unittest.TestCase):
         mle.model.add(X(), 0, 0)
         mle.model.add(-X(), 1, 1)
         mle.add_constraint([0, 1], Linear([1, 1]))
-        g = pd.read_csv("test_data1.csv", index_col=[0, 1])['g']
+        g = pd.read_csv(r"data\test_data1.csv", index_col=[0, 1])['g']
         prepared_data, _ = maxlike.utils.prepare_series(
             g, {'N': np.size, 'X': np.sum})
         log_mean = np.log(g.mean()) / 2
@@ -211,9 +225,9 @@ class Test(unittest.TestCase):
         mle.add_param(b)
         tol = 1e-8
         mle.fit(tol=tol, **prepared_data)
-        a, b = mle.params_
+        a, b = mle.params
         s_a, s_b = mle.std_error()
-        df = pd.read_csv("test_negative_binomial.csv")
+        df = pd.read_csv(r"data\test_negative_binomial.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -227,7 +241,7 @@ class Test(unittest.TestCase):
         foo.add(-X(), 1, 1)
         mle.model = Compose(Poisson(L), Compose(Exp(), foo))
         mle.add_constraint([0, 1], Linear([1, 1]))
-        g = pd.read_csv("test_data1.csv", index_col=[0, 1])['g']
+        g = pd.read_csv(r"data\test_data1.csv", index_col=[0, 1])['g']
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean()
@@ -237,9 +251,9 @@ class Test(unittest.TestCase):
         prepared_data, _ = maxlike.utils.prepare_series(
             maxlike.utils.df_count(g, L).stack(), {'N': np.sum})
         mle.fit(tol=tol, **prepared_data)
-        a, b = mle.params_
+        a, b = mle.params
         s_a, s_b = mle.std_error()
-        df = pd.read_csv("test_finite.csv")
+        df = pd.read_csv(r"data\test_finite.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -251,7 +265,7 @@ class Test(unittest.TestCase):
         mle = maxlike.Finite()
 
         # fetch and prepare data
-        df = pd.read_csv("test_data_proba.csv", index_col=[0, 1, 2])['p']
+        df = pd.read_csv(r"data\test_data_proba.csv", index_col=[0, 1, 2])['p']
         prepared_data, _ = maxlike.utils.prepare_series(df, {'N': np.sum})
 
         # guess params
@@ -279,7 +293,7 @@ class Test(unittest.TestCase):
         tol = 1e-8
 
         mle.fit(tol=tol, max_steps=20, **prepared_data)
-        a, b = mle.params_
+        a, b = mle.params
         s_a, s_b = mle.std_error()
 
 if __name__ == '__main__':

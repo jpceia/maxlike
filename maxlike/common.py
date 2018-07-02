@@ -2,7 +2,7 @@ from __future__ import print_function
 import numpy as np
 from functools import wraps
 from hashlib import sha1
-from scipy.special import ndtri, factorial
+from scipy.special import ndtri, factorial, stdtr, stdtridf
 from scipy.stats.mvn import mvnun
 from numpy import exp as np_exp
 
