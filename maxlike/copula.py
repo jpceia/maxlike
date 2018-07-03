@@ -1,6 +1,27 @@
-from func import FuncMeta, Func, Tensor
+from .func import FuncMeta, Func, Tensor
+from scipy.special import ndtri
+from scipy.stats.mvn import mvnun
 from six import with_metaclass
-from common import *
+import numpy as np
+
+
+def no_divwarn(foo):
+    def wrap(*args, **kwargs):
+        with np.errstate(divide='ignore'):
+            return foo(*args, **kwargs)
+    return wrap
+
+
+def vectorize(n_in, n_out):
+    def wrap(foo):
+        return np.frompyfunc(foo, n_in, n_out)
+    return wrap
+
+
+@no_divwarn
+@vectorize(3, 1)
+def gauss_bivar(x, y, rho):
+    return mvnun((-999, -999), (x, y), (0, 0), ((1, rho), (rho, 1)))[0]
 
 
 def copulaWrap(C):
@@ -14,9 +35,13 @@ def copulaWrap(C):
         y = np.asarray(params[1]).cumsum(-1)
         x /= x[..., -1][..., None]
         y /= y[..., -1][..., None]
-        F_xy = C(obj, x[..., None, :], y[..., None], *args, **kwargs)
+        # exclude last element
+        F_xy = C(obj, x[..., None], y[..., None, :], *args, **kwargs)
         F_xy = np.insert(F_xy, 0, 0, -1)
         F_xy = np.insert(F_xy, 0, 0, -2)
+        # add 999 at end
+        print(F_xy)
+
         res = np.diff(np.diff(F_xy, 1, -1), 1, -2)
         # normalization ?
         return Tensor(res)
@@ -55,28 +80,6 @@ class Gaussian(Copula):
 
     def __call__(self, x, y):
         return gauss_bivar(ndtri(x), ndtri(y), self.rho)
-
-
-class TStudent(Copula):
-    """
-    -1 < rho < 1
-    v > 0
-    """
-    def __init__(self, rho, v):
-        assert rho < 1
-        assert rho > -1
-        assert v > 0
-        self.rho = rho
-        self.v = v
-
-    def __call__(self, x, y):
-        u = stdtridf(x, self.v)
-        v = stdtridf(y, self.v)
-        u[..., -1] = 999
-        v[..., -1, :] = 999
-        t = np.sqrt((u * u + v * v - 2 * self.rho * u * v) /
-                    (1 - self.rho * self.rho))
-        return stdtr(t, self.v)
 
 
 class Clayton(Copula):
