@@ -19,7 +19,6 @@ class Test(unittest.TestCase):
         c = np.arange(1, n * n * n + 1).reshape((n, n, n))
         A, B = Tensor(a), Tensor(b)
         A1 = Tensor(a[None, :, :], 1, 0, 0, [0])
-        A2 = Tensor(a[None, :, :], 1, 0, 0, [1])
         B1 = Tensor(b[None, :, :], 1, 0, 0, [0])
         B2 = Tensor(b[None, :, :], 1, 0, 0, [1])
         C1 = Tensor(c, 1, 0, 0,)
@@ -117,17 +116,25 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y, z: (x + y) * z, A1, B2, C1)
 
         # Generic Tensor (right)
+        self.check_comm(lambda x, y, z: x + (y + z), A, B, A)
+        self.check_comm(lambda x, y, z: x - (y + z), A, B, A)
+        self.check_comm(lambda x, y, z: x * (y + z), A, B, A)
+
         self.check_comm(lambda x, y, z: x + (y + z), A, B1, B2)
         self.check_comm(lambda x, y, z: x - (y + z), A, B1, B2)
         self.check_comm(lambda x, y, z: x * (y + z), A, B1, B2)
 
-        self.check_comm(lambda x, y, z: x + (y + z), A, A12, B21)
-        self.check_comm(lambda x, y, z: x - (y + z), A, A12, B21)
-        self.check_comm(lambda x, y, z: x * (y + z), A, A12, B21)
+        self.check_comm(lambda x, y, z: x + (y + z), A1, B1, B2)
+        self.check_comm(lambda x, y, z: x - (y + z), A1, B1, B2)
+        self.check_comm(lambda x, y, z: x * (y + z), A1, B1, B2)
 
         self.check_comm(lambda x, y, z: x + (y + z), C1, B1, B2)
         self.check_comm(lambda x, y, z: x - (y + z), C1, B1, B2)
         self.check_comm(lambda x, y, z: x * (y + z), C1, B1, B2)
+
+        self.check_comm(lambda x, y, z: x + (y + z), A, A12, B21)
+        self.check_comm(lambda x, y, z: x - (y + z), A, A12, B21)
+        self.check_comm(lambda x, y, z: x * (y + z), A, A12, B21)
 
 
 if __name__ == "__main__":
