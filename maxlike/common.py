@@ -2,27 +2,7 @@ from __future__ import print_function
 import numpy as np
 from functools import wraps
 from hashlib import sha1
-from scipy.special import ndtri, factorial, stdtr, stdtridf
-from scipy.stats.mvn import mvnun
-from numpy import exp as np_exp
-
-
-def no_divwarn(foo):
-    def wrap(*args, **kwargs):
-        with np.errstate(divide='ignore'):
-            return foo(*args, **kwargs)
-    return wrap
-
-def vectorize(n_in, n_out):
-    def wrap(foo):
-        return np.frompyfunc(foo, n_in, n_out)
-    return wrap
-
-
-@no_divwarn
-@vectorize(3, 1)
-def gauss_bivar(x, y, rho):
-    return mvnun((-999, -999), (x, y), (0, 0), ((1, rho), (rho, 1)))[0]
+from scipy.special import factorial
 
 
 class Params(list):
