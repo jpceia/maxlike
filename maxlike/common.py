@@ -1,6 +1,5 @@
 from __future__ import print_function
 import numpy as np
-from functools import wraps
 from hashlib import sha1
 from scipy.special import factorial
 
@@ -31,45 +30,6 @@ class cache_output:
             self.hash = hash_val
             self.cached_result = self.foo(params)
         return self.cached_result
-
-
-def call_func(f):
-    @wraps(f)
-    def wrapper(obj, params=None):
-        if params is None:
-            params = []
-        elif not isinstance(params, (tuple, list)):
-            params = [params]
-        return f(obj, params)
-    return wrapper
-
-
-def vector_func(g):
-    @wraps(g)
-    def wrapper(obj, params=None, i=None):
-        if params is None:
-            params = []
-        elif not isinstance(params, (tuple, list)):
-            params = [params]
-        if i is not None:
-            return g(obj, params, i)
-        return [g(obj, params, k) for k in range(len(params))]
-    return wrapper
-
-
-def matrix_func(h):
-    @wraps(h)
-    def wrapper(obj, params=None, i=None, j=None):
-        if params is None:
-            params = []
-        elif not isinstance(params, (tuple, list)):
-            params = [params]
-        if i is not None and j is not None:
-            return h(obj, params, i, j)
-        return [[h(obj, params, k, l)
-                 for l in range(k + 1)]
-                for k in range(len(params))]
-    return wrapper
 
 
 class IndexMap(list):

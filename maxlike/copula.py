@@ -1,4 +1,5 @@
-from .func import FuncMeta, Func, Tensor
+from .func_base import FuncMeta, Func
+from .tensor import Tensor
 from scipy.special import ndtri
 from scipy.stats.mvn import mvnun
 from six import with_metaclass
