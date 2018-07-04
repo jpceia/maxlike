@@ -102,10 +102,6 @@ class Affine(Func):
             self.a = a
             self.b = b
 
-    @property
-    def param_feat(self):
-        return self.base.param_feat
-
     def __call__(self, params):
         return self.a * self.base(params) + self.b
 
