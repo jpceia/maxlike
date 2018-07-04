@@ -94,9 +94,9 @@ class Clayton(Copula):
 
     a > 0
     """
-    def __init__(self, a):
-        assert a > 0
-        self.a = a
+    def __init__(self, rho):
+        assert rho > 0
+        self.a = rho
 
     def __call__(self, x, y):
         return np.power(
@@ -115,9 +115,9 @@ class Gumbel(Copula):
 
     a >= 1
     """
-    def __init__(self, a):
-        assert a >= 1
-        self.a = a
+    def __init__(self, rho):
+        assert rho >= 1
+        self.a = rho
 
     def __call__(self, x, y):
         return np.exp(-np.power(
@@ -131,9 +131,9 @@ class Frank(Copula):
 
     a != 0
     """
-    def __init__(self, a):
-        assert a != 0
-        self.a = a
+    def __init__(self, rho):
+        assert rho != 0
+        self.a = rho
 
     def __call__(self, x, y):
         return (-1 / self.a) * np.log(1 +
