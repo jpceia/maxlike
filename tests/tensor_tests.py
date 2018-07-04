@@ -31,105 +31,18 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x: -x, A12)
 
         self.check_comm(lambda x, y: -(x + y), A, B)
-        self.check_comm(lambda x, y: -(x + y), A, B1)
         self.check_comm(lambda x, y: -(x + y), A1, B2)
 
         self.check_comm(lambda x, y: -(x + y), A12, B)
-        self.check_comm(lambda x, y: -(x + y), A12, B1)
         self.check_comm(lambda x, y: -(x + y), A12, B21)
-
-        self.check_comm(lambda x, y: x + y, A, B)
-        self.check_comm(lambda x, y: x - y, A, B)
-        self.check_comm(lambda x, y: x * y, A, B)
-        self.check_comm(lambda x, y: x / y, A, B)
-
-        self.check_comm(lambda x, y: x + y, A1, B)
-        self.check_comm(lambda x, y: x - y, A1, B)
-        self.check_comm(lambda x, y: x * y, A1, B)
-        self.check_comm(lambda x, y: x / y, A1, B)
-
-        self.check_comm(lambda x, y: x + y, A, B1)
-        self.check_comm(lambda x, y: x - y, A, B1)
-        self.check_comm(lambda x, y: x * y, A, B1)
-
-        self.check_comm(lambda x, y: x + y, A1, B1)
-        self.check_comm(lambda x, y: x - y, A1, B1)
-        self.check_comm(lambda x, y: x * y, A1, B1)
-
-        self.check_comm(lambda x, y: x + y, A1, B2)
-        self.check_comm(lambda x, y: x - y, A1, B2)
-        self.check_comm(lambda x, y: x * y, A1, B2)
-
-        self.check_comm(lambda x, y: x + y, A12, B)
-        self.check_comm(lambda x, y: x - y, A12, B)
-        self.check_comm(lambda x, y: x * y, A12, B)
-        self.check_comm(lambda x, y: x / y, A12, B)
-
-        self.check_comm(lambda x, y: x + y, A, B21)
-        self.check_comm(lambda x, y: x - y, A, B21)
-        self.check_comm(lambda x, y: x * y, A, B21)
-
-        self.check_comm(lambda x, y: x + y, A12, B1)
-        self.check_comm(lambda x, y: x - y, A12, B1)
-        self.check_comm(lambda x, y: x * y, A12, B1)
-
-        self.check_comm(lambda x, y: x + y, A1, B21)
-        self.check_comm(lambda x, y: x - y, A1, B21)
-        self.check_comm(lambda x, y: x * y, A1, B21)
-
-        self.check_comm(lambda x, y: x + y, A12, A12)
-        self.check_comm(lambda x, y: x - y, A12, A12)
-        self.check_comm(lambda x, y: x * y, A12, A12)
-
-        self.check_comm(lambda x, y: x + y, A12, B21)
-        self.check_comm(lambda x, y: x - y, A12, B21)
-        self.check_comm(lambda x, y: x * y, A12, B21)
-
-        # Generic Tensor (left)
-        self.check_comm(lambda x, y, z: (x + y) + z, A, B, A)
-        self.check_comm(lambda x, y, z: (x + y) - z, A, B, A)
-        self.check_comm(lambda x, y, z: (x + y) * z, A, B, A)
-        self.check_comm(lambda x, y, z: (x + y) / z, A, B, A)
-
-        self.check_comm(lambda x, y, z: (x + y) + z, A1, B2, A)
-        self.check_comm(lambda x, y, z: (x + y) - z, A1, B2, A)
-        self.check_comm(lambda x, y, z: (x + y) * z, A1, B2, A)
-        self.check_comm(lambda x, y, z: (x + y) / z, A1, B2, A)
-
-        self.check_comm(lambda x, y, z: (x + y) + z, A1, B2, A)
-        self.check_comm(lambda x, y, z: (x + y) - z, A1, B2, A)
-        self.check_comm(lambda x, y, z: (x + y) * z, A1, B2, A)
-        self.check_comm(lambda x, y, z: (x + y) / z, A1, B2, A)
-
-        self.check_comm(lambda x, y, z: (x + y) + z, A12, B21, A)
-        self.check_comm(lambda x, y, z: (x + y) - z, A12, B21, A)
-        self.check_comm(lambda x, y, z: (x + y) * z, A12, B21, A)
-        self.check_comm(lambda x, y, z: (x + y) / z, A12, B21, A)
-
-        self.check_comm(lambda x, y, z: x + (y + z), A, B1, B2)
-        self.check_comm(lambda x, y, z: x - (y + z), A, B1, B2)
-        self.check_comm(lambda x, y, z: x * (y + z), A, B1, B2)
-
-        self.check_comm(lambda x, y, z: x + (y + z), A1, A12, B21)
-        self.check_comm(lambda x, y, z: x - (y + z), A1, A12, B21)
-        self.check_comm(lambda x, y, z: x * (y + z), A1, A12, B21)
-
-        self.check_comm(lambda x, y, z: (x + y) + z, A12, B21, B1)
-        self.check_comm(lambda x, y, z: (x + y) - z, A12, B21, B1)
-        self.check_comm(lambda x, y, z: (x + y) * z, A12, B21, B1)
-
-        self.check_comm(lambda x, y, z: (x + y) + z, A12, B21, B)
-        self.check_comm(lambda x, y, z: (x + y) - z, A12, B21, B)
-        self.check_comm(lambda x, y, z: (x + y) * z, A12, B21, B)
-        self.check_comm(lambda x, y, z: (x + y) / z, A12, B21, B)
 
         self.check_comm(lambda x: -x, C1)
         self.check_comm(lambda x, y: -(x + y), A, C1)
         self.check_comm(lambda x, y: -(x + y), A1, C1)
 
         self.check_comm(lambda x, y: -(x + y), A12, B)
-        self.check_comm(lambda x, y: -(x + y), A12, B1)
         self.check_comm(lambda x, y: -(x + y), A12, B21)
+
 
         self.check_comm(lambda x, y: x + y, A, B)
         self.check_comm(lambda x, y: x - y, A, B)
@@ -170,23 +83,26 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y: x - y, A, B21)
         self.check_comm(lambda x, y: x * y, A, B21)
 
-        self.check_comm(lambda x, y: x + y, A12, B1)
-        self.check_comm(lambda x, y: x - y, A12, B1)
-        self.check_comm(lambda x, y: x * y, A12, B1)
-
-        self.check_comm(lambda x, y: x + y, A1, B21)
-        self.check_comm(lambda x, y: x - y, A1, B21)
-        self.check_comm(lambda x, y: x * y, A1, B21)
-
         self.check_comm(lambda x, y: x + y, A12, A12)
         self.check_comm(lambda x, y: x - y, A12, A12)
         self.check_comm(lambda x, y: x * y, A12, A12)
 
-        self.check_comm(lambda x, y: x + y, A12, B21)
-        self.check_comm(lambda x, y: x - y, A12, B21)
-        self.check_comm(lambda x, y: x * y, A12, B21)
-
         # Generic Tensor (left)
+        self.check_comm(lambda x, y, z: (x + y) + z, A, B, A)
+        self.check_comm(lambda x, y, z: (x + y) - z, A, B, A)
+        self.check_comm(lambda x, y, z: (x + y) * z, A, B, A)
+        self.check_comm(lambda x, y, z: (x + y) / z, A, B, A)
+
+        self.check_comm(lambda x, y, z: (x + y) + z, A1, B2, A)
+        self.check_comm(lambda x, y, z: (x + y) - z, A1, B2, A)
+        self.check_comm(lambda x, y, z: (x + y) * z, A1, B2, A)
+        self.check_comm(lambda x, y, z: (x + y) / z, A1, B2, A)
+
+        self.check_comm(lambda x, y, z: (x + y) + z, A12, B21, A)
+        self.check_comm(lambda x, y, z: (x + y) - z, A12, B21, A)
+        self.check_comm(lambda x, y, z: (x + y) * z, A12, B21, A)
+        self.check_comm(lambda x, y, z: (x + y) / z, A12, B21, A)
+
         self.check_comm(lambda x, y, z: (x + y) + z, A, C1, B)
         self.check_comm(lambda x, y, z: (x + y) - z, A, C1, B)
         self.check_comm(lambda x, y, z: (x + y) * z, A, C1, B)
@@ -200,18 +116,18 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y, z: (x + y) - z, A1, B2, C1)
         self.check_comm(lambda x, y, z: (x + y) * z, A1, B2, C1)
 
-        self.check_comm(lambda x, y, z: (x + y) + z, A12, B21, C1)
-        self.check_comm(lambda x, y, z: (x + y) - z, A12, B21, C1)
-        self.check_comm(lambda x, y, z: (x + y) * z, A12, B21, C1)
-
         # Generic Tensor (right)
+        self.check_comm(lambda x, y, z: x + (y + z), A, B1, B2)
+        self.check_comm(lambda x, y, z: x - (y + z), A, B1, B2)
+        self.check_comm(lambda x, y, z: x * (y + z), A, B1, B2)
+
+        self.check_comm(lambda x, y, z: x + (y + z), A, A12, B21)
+        self.check_comm(lambda x, y, z: x - (y + z), A, A12, B21)
+        self.check_comm(lambda x, y, z: x * (y + z), A, A12, B21)
+
         self.check_comm(lambda x, y, z: x + (y + z), C1, B1, B2)
         self.check_comm(lambda x, y, z: x - (y + z), C1, B1, B2)
         self.check_comm(lambda x, y, z: x * (y + z), C1, B1, B2)
-
-        self.check_comm(lambda x, y, z: x + (y + z), C1, A12, B21)
-        self.check_comm(lambda x, y, z: x - (y + z), C1, A12, B21)
-        self.check_comm(lambda x, y, z: x * (y + z), C1, A12, B21)
 
 
 if __name__ == "__main__":
