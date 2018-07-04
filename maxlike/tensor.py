@@ -422,11 +422,11 @@ class Tensor(BaseTensor):
         p = self.p1 + self.p2
 
         if dim is True:
-            assert max(xmap) < self.dim
+            # assert max(xmap) < self.dim
             p += self.n
 
         else:
-            assert max(xmap) < self.n
+            # assert max(xmap) < self.n
             mappings = array('b')
             mappings += self.p1_mapping
             mappings += self.p2_mapping
@@ -638,29 +638,31 @@ class Tensor(BaseTensor):
 
             return other._bin_op(self, new_op)
 
-        if isinstance(other, (int, float, np.ndarray)):
-            return self._bin_op(Tensor(other), op_type)
+        if isinstance(other, (int, float)):
+            return Tensor(
+                Tensor.lambda_op[op_type](self.values, other),
+                p1=self.p1, p2=self.p2, dim=self.dim,
+                p1_mapping=self.p1_mapping,
+                p2_mapping=self.p2_mapping)
 
-        scalar_op = False
-        if other.values.ndim == 0:
-            scalar_op = True
-        elif self.values.ndim == 0:
-            scalar_op = True
+        if isinstance(other, np.ndarray):
+            idx = [None] * (self.p1 + self.p2) + [Ellipsis] + [None] * self.dim
+            return Tensor(
+                Tensor.lambda_op[op_type](self.values, other[idx]),
+                p1=self.p1, p2=self.p2, dim=self.dim,
+                p1_mapping=self.p1_mapping,
+                p2_mapping=self.p2_mapping)
 
-        if scalar_op:
+        if other.values.ndim == 0 or self.values.ndim == 0:
             if other.values.ndim == 0:
                 t = self.copy()
             else:
                 t = other.copy()
-
             t.values = np.asarray(Tensor.lambda_op[op_type](
                 self.values, other.values))
-
             return t
 
-        l_values = self.values
-        r_values = other.values
-
+        # l_idx and r_idx could be defined
         assert self.n == other.n
         n = self.n
 
@@ -676,15 +678,18 @@ class Tensor(BaseTensor):
         p2 = max(self.p2, other.p2)
         assert (self.p2 == 0) | (other.p2 == 0) | (self.p2 == other.p2)
 
+        l_values = self.values
+        r_values = other.values
+
+        l_idx = self.__reshape_idx(p1, p2, n, dim)
+        r_idx = other.__reshape_idx(p1, p2, n, dim)
+
         # --------------------------------------------------------------------
         # Addition and Multiplication
         # --------------------------------------------------------------------
         if op_type in ["add", "sub", "rsub"]:
             if (self.p1_mapping == other.p1_mapping) and \
                     (self.p2_mapping == other.p2_mapping):
-                l_idx = self.__reshape_idx(p1, p2, n, dim)
-                r_idx = other.__reshape_idx(p1, p2, n, dim)
-
                 return Tensor(
                     Tensor.lambda_op[op_type](
                         l_values[l_idx], r_values[r_idx]),
@@ -803,27 +808,26 @@ class Tensor(BaseTensor):
     def __reshape_idx(self, p1, p2, n, dim):
         idx = []
         if self.p1 > 0:
-            p1 = max(1, p1)
-            assert self.p1 == p1
+            # assert self.p1 == p1
             idx += [slice(None)] * p1
-        elif (self.p1 == 0) & (p1 > 0):
+        elif self.p1 == 0:
             idx += [None] * p1
         if self.p2 > 0:
-            p2 = max(1, p2)
-            assert self.p2 == p2
+            # assert self.p2 == p2
             idx += [slice(None)] * p2
-        elif (self.p2 == 0) & (p2 > 0):
+        elif self.p2 == 0:
             idx += [None] * p2
         if self.n > 0:
-            assert self.n == n
+            # assert self.n == n
             idx += [slice(None)] * n
-        elif (self.n == 0) & (n > 0):
+        elif self.n == 0:
             idx += [None] * n
         if self.dim > 0:
-            assert self.dim == dim
+            # assert self.dim == dim
             idx += [slice(None)] * dim
-        elif (self.dim == 0) & (dim > 0):
+        elif self.dim == 0:
             idx += [None] * dim
+
         return idx
 
 
