@@ -1,6 +1,7 @@
 import numpy as np
+from .common import *
 from .tensor import *
-from .func_base import Func
+from .func_base import *
 from scipy.special import factorial
 
 
@@ -52,31 +53,6 @@ class FuncWrap(Func):
                 self.param_map(params), idx, jdx).\
                     expand(self.feat_map, self.n_feat).flip(self.feat_flip).\
                     expand(self.dim_map, self.n_dim, dim=True)
-
-
-class Affine(Func):
-    def __init__(self, base, a=1, b=0):
-        if isinstance(base, Affine):
-            self.base = base.base
-            self.a = a * base.a
-            self.b = a * base.b + b
-        else:
-            self.base = base
-            self.a = a
-            self.b = b
-
-    @property
-    def param_feat(self):
-        return self.base.param_feat
-
-    def __call__(self, params):
-        return self.a * self.base(params) + self.b
-
-    def grad(self, params, i):
-        return self.a * self.base.grad(params, i)
-
-    def hess(self, params, i, j):
-        return self.a * self.base.hess(params, i, j)
 
 
 class Sum(Func):
@@ -399,36 +375,3 @@ class CollapseMatrix(Func):
 
     def hess(self, params, i, j):
         return Tensor()
-
-
-class Compose(Func):
-
-    def __init__(self, f, g_list):
-        if not isinstance(g_list, (list, tuple)):
-            self.g_list = [g_list]
-        else:
-            self.g_list = g_list
-        self.f = f
-
-    def __f_arg(self, params):
-        return [g(params) for g in self.g_list]
-
-    def __call__(self, params):
-        return self.f(self.__f_arg(params))
-
-    def grad(self, params, i):
-        f_arg = self.__f_arg(params)
-        return sum([self.f.grad(f_arg, k).dot(g.grad(params, i).drop_dim())
-                    for k, g in enumerate(self.g_list)])
-
-    def hess(self, params, i, j):
-        f_arg = self.__f_arg(params)
-        h_val = 0
-        for k, g_k in enumerate(self.g_list):
-            for l, g_l in enumerate(self.g_list):
-                h_val += self.f.hess(f_arg, k, l).\
-                    dot(g_k.grad(params, i).drop_dim()).\
-                    dot(g_l.grad(params, j).drop_dim().transpose())
-            h_val += self.f.grad(f_arg, k).\
-                    dot(g_k.hess(params, i, j).drop_dim())
-        return h_val
