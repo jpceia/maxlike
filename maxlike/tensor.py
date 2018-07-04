@@ -773,10 +773,6 @@ class Tensor(BaseTensor):
                         l_values = _last_diag(
                             l_values, axis1=self.p1 + k, axis2=p + f)[idx]
 
-        # adjusting the dimensions
-        l_idx = self.__reshape_idx(p1, p2, n, dim)
-        r_idx = other.__reshape_idx(p1, p2, n, dim)
-
         return Tensor(
             Tensor.lambda_op[op_type](l_values[l_idx], r_values[r_idx]),
             p1=p1, p2=p2, dim=dim,
