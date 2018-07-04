@@ -2,7 +2,7 @@ import numpy as np
 from .common import *
 from .tensor import *
 from .func_base import *
-from scipy.special import factorial
+from scipy.special import factorial, gammaln
 
 
 class FuncWrap(Func):
@@ -327,6 +327,42 @@ class Poisson(Func):
         vec = np.insert(vec, 0, 0, -1)
         vec = np.insert(vec, 0, 0, -1)
         return hess_tensor(vec, params, i, j, True, True, dim=1)
+
+
+class NegativeBinomial(Func):
+
+    def __init__(self, size=10, r=1):
+        self.size = size
+        self.r = r
+
+    def __call__(self, params):
+        """
+        exp(
+            gammaln(r + x) - gammaln(r) - ln x! +
+            x ln(m) + r ln(r) - (x + r) * ln(r + m))
+            )
+        """
+        m = np.asarray(params[0])
+        x = np.arange(self.size)
+        vec = gammaln(self.r + x) - gammaln(self.r)
+        vec -=np.log(factorial(x))
+        vec += x * np.log(m) + self.r * np.log(self.r)
+        vec -= (x + self.r) * np.log(self.r + m)
+        return Tensor(np.exp(vec), dim=1)
+
+    def grad(self, params, i):
+        """
+        grad_f = ((x / m) - (x + r) / (r + m)) * f
+        """
+        m = np.asarray(params[0])
+        x = np.arange(self.size)
+        vec = gammaln(self.r + x) - gammaln(self.r)
+        vec -=np.log(factorial(x))
+        vec += x * np.log(m) + self.r * np.log(self.r)
+        vec -= (x + self.r) * np.log(self.r + m)
+        return grad_tensor(
+            np.exp(vec) * ((x / m) - (x + self.r) / (self.r + m)),
+            params, i, True, dim=1)
 
 
 class CollapseMatrix(Func):
