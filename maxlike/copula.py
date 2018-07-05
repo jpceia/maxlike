@@ -41,10 +41,7 @@ def copulaWrap(C):
         F_xy = np.insert(F_xy, 0, 0, -1)
         F_xy = np.insert(F_xy, 0, 0, -2)
         # add 999 at end
-        print(F_xy)
-
         res = np.diff(np.diff(F_xy, 1, -1), 1, -2)
-        # normalization ?
         return Tensor(res)
     return wrap
 
@@ -74,9 +71,9 @@ class Gaussian(Copula):
     tau := Kendall's tau
     rho := Pearson's Rho
     """
-    def __init__(self, rho):
-        assert rho < 1
-        assert rho > -1
+    def __init__(self, rho=0):
+        assert rho <= 1
+        assert rho >= -1
         self.rho = rho
 
     def __call__(self, x, y):
@@ -94,7 +91,7 @@ class Clayton(Copula):
 
     a > 0
     """
-    def __init__(self, rho):
+    def __init__(self, rho=1):
         assert rho > 0
         self.a = rho
 
@@ -115,7 +112,7 @@ class Gumbel(Copula):
 
     a >= 1
     """
-    def __init__(self, rho):
+    def __init__(self, rho=1):
         assert rho >= 1
         self.a = rho
 
@@ -131,7 +128,7 @@ class Frank(Copula):
 
     a != 0
     """
-    def __init__(self, rho):
+    def __init__(self, rho=1):
         assert rho != 0
         self.a = rho
 
@@ -149,9 +146,9 @@ class AkiMikhailHaq(Copula):
 
     -1 < rho < 1
     """
-    def __init__(self, rho):
-        assert rho < 1
-        assert rho > -1
+    def __init__(self, rho=0):
+        assert rho <= 1
+        assert rho >= -1
         self.rho = rho
 
     def __call__(self, x, y):
