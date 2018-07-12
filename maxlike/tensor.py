@@ -223,7 +223,7 @@ class GenericTensor(BaseTensor):
         # Tensor
         if isinstance(other, Tensor):
             new_elements = self.elements[:]
-            if op_type in ["add", "sub", "rsub"]:
+            if op_type in ["add", "sub"]:
                 for k, el in enumerate(new_elements):
                     new_el = el._bin_op(other, op_type)
                     if isinstance(new_el, Tensor):
@@ -235,11 +235,18 @@ class GenericTensor(BaseTensor):
                         new_elements.append(other)
                     elif op_type == "sub":
                         new_elements.append(-other)
-                    elif op_type == "rsub":
-                        new_elements = [-el for el in new_elements]
-                        new_elements.append(other)
                     else:
                         raise ValueError
+
+            elif op_type == "rsub":
+                new_elements = [-el for el in new_elements]
+                for k, el in enumerate(new_elements):
+                    new_el = el._bin_op(other, "add")
+                    if isinstance(new_el, Tensor):
+                        new_elements[k] = new_el
+                        break
+                else:
+                    new_elements.append(other)
 
             elif op_type in ["mul", "div"]:
                 for k, el in enumerate(new_elements):
