@@ -72,38 +72,38 @@ class BaseTensor(with_metaclass(abc.ABCMeta)):
         pass
 
     @abc.abstractmethod
-    def _bin_op(self, op_type):
+    def bin_op(self, op_type):
         pass
 
     def __add__(self, other):
-        return self._bin_op(other, "add")
+        return self.bin_op(other, "add")
 
     def __radd__(self, other):
-        return self._bin_op(other, "add")
+        return self.bin_op(other, "add")
 
     def __sub__(self, other):
-        return self._bin_op(other, "sub")
+        return self.bin_op(other, "sub")
 
     def __rsub__(self, other):
-        return self._bin_op(other, "rsub")
+        return self.bin_op(other, "rsub")
 
     def __mul__(self, other):
-        return self._bin_op(other, "mul")
+        return self.bin_op(other, "mul")
 
     def __rmul__(self, other):
-        return self._bin_op(other, "mul")
+        return self.bin_op(other, "mul")
 
     def __div__(self, other):
-        return self._bin_op(other, "div")
+        return self.bin_op(other, "div")
 
     def __truediv__(self, other):
-        return self._bin_op(other, "div")
+        return self.bin_op(other, "div")
 
     def __rdiv__(self, other):
-        return self._bin_op(other, "rdiv")
+        return self.bin_op(other, "rdiv")
 
     def __rtruediv__(self, other):
-        return self._bin_op(other, "rdiv")
+        return self.bin_op(other, "rdiv")
 
 
 class GenericTensor(BaseTensor):
@@ -208,12 +208,12 @@ class GenericTensor(BaseTensor):
             self.p1, self.p2, self.n, self.dim,
             [-el for el in self.elements])
 
-    def _bin_op(self, other, op_type):
+    def bin_op(self, other, op_type):
         # Scalar
         # Array
         #  -> are converted to tensor
         if isinstance(other, (int, float, np.ndarray)):
-            return self._bin_op(Tensor(other), op_type)
+            return self.bin_op(Tensor(other), op_type)
 
         p1 = max(self.p1, other.p1)
         p2 = max(self.p2, other.p2)
@@ -225,7 +225,7 @@ class GenericTensor(BaseTensor):
             new_elements = self.elements[:]
             if op_type in ["add", "sub"]:
                 for k, el in enumerate(new_elements):
-                    new_el = el._bin_op(other, op_type)
+                    new_el = el.bin_op(other, op_type)
                     if isinstance(new_el, Tensor):
                         new_elements[k] = new_el
                         break
@@ -241,7 +241,7 @@ class GenericTensor(BaseTensor):
             elif op_type == "rsub":
                 new_elements = [-el for el in new_elements]
                 for k, el in enumerate(new_elements):
-                    new_el = el._bin_op(other, "add")
+                    new_el = el.bin_op(other, "add")
                     if isinstance(new_el, Tensor):
                         new_elements[k] = new_el
                         break
@@ -250,7 +250,7 @@ class GenericTensor(BaseTensor):
 
             elif op_type in ["mul", "div"]:
                 for k, el in enumerate(new_elements):
-                    new_elements[k] = el._bin_op(other, op_type)
+                    new_elements[k] = el.bin_op(other, op_type)
             else:
                 raise ValueError
 
@@ -261,7 +261,7 @@ class GenericTensor(BaseTensor):
             if op_type in ["add", "sub"]:
                 gt = self.copy()
                 for el in other.elements:
-                    gt = gt._bin_op(el, op_type)
+                    gt = gt.bin_op(el, op_type)
                 return gt
             elif op_type == "mul":
                 gt = GenericTensor(p1, p2, n, dim)
@@ -633,7 +633,7 @@ class Tensor(BaseTensor):
             -self.values, p1=self.p1, p2=self.p2, dim=self.dim,
             p1_mapping=self.p1_mapping, p2_mapping=self.p2_mapping)
 
-    def _bin_op(self, other, op_type):
+    def bin_op(self, other, op_type):
 
         if isinstance(other, GenericTensor):
             if op_type in ["add", "mul"]:
@@ -643,7 +643,7 @@ class Tensor(BaseTensor):
             else:
                 raise ValueError("Only +, -, * for T / GT operations")
 
-            return other._bin_op(self, new_op)
+            return other.bin_op(self, new_op)
 
         if isinstance(other, (int, float)):
             return Tensor(
