@@ -191,6 +191,36 @@ class GenericTensor(BaseTensor):
 
         raise ValueError
 
+    def dot_left(self, other):
+        if isinstance(other, Tensor):
+            gt = GenericTensor()
+            for el in self.elements:
+                gt += el.dot_left(other)
+            return gt
+
+        if isinstance(other, GenericTensor):
+            gt = GenericTensor()
+            for el in other.elements:
+                gt += self.dot_left(el)
+            return gt
+
+        raise ValueError
+
+    def dot_right(self, other):
+        if isinstance(other, Tensor):
+            gt = GenericTensor()
+            for el in self.elements:
+                gt += el.dot(other)
+            return gt
+
+        if isinstance(other, GenericTensor):
+            gt = GenericTensor()
+            for el in other.elements:
+                gt += self.dot(el)
+            return gt
+
+        raise ValueError
+
     def copy(self):
         return GenericTensor(
             self.p1, self.p2, self.n, self.dim,
@@ -475,154 +505,176 @@ class Tensor(BaseTensor):
                 return self
 
         assert (self.dim == 0) | (other.dim == 0) | (self.dim == other.dim)
-        dim = max(self.dim, other.dim)
 
         if (other.p1 > 0) & (other.p2 > 0):
 
             if self.p1 > 0:
-
-                # P1 P2 N E (other)
-                # N  -  M E (self)
-                #
-                # product
-                # P1 P2 N - E
-                # -  -  N M E
-                #       x
-
-                assert self.p2 == 0
-                assert self.p1 == other.n
-
-                if isinstance(other, GenericTensor):
-                    return GenericTensor(
-                        other.p1, other.p2, self.n, dim,
-                        [self.dot(el) for el in other.elements])
-
-                p = other.p1 + other.p2
-                dim = max(self.dim, other.dim)
-
-                # to do, broadcast on dim
-                l_idx = [slice(None)] * (p + other.n) + [None] * self.n + \
-                        [slice(None)] * other.dim + [None] * (dim - other.dim)
-                r_idx = [None] * p + [Ellipsis] + [None] * (dim - self.dim)
-
-                p1_mapping = array('b')
-                p2_mapping = array('b')
-                val = self.values
-                if self.p1_mapping:
-                    for k, f in enumerate(self.p1_mapping):
-                        if f >= 0:
-                            val = val.swapaxes(k, self.p1 + f)
-                val = other.values[l_idx] * val[r_idx]
-
-                if self.p1_mapping:
-                    for k, f in enumerate(self.p1_mapping):
-                        if f >= 0:
-                            val = val.swapaxes(p + k, p + self.n + f)
-
-                    if other.p1_mapping:
-                        p1_mapping = array('b')
-                        for k in other.p1_mapping:
-                            if k < 0:
-                                p1_mapping.append(-1)
-                            else:
-                                p1_mapping.append(self.p1_mapping[k])
-
-                    if other.p2_mapping:
-                        p2_mapping = array('b')
-                        for k in other.p2_mapping:
-                            if k < 0:
-                                p2_mapping.append(-1)
-                            else:
-                                p2_mapping.append(self.p1_mapping[k])
-                else:
-                    if other.p1_mapping:
-                        for k, f in enumerate(other.p1_mapping):
-                            if f >= 0:
-                                val = val.swapaxes(k, p + f)
-                    if other.p2_mapping:
-                        for k, f in enumerate(other.p2_mapping):
-                            if f is not None:
-                                if other.p1_mapping and f in other.p1_mapping:
-                                    # overlap
-                                    idx = [None] * val.ndim
-                                    idx[other.p1_mapping.index(f)] = slice(None)
-                                    idx[other.p1 + k] = slice(None)
-                                    val = val * np.eye(val.shape[k])[idx]
-                                else:
-                                    # no overlap
-                                    val = val.swapaxes(other.p1 + k, p + f)
-
-                val = val.sum(tuple(p + np.arange(other.n)))
-                return Tensor(val, p1=other.p1, p2=other.p2, dim=dim,
-                              p1_mapping=p1_mapping,
-                              p2_mapping=p2_mapping)
-
+                return self.dot_right(other)
             elif self.p2 > 0:
-                return self.transpose().dot(other.transpose()).transpose()
+                return self.transpose().dot_right(other.transpose()).transpose()
             else:
                 raise ValueError
 
         elif (other.p1 > 0) | ((other.p1 == 0) & (other.p2 == 0) & (other.n == self.p1)):
-
-            # P1 -  N E (other)
-            # N  P2 M E (self)
-            #
-            # product
-            # P1 N -  - E
-            # -  N P2 M E
-            #    x
-
-            assert self.p1 == other.n
-
-            if isinstance(other, GenericTensor):
-                return GenericTensor(
-                    other.p1, self.p2, self.n, dim,
-                    [self.dot(el) for el in other.elements])
-
-            p = self.p1 + self.p2
-
-            l_idx = [slice(None)] * (other.p1 + other.n) + \
-                    [None] * (self.p2 + self.n) + [slice(None)] * other.dim + \
-                    [None] * (dim - other.dim)
-            r_idx = [None] * other.p1 + [Ellipsis] + [None] * (dim - self.dim)
-
-            p1_mapping = array('b')
-            val = self.values
-
-            if self.p1_mapping:
-                for k, f in enumerate(self.p1_mapping):
-                    if f >= 0:
-                        val = val.swapaxes(k, p + f)
-            val = other.values[l_idx] * val[r_idx]
-
-            if self.p1_mapping:
-                for k, f in enumerate(self.p1_mapping):
-                    if f >= 0:
-                        val = val.swapaxes(other.p1 + k, other.p1 + p + f)
-                if other.p1_mapping:
-                    p1_mapping = array('b')
-                    for f in other.p1_mapping:
-                        if f < 0:
-                            p1_mapping.append(-1)
-                        else:
-                            p1_mapping.append(self.p1_mapping[f])
-            else:
-                if other.p1_mapping:
-                    for k, f in enumerate(other.p1_mapping):
-                        if f >= 0:
-                            val = val.swapaxes(k, other.p1 + f)
-
-            val = val.sum(tuple(other.p1 + np.arange(other.n)))
-            return Tensor(val, p1=other.p1, p2=self.p2, dim=dim,
-                          p1_mapping=p1_mapping,
-                          p2_mapping=self.p2_mapping)
+            return self.dot_left(other)
 
         elif other.p2 > 0:
-            return self.transpose().dot(other.transpose()).transpose()
+            return self.transpose().dot_left(other.transpose()).transpose()
+
+        elif (other.n > 0) & (other.p1 == 0) & (other.p2 == 0) & (other.n == self.p2):
+            return self.transpose().dot_left(other)
 
         elif other.values == 0:
             return 0
+        
         raise ValueError
+
+    def dot_left(self, other):
+        """
+        Matrix - Vector inner product
+
+        P1 -  N E (other)
+        N  P2 M E (self)
+        
+        product
+        P1 N -  - E
+        -  N P2 M E
+           x
+        """
+        dim = max(self.dim, other.dim)
+
+        if (self.p1 != other.n) & (self.p2 == other.n):
+            return self.transpose().dot(other)
+
+        if isinstance(other, GenericTensor):
+            return GenericTensor(
+                other.p1, self.p2, self.n, dim,
+                [self.dot(el) for el in other.elements])
+
+        p = self.p1 + self.p2
+
+        l_idx = [slice(None)] * (other.p1 + other.n) + \
+                [None] * (self.p2 + self.n) + [slice(None)] * other.dim + \
+                [None] * (dim - other.dim)
+        r_idx = [None] * other.p1 + [Ellipsis] + [None] * (dim - self.dim)
+
+        p1_mapping = array('b')
+        val = self.values
+
+        if self.p1_mapping:
+            for k, f in enumerate(self.p1_mapping):
+                if f >= 0:
+                    val = val.swapaxes(k, p + f)
+        val = other.values[l_idx] * val[r_idx]
+
+        if self.p1_mapping:
+            for k, f in enumerate(self.p1_mapping):
+                if f >= 0:
+                    val = val.swapaxes(other.p1 + k, other.p1 + p + f)
+            if other.p1_mapping:
+                p1_mapping = array('b')
+                for f in other.p1_mapping:
+                    if f < 0:
+                        p1_mapping.append(-1)
+                    else:
+                        p1_mapping.append(self.p1_mapping[f])
+        else:
+            if other.p1_mapping:
+                for k, f in enumerate(other.p1_mapping):
+                    if f >= 0:
+                        val = val.swapaxes(k, other.p1 + f)
+
+        val = val.sum(tuple(other.p1 + np.arange(other.n)))
+        return Tensor(val, p1=other.p1, p2=self.p2, dim=dim,
+                      p1_mapping=p1_mapping,
+                      p2_mapping=self.p2_mapping)
+
+    def dot_right(self, other):
+        """
+        Vector - Matrix  inner product
+
+        P1 P2 N E (other)
+        N  -  M E (self)
+
+        product
+        P1 P2 N - E
+        -  -  N M E
+              x
+        """
+
+        if other.values.ndim == 0:
+            if other.values == 0:
+                return 0
+
+        dim = max(self.dim, other.dim)
+
+        assert self.p2 == 0
+        assert self.p1 == other.n
+
+        if isinstance(other, GenericTensor):
+            return GenericTensor(
+                other.p1, other.p2, self.n, dim,
+                [self.dot(el) for el in other.elements])
+
+        p = other.p1 + other.p2
+        dim = max(self.dim, other.dim)
+
+        # to do, broadcast on dim
+        l_idx = [slice(None)] * (p + other.n) + [None] * self.n + \
+                [slice(None)] * other.dim + [None] * (dim - other.dim)
+        r_idx = [None] * p + [Ellipsis] + [None] * (dim - self.dim)
+
+        p1_mapping = array('b')
+        p2_mapping = array('b')
+        val = self.values
+        if self.p1_mapping:
+            for k, f in enumerate(self.p1_mapping):
+                if f >= 0:
+                    val = val.swapaxes(k, self.p1 + f)
+        val = other.values[l_idx] * val[r_idx]
+
+        if self.p1_mapping:
+            for k, f in enumerate(self.p1_mapping):
+                if f >= 0:
+                    val = val.swapaxes(p + k, p + self.n + f)
+
+            if other.p1_mapping:
+                p1_mapping = array('b')
+                for k in other.p1_mapping:
+                    if k < 0:
+                        p1_mapping.append(-1)
+                    else:
+                        p1_mapping.append(self.p1_mapping[k])
+
+            if other.p2_mapping:
+                p2_mapping = array('b')
+                for k in other.p2_mapping:
+                    if k < 0:
+                        p2_mapping.append(-1)
+                    else:
+                        p2_mapping.append(self.p1_mapping[k])
+        else:
+            if other.p1_mapping:
+                for k, f in enumerate(other.p1_mapping):
+                    if f >= 0:
+                        val = val.swapaxes(k, p + f)
+            if other.p2_mapping:
+                for k, f in enumerate(other.p2_mapping):
+                    if f is not None:
+                        if other.p1_mapping and f in other.p1_mapping:
+                            # overlap
+                            idx = [None] * val.ndim
+                            idx[other.p1_mapping.index(f)] = slice(None)
+                            idx[other.p1 + k] = slice(None)
+                            val = val * np.eye(val.shape[k])[idx]
+                        else:
+                            # no overlap
+                            val = val.swapaxes(other.p1 + k, p + f)
+
+        val = val.sum(tuple(p + np.arange(other.n)))
+        return Tensor(val, p1=other.p1, p2=other.p2, dim=dim,
+                      p1_mapping=p1_mapping,
+                      p2_mapping=p2_mapping)
 
     def copy(self):
         return Tensor(self.values, p1=self.p1, p2=self.p2, dim=self.dim,

@@ -129,7 +129,8 @@ class Compose(Func):
 
     def grad(self, params, i):
         f_arg = self.__f_arg(params)
-        return sum([self.f.grad(f_arg, k).dot(g.grad(params, i).drop_dim())
+        return sum([self.f.grad(f_arg, k).\
+                    dot_left(g.grad(params, i).drop_dim())
                     for k, g in enumerate(self.g_list)])
 
     def hess(self, params, i, j):
@@ -138,8 +139,8 @@ class Compose(Func):
         for k, g_k in enumerate(self.g_list):
             for l, g_l in enumerate(self.g_list):
                 h_val += self.f.hess(f_arg, k, l).\
-                    dot(g_k.grad(params, i).drop_dim()).\
-                    dot(g_l.grad(params, j).drop_dim().transpose())
+                    dot_left(g_k.grad(params, i).drop_dim()).transpose().\
+                    dot_left(g_l.grad(params, j).drop_dim()).transpose()
             h_val += self.f.grad(f_arg, k).\
-                    dot(g_k.hess(params, i, j).drop_dim())
+                    dot_right(g_k.hess(params, i, j).drop_dim())
         return h_val
