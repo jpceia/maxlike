@@ -405,7 +405,7 @@ class MaxLike(object):
             self.params = self._reshape_params(res.x)
             self.g_last = -res.fun
             if not res.success:
-                RuntimeError(res.message)
+                raise RuntimeError(res.message)
         else:
             if max_steps is None:
                 max_steps = 20  # default value for custom model
