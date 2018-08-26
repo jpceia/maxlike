@@ -132,9 +132,9 @@ class NegativeBinomial(MaxLike):
     Negative Binomial Distribution
     """
 
-    def __init__(self):
+    def __init__(self, scale=1):
         MaxLike.__init__(self)
-        self.scale = 1  # the model uses a fixed scale param
+        self.scale = scale  # the model uses a fixed scale param
         self.X = None
 
     def like(self, params):
