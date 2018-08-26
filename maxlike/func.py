@@ -374,9 +374,9 @@ class CollapseMatrix(Func):
         """
         if conditions is None:
             self.conditions = [
-                (1, -1, 0, -1),
-                (1, -1, 0, 0),
                 (1, -1, 0, 1),
+                (1, -1, 0, 0),
+                (1, -1, 0, -1),
             ]
 
     def __call__(self, params):
@@ -403,11 +403,14 @@ class CollapseMatrix(Func):
         for x, y, c, s in self.conditions:
             filt = np.sign(x * rng_x[:, None] +
                            y * rng_y[None, :] + c) == s
-            val.append((ones * filt).sum((-1, -2)))
+            val.append(ones * filt)
+        p1 = ones.ndim
         val = np.stack(val, -1)
-        p1_mapping = list(range(ones.ndim - 2)) + [-1, -1]
-        return grad_tensor(
-            val, params, i, p1_mapping=p1_mapping, dim=1)
+        val = val.swapaxes(0, p1 - 1)
+        val = val.swapaxes(1, p1 - 2)
+        p1_mapping = list(range(p1 - 2)) + [-1, -1]
+        idx = [None] * (p1 - 2) + [Ellipsis]
+        return Tensor(val[idx], p1=p1, dim=1, p1_mapping=p1_mapping)
 
     def hess(self, params, i, j):
         return Tensor()
