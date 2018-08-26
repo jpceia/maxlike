@@ -602,6 +602,12 @@ class Tensor(BaseTensor):
               x
         """
 
+        try:
+            if other.values.ndim == 0 and other.values == 0:
+                return 0
+        except:
+            pass
+
         dim = max(self.dim, other.dim)
 
         assert self.p2 == 0
@@ -717,7 +723,7 @@ class Tensor(BaseTensor):
                 self.values, other.values))
             return t
 
-        # set n
+        # l_idx and r_idx could be defined
         assert (self.n == 0) | (other.n == 0) | (self.n == other.n)
         n = max(self.n, other.n)
 
