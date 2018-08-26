@@ -210,13 +210,13 @@ class GenericTensor(BaseTensor):
         if isinstance(other, Tensor):
             gt = GenericTensor()
             for el in self.elements:
-                gt += el.dot(other)
+                gt += el.dot_right(other)
             return gt
 
         if isinstance(other, GenericTensor):
             gt = GenericTensor()
             for el in other.elements:
-                gt += self.dot(el)
+                gt += self.dot_right(el)
             return gt
 
         raise ValueError
@@ -544,12 +544,12 @@ class Tensor(BaseTensor):
         dim = max(self.dim, other.dim)
 
         if (self.p1 != other.n) & (self.p2 == other.n):
-            return self.transpose().dot(other)
+            return self.transpose().dot_left(other)
 
         if isinstance(other, GenericTensor):
             return GenericTensor(
                 other.p1, self.p2, self.n, dim,
-                [self.dot(el) for el in other.elements])
+                [self.dot_left(el) for el in other.elements])
 
         p = self.p1 + self.p2
 
@@ -602,10 +602,6 @@ class Tensor(BaseTensor):
               x
         """
 
-        if other.values.ndim == 0:
-            if other.values == 0:
-                return 0
-
         dim = max(self.dim, other.dim)
 
         assert self.p2 == 0
@@ -614,7 +610,7 @@ class Tensor(BaseTensor):
         if isinstance(other, GenericTensor):
             return GenericTensor(
                 other.p1, other.p2, self.n, dim,
-                [self.dot(el) for el in other.elements])
+                [self.dot_right(el) for el in other.elements])
 
         p = other.p1 + other.p2
         dim = max(self.dim, other.dim)
