@@ -717,21 +717,21 @@ class Tensor(BaseTensor):
                 self.values, other.values))
             return t
 
-        # l_idx and r_idx could be defined
-        assert self.n == other.n
-        n = self.n
+        # set n
+        assert (self.n == 0) | (other.n == 0) | (self.n == other.n)
+        n = max(self.n, other.n)
 
         # set dim
         assert (self.dim == 0) | (other.dim == 0) | (self.dim == other.dim)
         dim = max(self.dim, other.dim)
 
         # set p1
-        p1 = max(self.p1, other.p1)
         assert (self.p1 == 0) | (other.p1 == 0) | (self.p1 == other.p1)
+        p1 = max(self.p1, other.p1)
 
         # set p2
-        p2 = max(self.p2, other.p2)
         assert (self.p2 == 0) | (other.p2 == 0) | (self.p2 == other.p2)
+        p2 = max(self.p2, other.p2)
 
         l_values = self.values
         r_values = other.values
