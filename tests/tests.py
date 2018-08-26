@@ -186,12 +186,12 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
-    @unittest.skip
-    def test_logistic2(self):
+    def test_logistic_cross(self):
         mle = maxlike.Logistic()
         mle.model = Sum(2)
         mle.model.add(X(), 0, 0)
         mle.model.add(-X(), 0, 1)
+        mle.model.add(Scalar(), 1, [])
         mle.add_constraint([0], Linear([1]))
 
         # fetch and prepare data
@@ -201,13 +201,14 @@ class Test(unittest.TestCase):
         prepared_data = {'N': _N, 'X': _X}
         a = 4 * _X.sum(0) / _N.sum(0)
         a -= a.mean()
+        
         mle.add_param(a)
-        print(a)
+        mle.add_param(0)
 
         tol = 1e-8
-        mle.fit(tol=tol, max_steps=20, **prepared_data)
-        a = mle.params
-        s_a = mle.std_error()
+        mle.fit(tol=tol, **prepared_data)
+        a, h = mle.params
+        s_a, s_h = mle.std_error()
 
     def test_negative_binomial(self):
         mle = maxlike.NegativeBinomial()
@@ -271,30 +272,40 @@ class Test(unittest.TestCase):
         # guess params
         a = np.zeros((18))
         b = np.zeros((18))
-        #h = .2
+        h = 0
 
         mle.add_param(a)
         mle.add_param(b)
-        #mle.add_param(h)
+        mle.add_param(h)
         mle.add_constraint([0, 1], Linear([1, 1]))
 
         # define functions
         L = 10
-        f = maxlike.func.Sum(2)
-        f.add(X(), 0, 0)
-        f.add(-X(), 1, 1)
-        foo = Poisson(L) @ Exp() @ f
+        f1 = maxlike.func.Sum(2)
+        f1.add(X(), 0, 0)
+        f1.add(-X(), 1, 1)
+        f1.add(0.5 * Scalar(), 2, [])
 
-        F = Product(2, 2)
-        F.add(foo, [0, 1], [0, 1], 0)
-        F.add(foo, [1, 0], [0, 1], 1)
+        f2 = maxlike.func.Sum(2)
+        f2.add(X(), 0, 0)
+        f2.add(-X(), 1, 1)
+        f2.add(-0.5 * Scalar(), 2, [])
 
-        mle.model = CollapseMatrix() @ F
-        tol = 1e-8
+        F1 = Poisson(L) @ Exp() @ f1
+        F2 = Poisson(L) @ Exp() @ f2
 
-        mle.fit(tol=tol, max_steps=20, **prepared_data)
-        a, b = mle.params
-        s_a, s_b = mle.std_error()
+        G = Product(2, 2)
+        G.add(F1, [0, 1, 2], [0, 1], 0)
+        G.add(F2, [1, 0, 2], [0, 1], 1)
+
+        mle.model = CollapseMatrix() @ G
+
+        mle.fit(verbose=2, max_steps=50, **prepared_data)
+
+        a, b, h = mle.params
+        s_a, s_b, s_h = mle.std_error()
+
+        df = pd.DataFrame({'a': a, 'b': b})
 
 if __name__ == '__main__':
     unittest.main()
