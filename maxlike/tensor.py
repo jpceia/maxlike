@@ -517,13 +517,20 @@ class Tensor(BaseTensor):
             else:
                 raise ValueError
 
-        elif (other.p1 > 0) | ((other.p1 == 0) & (other.p2 == 0) & (other.n == self.p1)):
+        elif other.p1 > 0:
             return self.dot_left(other)
+
+        # from here other.p1 == 0
 
         elif other.p2 > 0:
             return self.transpose().dot_left(other.transpose()).transpose()
 
-        elif (other.n > 0) & (other.p1 == 0) & (other.p2 == 0) & (other.n == self.p2):
+        # from here other.p2 == 0
+
+        elif other.n == self.p1:
+            return self.dot_left(other)
+
+        elif (other.n > 0) & (other.n == self.p2):
             return self.transpose().dot_left(other)
 
         elif other.values == 0:
