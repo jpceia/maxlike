@@ -384,7 +384,7 @@ class Tensor(BaseTensor):
         else:
             idx = tuple(p + np.arange(self.n))
 
-        t.values = t.values.sum(idx).transpose()
+        t.values = np.asarray(t.values.sum(idx)).transpose()
         t.p1_mapping = array('b')
         t.p2_mapping = array('b')
         t.n = 0
