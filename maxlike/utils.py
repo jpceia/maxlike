@@ -49,7 +49,8 @@ def prepare_series(observations, transformations=None, add_axis=None):
         if add_axis is not None:
             axis = sorted(set(axis).union(add_axis))
         shape = (len(axis))
-        df = observations.groupby(observations.index).agg(transformations.values()).\
+        df = observations.groupby(observations.index).\
+            agg(transformations.values()).\
             rename(columns={transf.__name__: name
                             for name, transf in transformations.items()}).\
             reindex(axis).fillna(0)
@@ -85,5 +86,20 @@ def df_count(series, size, name=None):
     return pd.DataFrame(
         np.insert(X, -1, X.sum(-1) == False, 1),
         index=series.index,
-        columns=pd.Index(np.arange(size),
-            name=name))
+        columns=pd.Index(np.arange(size), name=name))
+
+
+def num_grad(mle, params, e=1e-6, set_params=False):
+    if set_params:
+        mle.reset_param()
+        for p in params:
+            mle.add_param(p, False)
+    flat_params = np.concatenate([p[~p_.mask] for p, p_ in zip(params, mle.params)])
+    like_0 = float(mle.like(params).values)
+    num_grad = np.zeros_like(flat_params)
+    for i in range(len(flat_params)):
+        bump = np.zeros_like(flat_params)
+        bump[i] = e
+        bumped_params = mle._reshape_params(flat_params + bump)
+        num_grad[i] = (float(mle.like(bumped_params).values) - like_0) / e
+    return mle._reshape_array(num_grad)
