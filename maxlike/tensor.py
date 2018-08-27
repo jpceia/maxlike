@@ -142,18 +142,25 @@ class GenericTensor(BaseTensor):
                 shape_n[i] = max(shape_n[i], u)
             sizes[k] = el_size
 
-        values = 0
         size = shape_n.prod()
-        for el, el_size in zip(self.elements, sizes):
-            idx = []
-            idx += [None] * (self.p1 - el.p1) + [slice(None)] * el.p1
-            idx += [None] * (self.p2 - el.p2) + [slice(None)] * el.p2
-            idx += [...]
-            values = values + \
-                el.sum(sum_val, sum_dim).values[idx] * (size / el_size)
 
-        dim = 0 if sum_dim is True else self.dim
-        return Tensor(values, p1=self.p1, p2=self.p2, dim=dim)
+        if sum_val:
+            values = 0
+            for el, el_size in zip(self.elements, sizes):
+                idx = []
+                idx += [None] * (self.p1 - el.p1) + [slice(None)] * el.p1
+                idx += [None] * (self.p2 - el.p2) + [slice(None)] * el.p2
+                idx += [...]
+                values = values + \
+                    el.sum(sum_val, sum_dim).values[idx] * (size / el_size)
+
+            dim = 0 if sum_dim is True else self.dim
+            return Tensor(values, p1=self.p1, p2=self.p2, dim=dim)
+
+        #else:
+        new_elements = [el.sum(False, sum_dim) * (size / el_size)
+                        for el, el_size in zip(self.elements, sizes)]
+        return GenericTensor(self.p1, self.p2, self.n, 0, new_elements)
 
     def expand(self, xmap, newsize, dim=False):
         new_n = self.n if dim else newsize
