@@ -145,10 +145,12 @@ class GenericTensor(BaseTensor):
         values = 0
         size = shape_n.prod()
         for el, el_size in zip(self.elements, sizes):
-            idx = [None] * (self.p1 - el.p1) + [slice(None)] * el.p1
+            idx = []
+            idx += [None] * (self.p1 - el.p1) + [slice(None)] * el.p1
             idx += [None] * (self.p2 - el.p2) + [slice(None)] * el.p2
-            idx += [Ellipsis]
-            values = values + el.sum(sum_val, sum_dim).values[idx] * (size / el_size)
+            idx += [...]
+            values = values + \
+                el.sum(sum_val, sum_dim).values[idx] * (size / el_size)
 
         dim = 0 if sum_dim is True else self.dim
         return Tensor(values, p1=self.p1, p2=self.p2, dim=dim)
@@ -556,7 +558,7 @@ class Tensor(BaseTensor):
         l_idx = [slice(None)] * (other.p1 + other.n) + \
                 [None] * (self.p2 + self.n) + [slice(None)] * other.dim + \
                 [None] * (dim - other.dim)
-        r_idx = [None] * other.p1 + [Ellipsis] + [None] * (dim - self.dim)
+        r_idx = [None] * other.p1 + [...] + [None] * (dim - self.dim)
 
         p1_mapping = array('b')
         val = self.values
@@ -624,7 +626,7 @@ class Tensor(BaseTensor):
         # to do, broadcast on dim
         l_idx = [slice(None)] * (p + other.n) + [None] * self.n + \
                 [slice(None)] * other.dim + [None] * (dim - other.dim)
-        r_idx = [None] * p + [Ellipsis] + [None] * (dim - self.dim)
+        r_idx = [None] * p + [...] + [None] * (dim - self.dim)
 
         p1_mapping = array('b')
         p2_mapping = array('b')
@@ -707,7 +709,7 @@ class Tensor(BaseTensor):
                 p2_mapping=self.p2_mapping)
 
         if isinstance(other, np.ndarray):
-            idx = [None] * (self.p1 + self.p2) + [Ellipsis] + [None] * self.dim
+            idx = [None] * (self.p1 + self.p2) + [...] + [None] * self.dim
             return Tensor(
                 Tensor.lambda_op[op_type](self.values, other[idx]),
                 p1=self.p1, p2=self.p2, dim=self.dim,
@@ -891,9 +893,9 @@ class Tensor(BaseTensor):
 def grad_tensor(values, params, i=0, p1_mapping=None, dim=0):
     p1 = np.asarray(params[i]).ndim
     if p1_mapping is None:
-        idx = [Ellipsis]
+        idx = [...]
     else:
-        idx = [None] * p1 + [Ellipsis]
+        idx = [None] * p1 + [...]
     return Tensor(values[idx], p1=p1, dim=dim, p1_mapping=p1_mapping)
 
 
@@ -903,6 +905,6 @@ def hess_tensor(values, params, i=0, j=0,
     p2 = np.asarray(params[j]).ndim
     idx = [slice(None) if p1_mapping is None else None] * p1
     idx += [slice(None) if p2_mapping is None else None] * p2
-    idx += [Ellipsis]
+    idx += [...]
     return Tensor(values[idx], p1=p1, p2=p2, dim=dim,
                   p1_mapping=p1_mapping, p2_mapping=p2_mapping)
