@@ -124,7 +124,7 @@ def num_hess(mle, params, e=1e-6):
         for j in range(n):
             bump = np.zeros_like(flat_params)
             bump[i] = e
-            bump[j] = e
+            bump[j] += e
             bumped_params = mle._reshape_params(flat_params + bump)
             num_hess[i][j] = (mle.like(bumped_params).values
                               + like_0 - like_i[i] - like_i[j]) / e / e
