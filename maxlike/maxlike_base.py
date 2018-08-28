@@ -176,7 +176,7 @@ class MaxLike(object):
         f_ = [0]
         val_map = []
         for i, p in enumerate(self.params):
-            s_.append(s_[-1] + p.size)
+            s_.append(s_[-1] + p.count())
             f_.append(f_[-1] + p.mask.sum())
             val_map.append((lambda x: x - np.arange(x.size))(
                 (lambda x: np.arange(x.size)[x])(p.mask.flatten())))
@@ -185,15 +185,16 @@ class MaxLike(object):
         if isinstance(val, (int, float)):
             return [[np.insert(np.insert(
                 matrix[s_[i]:s_[i + 1], s_[j]:s_[j + 1]],
-                val_map[i], val), val_map[j], val).reshape(
+                val_map[i], val, 0),
+                val_map[j], val, 1).reshape(
                 p_i.shape + p_j.shape)
                 for j, p_j in enumerate(self.params)]
                 for i, p_i in enumerate(self.params)]
         else:
             return [[np.insert(np.insert(
                 matrix[s_[i]:s_[i + 1], s_[j]:s_[j + 1]],
-                val_map[i], val[f_[i]:f_[i + 1]]),
-                val_map[j], val[f_[j]:f_[j + 1]]).reshape(
+                val_map[i], val[f_[i]:f_[i + 1]], 0),
+                val_map[j], val[f_[j]:f_[j + 1]], 1).reshape(
                 p_i.shape + p_j.shape)
                 for j, p_j in enumerate(self.params)]
                 for i, p_i in enumerate(self.params)]
