@@ -421,8 +421,11 @@ class Tensor(BaseTensor):
             idx = [slice(None)] * (self.p1 + self.p2 + self.n)
             idx += [slice(None) if k in xmap else None
                     for k in range(newsize)]
+            rng = np.arange(self.values.ndim)
+            pn = self.p1 + self.p2 + self.n
+            rng[pn:] = rng[pn:][np.argsort(xmap)]
             return Tensor(
-                self.values[idx],
+                self.values.transpose(rng)[idx],
                 p1=self.p1,
                 p2=self.p2,
                 dim=newsize,
@@ -435,22 +438,29 @@ class Tensor(BaseTensor):
             idx += [slice(None) if k in xmap else None
                     for k in range(newsize)]
             idx += [slice(None)] * self.dim
+            p = self.p1 + self.p2
+            pn = p + self.n
+            rng = np.arange(self.values.ndim)
+            rng[p:pn] = rng[p:pn][np.argsort(xmap)]
             p1_mapping = array('b')
             p2_mapping = array('b')
+
             if self.p1_mapping:
                 for k in self.p1_mapping:
                     if k < 0:
                         p1_mapping.append(-1)
                     else:
                         p1_mapping.append(xmap[k])
+
             if self.p2_mapping:
                 for k in self.p2_mapping:
                     if k < 0:
                         p2_mapping.append(-1)
                     else:
                         p2_mapping.append(xmap[k])
+
             return Tensor(
-                self.values[idx],
+                self.values.transpose(rng)[idx],
                 p1=self.p1,
                 p2=self.p2,
                 dim=self.dim,
