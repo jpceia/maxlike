@@ -4,6 +4,7 @@ import numpy as np
 import sys
 sys.path.insert(0, "..")
 import maxlike
+from scipy.special import logit
 from maxlike.func import (
     X, Vector, Linear, Quadratic, Compose, Exp, Constant, Scalar, 
     Poisson, Sum, Product, CollapseMatrix)
@@ -230,19 +231,29 @@ class Test(unittest.TestCase):
 
         # fetch and prepare data
         df = pd.read_csv(r"data\test_data_proba.csv", index_col=[0, 1, 2])['p'].unstack(level=2)
-        _N = maxlike.utils.prepare_series(df[-1] + df[1], {'N': np.sum})[0]['N']
-        _X = maxlike.utils.prepare_series(df[1], {'X': np.sum})[0]['X']
-        prepared_data = {'N': _N, 'X': _X}
-        a = 4 * _X.sum(0) / _N.sum(0)
-        a -= a.mean()
-        
+        df['w'] = df[-1] + df[1]
+        prepared_data, _ = maxlike.utils.prepare_dataframe(df, 'w', 1, {'X': np.sum})
+        N = prepared_data['N']
+        S = prepared_data['X']
+        u = -logit(S.sum(0) / N.sum(0))
+        v = logit(S.sum(1) / N.sum(1))
+        a = (u + v) / 2
+        h = ((u - v) / 2).mean()
+
         mle.add_param(a)
-        mle.add_param(0)
+        mle.add_param(h)
 
         tol = 1e-8
         mle.fit(tol=tol, **prepared_data)
+        
         a, h = mle.params
         s_a, s_h = mle.std_error()
+
+        self.assertAlmostEqual(h,   0.3052244897439103, delta=tol)
+        self.assertAlmostEqual(s_h, 0.14978803453151845, delta=tol)
+        df = pd.read_csv(r"data\test_logistic_cross.csv")
+        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
+        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
 
     def test_negative_binomial(self):
         mle = maxlike.NegativeBinomial()
