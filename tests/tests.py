@@ -275,25 +275,31 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
     def test_finite(self):
-        L = 10
+        n = 12
         mle = maxlike.Finite()
-        foo = Sum(2)
+        foo = Sum(3)
         foo.add(X(), 0, 0)
         foo.add(-X(), 1, 1)
-        mle.model = Compose(Poisson(L), Compose(Exp(), foo))
+        foo.add(Vector(np.arange(2) - .5), 2, 2)
+        mle.model = Compose(Poisson(n), Compose(Exp(), foo))
         mle.add_constraint([0, 1], Linear([1, 1]))
-        g = pd.read_csv(r"data\test_data1.csv", index_col=[0, 1])['g']
-        log_mean = np.log(g.mean()) / 2
-        a = g.groupby(level='t1').mean().map(np.log) - log_mean
-        b = log_mean - g.groupby(level='t2').mean()
+        g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
+        h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
+        log_mean = np.log(g.mean())
+        a = np.log(g.groupby(level='t1').mean()) - log_mean
+        b = log_mean - np.log(g.groupby(level='t2').mean())
         mle.add_param(a)
         mle.add_param(b)
+        mle.add_param(h)
         tol = 1e-8
         prepared_data, _ = maxlike.utils.prepare_series(
-            maxlike.utils.df_count(g, L).stack(), {'N': np.sum})
+            maxlike.utils.df_count(g, n).stack(), {'N': np.sum})
         mle.fit(tol=tol, **prepared_data)
-        a, b = mle.params
-        s_a, s_b = mle.std_error()
+        a, b, h = mle.params
+        s_a, s_b, s_h = mle.std_error()
+
+        self.assertAlmostEqual(h,   0.275006946460155, delta=tol)
+        self.assertAlmostEqual(s_h, 0.051136650647230664, delta=tol)
         df = pd.read_csv(r"data\test_finite.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
