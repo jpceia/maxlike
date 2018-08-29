@@ -13,7 +13,7 @@ class Test(unittest.TestCase):
 
     def test_poisson(self):
         mle = maxlike.Poisson()
-        mle.model = maxlike.func.Sum(3)
+        mle.model = Sum(3)
         mle.model.add(X(), 0, 0)
         mle.model.add(-X(), 1, 1)
         mle.model.add(Vector(np.arange(2) - .5), 2, 2)
@@ -157,7 +157,7 @@ class Test(unittest.TestCase):
 
     def test_poisson_reg(self):
         mle = maxlike.Poisson()
-        mle.model = maxlike.func.Sum(3)
+        mle.model = Sum(3)
         mle.model.add(X(), 0, 0)
         mle.model.add(-X(), 1, 1)
         mle.model.add(Vector(np.arange(2) - .5), 2, 2)
@@ -317,12 +317,12 @@ class Test(unittest.TestCase):
 
         # define functions
         L = 10
-        f1 = maxlike.func.Sum(2)
+        f1 = Sum(2)
         f1.add(X(), 0, 0)
         f1.add(-X(), 1, 1)
         f1.add(0.5 * Scalar(), 2, [])
 
-        f2 = maxlike.func.Sum(2)
+        f2 = Sum(2)
         f2.add(X(), 0, 0)
         f2.add(-X(), 1, 1)
         f2.add(-0.5 * Scalar(), 2, [])
