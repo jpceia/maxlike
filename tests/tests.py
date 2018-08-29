@@ -275,7 +275,7 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
     def test_finite(self):
-        n = 12
+        n = 8
         mle = maxlike.Finite()
         foo = Sum(3)
         foo.add(X(), 0, 0)
@@ -298,8 +298,8 @@ class Test(unittest.TestCase):
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        self.assertAlmostEqual(h,   0.275006946460155, delta=tol)
-        self.assertAlmostEqual(s_h, 0.051136650647230664, delta=tol)
+        self.assertAlmostEqual(h,   0.28055330673303397, delta=tol)
+        self.assertAlmostEqual(s_h, 0.05142277849813604, delta=tol)
         df = pd.read_csv(r"data\test_finite.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
@@ -308,7 +308,7 @@ class Test(unittest.TestCase):
 
     @unittest.skip
     def test_kullback_leibler(self):
-        
+        n = 8
         mle = maxlike.Finite()
 
         # fetch and prepare data
