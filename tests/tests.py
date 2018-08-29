@@ -306,6 +306,62 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
+    def test_finite_matrix(self): 
+        n = 8
+
+        mle = maxlike.Finite(dim=2)
+
+        # guess params
+        g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
+        h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
+        log_mean = np.log(g.mean())
+        a = np.log(g.groupby(level='t1').mean()) - log_mean
+        b = log_mean - np.log(g.groupby(level='t2').mean())
+
+        mle.add_param(a)
+        mle.add_param(b)
+        mle.add_param(h)
+        mle.add_constraint([0, 1], Linear([1, 1]))
+
+        # define functions
+        f1 = maxlike.func.Sum(2)
+        f1.add(X(), 0, 0)
+        f1.add(-X(), 1, 1)
+        f1.add(0.5 * Scalar(), 2, [])
+
+        f2 = maxlike.func.Sum(2)
+        f2.add(X(), 0, 0)
+        f2.add(-X(), 1, 1)
+        f2.add(-0.5 * Scalar(), 2, [])
+
+        F1 = Poisson(n) @ Exp() @ f1
+        F2 = Poisson(n) @ Exp() @ f2
+
+        F = Product(2, 2)
+        F.add(F1, [0, 1, 2], [0, 1], 0)
+        F.add(F2, [0, 1, 2], [1, 0], 1)
+
+        mle.model = F
+
+        # fetch and prepare data
+        df = pd.read_csv(r"data\data_finite_matrix.csv",
+                         index_col=[0, 1], header=[0, 1]).stack([0, 1])
+        prepared_data, _ = maxlike.utils.prepare_series(df)
+
+        # calibration
+        tol = 1e-8
+        mle.fit(tol=tol, **prepared_data)
+        a, b, h = mle.params
+        s_a, s_b, s_h = mle.std_error()
+
+        self.assertAlmostEqual(h,   0.2785288251171003, delta=tol)
+        self.assertAlmostEqual(s_h, 0.05147212068942573, delta=tol)
+        df = pd.read_csv(r"data\test_finite_matrix.csv")
+        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
+        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
+        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
+        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
+
     @unittest.skip
     def test_kullback_leibler(self):
         n = 8
