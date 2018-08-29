@@ -17,7 +17,7 @@ class Test(unittest.TestCase):
         mle.model.add(-X(), 1, 1)
         mle.model.add(Vector(np.arange(2) - .5), 2, 2)
         mle.add_constraint([0, 1], Linear([1, 1]))
-        g = pd.read_csv(r"data\test_data1.csv", index_col=[0, 1, 2])['g']
+        g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
         prepared_data, _ = maxlike.utils.prepare_series(
             g, {'N': np.size, 'X': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
@@ -35,9 +35,10 @@ class Test(unittest.TestCase):
         mle.fit(tol=tol, **prepared_data)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
-        self.assertAlmostEqual(h.data, 0.3496149212379256, delta=tol)
-        self.assertAlmostEqual(s_h, 0.0804417430337, delta=tol)
-        df = pd.read_csv(r"data\test_results1.csv")
+
+        self.assertAlmostEqual(h.data,  0.2541711117084739, delta=tol)
+        self.assertAlmostEqual(s_h,     0.04908832460966404, delta=tol)
+        df = pd.read_csv(r"data\test_poisson.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
