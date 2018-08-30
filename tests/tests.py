@@ -226,13 +226,13 @@ class Test(unittest.TestCase):
         mle.model = Sum(2)
         mle.model.add(X(), 0, 0)
         mle.model.add(-X(), 0, 1)
-        mle.model.add(Scalar(), 1, [])
+        mle.model.add(-Scalar(), 1, [])
         mle.add_constraint([0], Linear([1]))
 
         # fetch and prepare data
-        df = pd.read_csv(r"data\test_data_proba.csv", index_col=[0, 1, 2])['p'].unstack(level=2)
-        df['w'] = df[-1] + df[1]
-        prepared_data, _ = maxlike.utils.prepare_dataframe(df, 'w', 1, {'X': np.sum})
+        df = pd.read_csv(r"data\data_proba.csv", index_col=[0, 1])
+        df['w'] = df['-1'] + df['1']
+        prepared_data, _ = maxlike.utils.prepare_dataframe(df, 'w', '1', {'X': np.sum})
         N = prepared_data['N']
         S = prepared_data['X']
         u = -logit(S.sum(0) / N.sum(0))
@@ -249,8 +249,8 @@ class Test(unittest.TestCase):
         a, h = mle.params
         s_a, s_h = mle.std_error()
 
-        self.assertAlmostEqual(h,   0.3052244897439103, delta=tol)
-        self.assertAlmostEqual(s_h, 0.14978803453151845, delta=tol)
+        self.assertAlmostEqual(h,   0.30593893749482887, delta=tol)
+        self.assertAlmostEqual(s_h, 0.10535093644578421, delta=tol)
         df = pd.read_csv(r"data\test_logistic_cross.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -322,12 +322,26 @@ class Test(unittest.TestCase):
 
         mle = maxlike.Finite(dim=2)
 
+        # fetch and prepare data
+        df = pd.read_csv(r"data\data_finite_matrix.csv",
+                         index_col=[0, 1], header=[0, 1]).stack([0, 1])
+        prepared_data, _ = maxlike.utils.prepare_series(df)
+        N = prepared_data['N']
+
+        def EX(u):
+            assert u.ndim <= 2
+            return (u * np.arange(u.shape[-1])).sum(-1) / u.sum(-1)
+
         # guess params
-        g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
-        h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
-        log_mean = np.log(g.mean())
-        a = np.log(g.groupby(level='t1').mean()) - log_mean
-        b = log_mean - np.log(g.groupby(level='t2').mean())
+        A = EX(N.sum((1, 3)))
+        B = EX(N.sum((0, 2)))
+        C = EX(N.sum((0, 3)))
+        D = EX(N.sum((1, 2)))
+        
+        log_mean = np.log((A + B).mean())
+        a = np.log(A + B) - log_mean
+        b = log_mean - np.log(C + D)
+        h = np.log((A + C).mean()) - np.log((B + D).mean())
 
         mle.add_param(a)
         mle.add_param(b)
@@ -354,11 +368,6 @@ class Test(unittest.TestCase):
 
         mle.model = F
 
-        # fetch and prepare data
-        df = pd.read_csv(r"data\data_finite_matrix.csv",
-                         index_col=[0, 1], header=[0, 1]).stack([0, 1])
-        prepared_data, _ = maxlike.utils.prepare_series(df)
-
         # calibration
         tol = 1e-8
         mle.fit(tol=tol, **prepared_data)
@@ -366,7 +375,7 @@ class Test(unittest.TestCase):
         s_a, s_b, s_h = mle.std_error()
 
         self.assertAlmostEqual(h,   0.2785288251171003, delta=tol)
-        self.assertAlmostEqual(s_h, 0.05147212068942573, delta=tol)
+        self.assertAlmostEqual(s_h, 0.05147213254581855, delta=tol)
         df = pd.read_csv(r"data\test_finite_matrix.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
@@ -383,8 +392,8 @@ class Test(unittest.TestCase):
         prepared_data, _ = maxlike.utils.prepare_series(df, {'N': np.sum})
 
         # guess params
-        a = np.zeros((18))
-        b = np.zeros((18))
+        a = np.zeros((n))
+        b = np.zeros((n))
         h = 0
 
         mle.add_param(a)
