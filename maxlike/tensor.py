@@ -645,7 +645,6 @@ class Tensor(BaseTensor):
                 [self.dot_right(el) for el in other.elements])
 
         p = other.p1 + other.p2
-        dim = max(self.dim, other.dim)
 
         # to do, broadcast on dim
         l_idx = [slice(None)] * (p + other.n) + [None] * self.n + \
