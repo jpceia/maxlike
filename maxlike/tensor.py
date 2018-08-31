@@ -649,7 +649,8 @@ class Tensor(BaseTensor):
         # to do, broadcast on dim
         l_idx = [slice(None)] * (p + other.n) + [None] * self.n + \
                 [slice(None)] * other.dim + [None] * (dim - other.dim)
-        r_idx = [None] * p + [...] + [None] * (dim - self.dim)
+        r_idx = [None] * p + [slice(None)] * (self.p1 + self.n) + \
+                [None] * (dim - self.dim)
 
         p1_mapping = array('b')
         p2_mapping = array('b')
