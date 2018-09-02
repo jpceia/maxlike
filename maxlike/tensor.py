@@ -664,7 +664,7 @@ class Tensor(BaseTensor):
         if self.p1_mapping:
             for k, f in enumerate(self.p1_mapping):
                 if f >= 0:
-                    val = val.swapaxes(p + k, p + self.n + f)
+                    val = val.swapaxes(p + k, p + self.p1 + f)
 
             if other.p1_mapping:
                 p1_mapping = array('b')
@@ -686,6 +686,7 @@ class Tensor(BaseTensor):
                 for k, f in enumerate(other.p1_mapping):
                     if f >= 0:
                         val = val.swapaxes(k, p + f)
+
             if other.p2_mapping:
                 for k, f in enumerate(other.p2_mapping):
                     if f is not None:
