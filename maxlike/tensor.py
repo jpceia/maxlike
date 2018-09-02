@@ -594,11 +594,12 @@ class Tensor(BaseTensor):
         val = other.values[l_idx] * val[r_idx]
 
         if self.p1_mapping:
+            
             for k, f in enumerate(self.p1_mapping):
                 if f >= 0:
                     val = val.swapaxes(other.p1 + k, other.p1 + p + f)
+            
             if other.p1_mapping:
-                p1_mapping = array('b')
                 for f in other.p1_mapping:
                     if f < 0:
                         p1_mapping.append(-1)
@@ -654,6 +655,7 @@ class Tensor(BaseTensor):
 
         p1_mapping = array('b')
         p2_mapping = array('b')
+
         val = self.values
         if self.p1_mapping:
             for k, f in enumerate(self.p1_mapping):
@@ -667,7 +669,6 @@ class Tensor(BaseTensor):
                     val = val.swapaxes(p + k, p + self.p1 + f)
 
             if other.p1_mapping:
-                p1_mapping = array('b')
                 for k in other.p1_mapping:
                     if k < 0:
                         p1_mapping.append(-1)
@@ -675,7 +676,6 @@ class Tensor(BaseTensor):
                         p1_mapping.append(self.p1_mapping[k])
 
             if other.p2_mapping:
-                p2_mapping = array('b')
                 for k in other.p2_mapping:
                     if k < 0:
                         p2_mapping.append(-1)
