@@ -390,21 +390,22 @@ class Test(unittest.TestCase):
         df1 = pd.read_csv(r"data\data_proba.csv", index_col=[0, 1])
         prepared_data, _ = maxlike.utils.prepare_series(
             df1.stack(), {'N': np.sum})
-        h = (skellam_cdf_root(*(df1.sum() / df1.sum().sum())[[0, 2]]) *
-             np.array([1, -1])).sum()
 
-        df1 = df1.reset_index()
-        df2 = df1.copy()
-        df2['-1'], df2['1'] = df2['1'], df2['-1']
-        df = pd.concat([df1, df2], sort=True).set_index(['t1', 't2'])
-        df = df.groupby('t1').sum()
-        df = df.div(df.sum(1), 0)
-        df = df.apply(lambda row: pd.Series(skellam_cdf_root(*row[[0, 2]])), 1)
-        df = np.log(df).sub(np.log(df.mean()), 1) / 2
+        N = prepared_data['N']
 
         # guess params
-        mle.add_param(df[0].values)
-        mle.add_param(df[1].values)
+        h = (skellam_cdf_root(*(N.sum((0, 1)) / N.sum())[[0, 2]]) *
+             np.array([-1, 1])).sum()
+
+        S = N.sum(0) + np.flip(N.sum(1), 1)
+        S /= S.sum(1)[:, None]
+
+        s = pd.DataFrame(S[:, [0, 2]]).apply(lambda row:
+            pd.Series(skellam_cdf_root(*row), index=['a', 'b']), 1)
+        s = np.log(s).sub(np.log(s.mean()), 1)
+
+        mle.add_param(s['a'].values)
+        mle.add_param(-s['b'].values)
         mle.add_param(h)
         mle.add_constraint([0, 1], Linear([1, 1]))
 
@@ -434,7 +435,7 @@ class Test(unittest.TestCase):
         s_a, s_b, s_h = mle.std_error()
 
         self.assertAlmostEqual(h,   0.27655589971445516, delta=tol)
-        self.assertAlmostEqual(s_h, 0.06802789922326288, delta=tol)
+        self.assertAlmostEqual(s_h, 0.06802789842975875, delta=tol)
         df = pd.read_csv(r"data\test_kullback_leibler.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
