@@ -8,6 +8,7 @@ from scipy.special import logit
 from maxlike.func import (
     X, Vector, Linear, Quadratic, Compose, Exp, Constant, Scalar, 
     Poisson, Sum, Product, CollapseMatrix)
+from skellam import skellam_cdf_root
 
 
 class Test(unittest.TestCase):
@@ -319,7 +320,6 @@ class Test(unittest.TestCase):
 
     def test_finite_matrix(self): 
         n = 8
-
         mle = maxlike.Finite(dim=2)
 
         # fetch and prepare data
@@ -382,27 +382,33 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
-    @unittest.skip
     def test_kullback_leibler(self):
         n = 8
         mle = maxlike.Finite()
 
         # fetch and prepare data
-        df = pd.read_csv(r"data\test_data_proba.csv", index_col=[0, 1, 2])['p']
-        prepared_data, _ = maxlike.utils.prepare_series(df, {'N': np.sum})
+        df1 = pd.read_csv(r"data\data_proba.csv", index_col=[0, 1])
+        prepared_data, _ = maxlike.utils.prepare_series(
+            df1.stack(), {'N': np.sum})
+        h = (skellam_cdf_root(*(df1.sum() / df1.sum().sum())[[0, 2]]) *
+             np.array([1, -1])).sum()
+
+        df1 = df1.reset_index()
+        df2 = df1.copy()
+        df2['-1'], df2['1'] = df2['1'], df2['-1']
+        df = pd.concat([df1, df2], sort=True).set_index(['t1', 't2'])
+        df = df.groupby('t1').sum()
+        df = df.div(df.sum(1), 0)
+        df = df.apply(lambda row: pd.Series(skellam_cdf_root(*row[[0, 2]])), 1)
+        df = np.log(df).sub(np.log(df.mean()), 1) / 2
 
         # guess params
-        a = np.zeros((n))
-        b = np.zeros((n))
-        h = 0
-
-        mle.add_param(a)
-        mle.add_param(b)
+        mle.add_param(df[0].values)
+        mle.add_param(df[1].values)
         mle.add_param(h)
         mle.add_constraint([0, 1], Linear([1, 1]))
 
         # define functions
-        L = 10
         f1 = Sum(2)
         f1.add(X(), 0, 0)
         f1.add(-X(), 1, 1)
@@ -413,21 +419,27 @@ class Test(unittest.TestCase):
         f2.add(-X(), 1, 1)
         f2.add(-0.5 * Scalar(), 2, [])
 
-        F1 = Poisson(L) @ Exp() @ f1
-        F2 = Poisson(L) @ Exp() @ f2
+        F1 = Poisson(n) @ Exp() @ f1
+        F2 = Poisson(n) @ Exp() @ f2
 
-        G = Product(2, 2)
-        G.add(F1, [0, 1, 2], [0, 1], 0)
-        G.add(F2, [1, 0, 2], [0, 1], 1)
+        F = Product(2, 2)
+        F.add(F1, [0, 1, 2], [0, 1], 1)
+        F.add(F2, [0, 1, 2], [1, 0], 0)
 
-        mle.model = CollapseMatrix() @ G
+        mle.model = CollapseMatrix() @ F
 
-        mle.fit(verbose=2, max_steps=50, **prepared_data)
-
+        tol = 1e-12
+        mle.fit(tol=tol, **prepared_data)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        df = pd.DataFrame({'a': a, 'b': b})
+        self.assertAlmostEqual(h,   0.27655589971445516, delta=tol)
+        self.assertAlmostEqual(s_h, 0.06802789922326288, delta=tol)
+        df = pd.read_csv(r"data\test_kullback_leibler.csv")
+        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
+        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
+        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
+        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
 if __name__ == '__main__':
     unittest.main()
