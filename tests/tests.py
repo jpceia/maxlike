@@ -339,7 +339,7 @@ class Test(unittest.TestCase):
         C = EX(N.sum((0, 3)))
         D = EX(N.sum((1, 2)))
         
-        log_mean = np.log((A + B).mean())
+        log_mean = np.log((A + B + C + D).mean()) / 2
         a = np.log(A + B) - log_mean
         b = log_mean - np.log(C + D)
         h = np.log((A + C).mean()) - np.log((B + D).mean())
