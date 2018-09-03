@@ -41,15 +41,16 @@ class Test(unittest.TestCase):
         mle.fit(tol=tol, **prepared_data)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
-
-        self.assertAlmostEqual(h,   0.2541711117084739,  delta=tol)
-        self.assertAlmostEqual(s_h, 0.04908832460966404, delta=tol)
+        r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
         df = pd.read_csv(r"data\test_poisson.csv")
+        self.assertAlmostEqual(h,   0.2541711117084739,  delta=tol)
+        self.assertAlmostEqual(s_h, 0.04908832460966404, delta=tol)
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
+        self.assertTrue(np.allclose(r, df['r_ab'].values, atol=tol))
 
     def test_poisson2(self):
         mle = maxlike.Poisson()
