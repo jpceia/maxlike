@@ -318,12 +318,12 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
-    def test_finite_matrix(self): 
+    def test_poisson_matrix(self): 
         n = 8
         mle = maxlike.Finite(dim=2)
 
         # fetch and prepare data
-        df = pd.read_csv(r"data\data_finite_matrix.csv",
+        df = pd.read_csv(r"data\data_poisson_matrix.csv",
                          index_col=[0, 1], header=[0, 1]).stack([0, 1])
         prepared_data, _ = maxlike.utils.prepare_series(df)
         N = prepared_data['N']
@@ -376,7 +376,7 @@ class Test(unittest.TestCase):
 
         self.assertAlmostEqual(h,   0.2785288251171003, delta=tol)
         self.assertAlmostEqual(s_h, 0.05147213254581855, delta=tol)
-        df = pd.read_csv(r"data\test_finite_matrix.csv")
+        df = pd.read_csv(r"data\test_poisson_matrix.csv")
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
