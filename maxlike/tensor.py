@@ -10,6 +10,9 @@ def _last_diag(arr, axis1, axis2):
 
 
 class BaseTensor(with_metaclass(abc.ABCMeta)):
+
+    __slots__ = ['p1', 'p2', 'n', 'dim']
+
     lambda_op = {
         'add': lambda x, y: x + y,
         'sub': lambda x, y: x - y,
@@ -103,6 +106,9 @@ class BaseTensor(with_metaclass(abc.ABCMeta)):
 
 
 class GenericTensor(BaseTensor):
+
+    __slots__ = ['elements']
+
     def __init__(self, p1=0, p2=0, n=0, dim=0, elements=None):
         super(GenericTensor, self).__init__(p1, p2, n, dim)
         # all of the elements need to have the same shape
@@ -305,6 +311,9 @@ class GenericTensor(BaseTensor):
 
 
 class Tensor(BaseTensor):
+
+    __slots__ = ['values', 'p1_mapping', 'p2_mapping']
+
     def __init__(self, values=0, p1=0, p2=0, dim=0,
                  p1_mapping=None, p2_mapping=None):
 
