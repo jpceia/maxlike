@@ -107,9 +107,9 @@ class GenericTensor(BaseTensor):
         super(GenericTensor, self).__init__(p1, p2, n, dim)
         # all of the elements need to have the same shape
         if elements:
-            self.elements = elements
+            self.elements = tuple(elements)
         else:
-            self.elements = []
+            self.elements = ()
 
     def toarray(self):
         return sum([el.toarray() for el in self.elements])
@@ -248,7 +248,7 @@ class GenericTensor(BaseTensor):
 
         # Tensor
         if isinstance(other, Tensor):
-            new_elements = self.elements[:]
+            new_elements = list(self.elements)
             if op_type in ["add", "sub"]:
                 for k, el in enumerate(new_elements):
                     new_el = el.bin_op(other, op_type)
