@@ -321,6 +321,7 @@ class Tensor(BaseTensor):
                  p1_mapping=None, p2_mapping=None):
 
         self.values = np.asarray(values)
+        self.values.flags["WRITEABLE"] = False
         super(Tensor, self).__init__(
             p1, p2, self.values.ndim - p1 - p2 - dim, dim)
         self.p1_mapping = array('b')
