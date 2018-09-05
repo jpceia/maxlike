@@ -60,16 +60,16 @@ class BaseTensor(with_metaclass(abc.ABCMeta)):
         pass
 
     @abc.abstractmethod
-    def shape(self):
-        pass
-
-    @abc.abstractmethod
     def __neg__(self):
         pass
 
     @abc.abstractmethod
     def bin_op(self, op_type):
         pass
+
+    def shape(self):
+        return "(%d|%d|%d|%d)" % \
+               (self.p1, self.p2, self.n, self.dim)
 
     def __add__(self, other):
         return self.bin_op(other, "add")
@@ -225,10 +225,6 @@ class GenericTensor(BaseTensor):
             return gt
 
         raise ValueError
-
-    def shape(self):
-        return "(p1:%d, p2:%d, n:%d, v:%d)" % \
-               (self.p1, self.p2, self.n, self.dim)
 
     def __len__(self):
         return len(self.elements)
@@ -850,10 +846,6 @@ class Tensor(BaseTensor):
             p1=p1, p2=p2, dim=dim,
             p1_mapping=p1_mapping,
             p2_mapping=p2_mapping)
-
-    def shape(self):
-        return "(%d|%d|%d|%d)" % \
-               (self.p1, self.p2, self.n, self.dim)
 
     def __str__(self):
         s = str(self.values)
