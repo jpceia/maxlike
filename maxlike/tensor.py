@@ -60,10 +60,6 @@ class BaseTensor(with_metaclass(abc.ABCMeta)):
         pass
 
     @abc.abstractmethod
-    def copy(self):
-        pass
-
-    @abc.abstractmethod
     def shape(self):
         pass
 
@@ -230,11 +226,6 @@ class GenericTensor(BaseTensor):
 
         raise ValueError
 
-    def copy(self):
-        return GenericTensor(
-            self.p1, self.p2, self.n, self.dim,
-            [el.copy() for el in self.elements])
-
     def shape(self):
         return "(p1:%d, p2:%d, n:%d, v:%d)" % \
                (self.p1, self.p2, self.n, self.dim)
@@ -298,7 +289,8 @@ class GenericTensor(BaseTensor):
         # GenericTensor
         if isinstance(other, GenericTensor):
             if op_type in ["add", "sub"]:
-                gt = self.copy()
+                gt = GenericTensor(self.p1, self.p2, self.n, self.dim,
+                                   self.elements)
                 for el in other.elements:
                     gt = gt.bin_op(el, op_type)
                 return gt
@@ -699,10 +691,6 @@ class Tensor(BaseTensor):
         return Tensor(val, p1=other.p1, p2=other.p2, dim=dim,
                       p1_mapping=p1_mapping,
                       p2_mapping=p2_mapping)
-
-    def copy(self):
-        return Tensor(self.values, p1=self.p1, p2=self.p2, dim=self.dim,
-                      p1_mapping=self.p1_mapping, p2_mapping=self.p2_mapping)
 
     def __neg__(self):
         return Tensor(
