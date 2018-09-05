@@ -771,7 +771,7 @@ class Tensor(BaseTensor):
         # Addition and Multiplication
         # --------------------------------------------------------------------
         if op_type in ["add", "sub", "rsub"]:
-            if (self.p1_mapping == other.p1_mapping) and \
+            if (self.p1_mapping == other.p1_mapping) & \
                     (self.p2_mapping == other.p2_mapping):
                 return Tensor(
                     Tensor.lambda_op[op_type](
@@ -784,11 +784,11 @@ class Tensor(BaseTensor):
             # when the shape of one of the arrays 'contains' the other
 
             if op_type == "add":
-                elements = [self.copy(), other.copy()]
+                elements = [self, other]
             elif op_type == "sub":
-                elements = [self.copy(), -other.copy()]
+                elements = [self, -other]
             elif op_type == "rsub":
-                elements = [-self.copy(), other.copy()]
+                elements = [-self, other]
             else:
                 raise ValueError
 
