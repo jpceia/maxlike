@@ -500,15 +500,12 @@ class Tensor(BaseTensor):
             p2_mapping=self.p2_mapping)
 
     def transpose(self):
-        t = self.copy()
+        val = self.values
         if (self.p1 != 0) & (self.p2 != 0):
             for k in range(0, self.p1):
-                t.values = np.moveaxis(t.values, self.p1, k)
-        t.p1 = self.p2
-        t.p2 = self.p1
-        t.p1_mapping = self.p2_mapping
-        t.p2_mapping = self.p1_mapping
-        return t
+                val = np.moveaxis(val, self.p1, k)
+        return Tensor(val, self.p2,  self.p1, self.dim,
+                      self.p2_mapping, self.p1_mapping)
 
     def drop_dim(self):
         return Tensor(
