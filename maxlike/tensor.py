@@ -168,7 +168,7 @@ class GenericTensor(BaseTensor):
     def flip(self, xmap, dim=False):
         gt = GenericTensor()
         for el in self.elements:
-            gt += el.flip(xmap, dim)
+            gt = gt + el.flip(xmap, dim)
         return gt
 
     def transpose(self):
@@ -185,13 +185,13 @@ class GenericTensor(BaseTensor):
         if isinstance(other, Tensor):
             gt = GenericTensor()
             for el in self.elements:
-                gt += el.dot(other)
+                gt = gt + el.dot(other)
             return gt
 
         if isinstance(other, GenericTensor):
             gt = GenericTensor()
             for el in other.elements:
-                gt += self.dot(el)
+                gt = gt + self.dot(el)
             return gt
 
         raise ValueError
@@ -200,13 +200,13 @@ class GenericTensor(BaseTensor):
         if isinstance(other, Tensor):
             gt = GenericTensor()
             for el in self.elements:
-                gt += el.dot_left(other)
+                gt = gt + el.dot_left(other)
             return gt
 
         if isinstance(other, GenericTensor):
             gt = GenericTensor()
             for el in other.elements:
-                gt += self.dot_left(el)
+                gt = gt + self.dot_left(el)
             return gt
 
         raise ValueError
@@ -215,13 +215,13 @@ class GenericTensor(BaseTensor):
         if isinstance(other, Tensor):
             gt = GenericTensor()
             for el in self.elements:
-                gt += el.dot_right(other)
+                gt = gt + el.dot_right(other)
             return gt
 
         if isinstance(other, GenericTensor):
             gt = GenericTensor()
             for el in other.elements:
-                gt += self.dot_right(el)
+                gt = gt + self.dot_right(el)
             return gt
 
         raise ValueError
@@ -293,7 +293,7 @@ class GenericTensor(BaseTensor):
             elif op_type == "mul":
                 gt = GenericTensor(p1, p2, n, dim)
                 for el in other.elements:
-                    gt += self * el
+                    gt = gt + self * el
                 return gt
             else:
                 raise ValueError
