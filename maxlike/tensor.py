@@ -736,14 +736,15 @@ class Tensor(BaseTensor):
                 p1_mapping=self.p1_mapping,
                 p2_mapping=self.p2_mapping)
 
-        if other.values.ndim == 0 or self.values.ndim == 0:
-            if other.values.ndim == 0:
-                t = self.copy()
-            else:
-                t = other.copy()
-            t.values = np.asarray(Tensor.lambda_op[op_type](
-                self.values, other.values))
-            return t
+        if other.values.ndim == 0:
+            return Tensor(
+                Tensor.lambda_op[op_type](self.values, other.values),
+                self.p1, self.p2, self.dim, self.p1_mapping, self.p2_mapping)
+        
+        if self.values.ndim == 0:
+            return Tensor(
+                Tensor.lambda_op[op_type](self.values, other.values),
+                other.p1, other.p2, other.dim, other.p1_mapping, other.p2_mapping)
 
         # l_idx and r_idx could be defined
         assert (self.n == 0) | (other.n == 0) | (self.n == other.n)
