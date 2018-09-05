@@ -323,7 +323,7 @@ class Tensor(BaseTensor):
     def __init__(self, values=0, p1=0, p2=0, dim=0,
                  p1_mapping=None, p2_mapping=None):
 
-        object.__setattr__(self, 'values', np.asarray(values))
+        object.__setattr__(self, 'values', np.asarray(values, dtype=np.float32))
         self.values.flags["WRITEABLE"] = False
 
         super(Tensor, self).__init__(
