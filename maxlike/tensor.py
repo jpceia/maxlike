@@ -866,7 +866,7 @@ class Tensor(BaseTensor):
             p2_mapping=p2_mapping)
 
     def shape(self):
-        return "(p1:%d, p2:%d, n:%d, v:%d)" % \
+        return "(%d|%d|%d|%d)" % \
                (self.p1, self.p2, self.n, self.dim)
 
     def __str__(self):
