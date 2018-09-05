@@ -363,21 +363,20 @@ class Tensor(BaseTensor):
         return arr
 
     def sum(self, sum_val=True, sum_dim=True):
-        t = self.copy()
+        val = self.values
         p = self.p1 + self.p2
         cross_map = {}
 
         if not sum_val:
             if sum_dim:
-                t.values = t.values.sum(tuple(
-                    p + self.n + np.arange(self.dim)))
-                t.dim = 0
-            return t
+                val = val.sum(tuple(p + self.n + np.arange(self.dim)))
+            return Tensor(val, self.p1, self.p2, 0,
+                          self.p1_mapping, self.p2_mapping)
 
         if self.p1_mapping:
             for k, f in enumerate(self.p1_mapping):
                 if f >= 0:
-                    t.values = t.values.swapaxes(k, p + f)
+                    val = val.swapaxes(k, p + f)
         if self.p2_mapping:
             for k, f in enumerate(self.p2_mapping):
                 if f >= 0:
@@ -385,26 +384,24 @@ class Tensor(BaseTensor):
                         k = self.p1_mapping.index(f)
                         cross_map[k] = k
                     else:
-                        t.values = t.values.swapaxes(self.p1 + k, p + f)
+                        val = val.swapaxes(self.p1 + k, p + f)
 
         if sum_dim is True:
             idx = tuple(p + np.arange(self.n + self.dim))
-            t.dim = 0
+            dim = 0
         else:
             idx = tuple(p + np.arange(self.n))
+            dim = self.dim
 
-        t.values = np.asarray(t.values.sum(idx)).transpose()
-        t.p1_mapping = array('b')
-        t.p2_mapping = array('b')
-        t.n = 0
+        val = np.asarray(val.sum(idx)).transpose()
 
         for k, f in cross_map.items():
-            idx = [None] * t.values.ndim
+            idx = [None] * val.ndim
             idx[k] = slice(None)
             idx[self.p1 + f] = slice(None)
-            t.values = t.values * np.eye(t.values.shape[self.p1 + f])[idx]
+            val = val * np.eye(val.shape[self.p1 + f])[idx]
 
-        return t
+        return Tensor(val, self.p1, self.p2, dim)
 
     def expand(self, xmap, newsize, dim=False):
         """
