@@ -9,7 +9,7 @@ def _last_diag(arr, axis1, axis2):
         swapaxes(-1, axis2 - 1)
 
 
-class BaseTensor(with_metaclass(abc.ABCMeta)):
+class BaseTensor(object, with_metaclass(abc.ABCMeta)):
 
     __slots__ = ['p1', 'p2', 'n', 'dim']
 
@@ -29,10 +29,10 @@ class BaseTensor(with_metaclass(abc.ABCMeta)):
         assert p2 >= 0
         assert n >= 0
         assert dim >= 0
-        self.p1 = p1
-        self.p2 = p2
-        self.n = n
-        self.dim = dim
+        object.__setattr__(self, 'p1', p1)
+        object.__setattr__(self, 'p2', p2)
+        object.__setattr__(self, 'n', n)
+        object.__setattr__(self, 'dim', dim)
 
     @abc.abstractmethod
     def toarray(self):
@@ -104,6 +104,12 @@ class BaseTensor(with_metaclass(abc.ABCMeta)):
     def __rtruediv__(self, other):
         return self.bin_op(other, "rdiv")
 
+    def __setattr__(self, *ignored):
+        raise NotImplementedError
+
+    def __delattr__(self, *ignored):
+        raise NotImplementedError
+
 
 class GenericTensor(BaseTensor):
 
@@ -112,10 +118,10 @@ class GenericTensor(BaseTensor):
     def __init__(self, p1=0, p2=0, n=0, dim=0, elements=None):
         super(GenericTensor, self).__init__(p1, p2, n, dim)
         # all of the elements need to have the same shape
-        if elements:
-            self.elements = tuple(elements)
-        else:
-            self.elements = ()
+        if elements is None:
+            elements = ()
+
+        object.__setattr__(self, 'elements', tuple(elements))
 
     def toarray(self):
         return sum([el.toarray() for el in self.elements])
@@ -317,30 +323,37 @@ class Tensor(BaseTensor):
     def __init__(self, values=0, p1=0, p2=0, dim=0,
                  p1_mapping=None, p2_mapping=None):
 
-        self.values = np.asarray(values)
+        object.__setattr__(self, 'values', np.asarray(values))
         self.values.flags["WRITEABLE"] = False
+
         super(Tensor, self).__init__(
             p1, p2, self.values.ndim - p1 - p2 - dim, dim)
-        self.p1_mapping = array('b')
-        self.p2_mapping = array('b')
         if p1_mapping:
             if p1_mapping is True:
                 assert p1 == self.n
-                self.p1_mapping = array('b', range(p1))
+                p1_mapping = array('b', range(p1))
             elif isinstance(p1_mapping, (list, tuple, range, array)):
                 assert len(p1_mapping) == p1
-                self.p1_mapping = array('b', p1_mapping)
+                p1_mapping = array('b', p1_mapping)
             else:
                 raise ValueError("p1_mapping defined incorrectly")
+        else:
+            p1_mapping = array('b')
+
         if p2_mapping:
             if p2_mapping is True:
                 assert p2 == self.n
-                self.p2_mapping = array('b', range(p2))
+                p2_mapping = array('b', range(p2))
             elif isinstance(p2_mapping, (list, tuple, range, array)):
                 assert len(p2_mapping) == p2
-                self.p2_mapping = array('b', p2_mapping)
+                p2_mapping = array('b', p2_mapping)
             else:
                 raise ValueError("p2_mapping defined incorrectly")
+        else:
+            p2_mapping = array('b')
+
+        object.__setattr__(self, 'p1_mapping', p1_mapping)
+        object.__setattr__(self, 'p2_mapping', p2_mapping)
 
     def toarray(self):
         arr = self.values
