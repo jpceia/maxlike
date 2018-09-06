@@ -37,15 +37,16 @@ class Test(unittest.TestCase):
         mle.add_param(b.values, np.arange(b.size) == b_fix)
         mle.add_param(h, False)
 
-        tol = 1e-8
-        mle.fit(tol=tol, **prepared_data)
+        tol=1e-8
+        mle.fit(**prepared_data)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
         df = pd.read_csv(r"data\test_poisson.csv")
-        self.assertAlmostEqual(h,   0.2541711117084739,  delta=tol)
-        self.assertAlmostEqual(s_h, 0.04908832460966404, delta=tol)
+
+        self.assertAlmostEqual(h,   0.2541710859203631,  delta=tol)
+        self.assertAlmostEqual(s_h, 0.04908858811901998, delta=tol)
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -81,14 +82,14 @@ class Test(unittest.TestCase):
         mle.add_param(h, False)
 
         tol = 1e-8
-        mle.fit(tol=tol, **prepared_data)
+        mle.fit(**prepared_data)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
-        
-        self.assertAlmostEqual(h,   0.2541711117084739,  delta=tol)
-        self.assertAlmostEqual(s_h, 0.04908832460966404, delta=tol)
 
         df = pd.read_csv(r"data\test_poisson.csv")
+
+        self.assertAlmostEqual(h,   0.2541710859203631,  delta=tol)
+        self.assertAlmostEqual(s_h, 0.04908858811901998, delta=tol)
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -143,16 +144,16 @@ class Test(unittest.TestCase):
         mle.add_param(h1)
 
         tol = 1e-8
-        mle.fit(tol=tol, **prepared_data)
+        mle.fit(**prepared_data)
         a, b, h, h1 = mle.params
         s_a, s_b, s_h, s_h1 = mle.std_error()
 
-        self.assertAlmostEqual(h,    0.23613271940658626, delta=tol)
-        self.assertAlmostEqual(s_h,  0.05505120716062757, delta=tol)
-        self.assertAlmostEqual(h1,   0.13188677053914621, delta=tol)
-        self.assertAlmostEqual(s_h1, 0.07186639159291758, delta=tol)
-
         df = pd.read_csv(r"data\test_poisson3.csv")
+
+        self.assertAlmostEqual(h,    0.23613272896129883, delta=tol)
+        self.assertAlmostEqual(s_h,  0.05505120713100134, delta=tol)
+        self.assertAlmostEqual(h1,   0.13188676189444215, delta=tol)
+        self.assertAlmostEqual(s_h1, 0.07186638797269668, delta=tol)
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -181,13 +182,14 @@ class Test(unittest.TestCase):
         mle.add_param(h)
 
         tol = 1e-8
-        mle.fit(tol=tol, **prepared_data)
+        mle.fit(**prepared_data)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        self.assertAlmostEqual(h,   0.2754693439235266, delta=tol)
-        self.assertAlmostEqual(s_h, 0.05117380388073695, delta=tol)
         df = pd.read_csv(r"data\test_poisson_reg.csv")
+
+        self.assertAlmostEqual(h,   0.2754693450042746, delta=tol)
+        self.assertAlmostEqual(s_h, 0.0511739425670764, delta=tol)
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -211,13 +213,14 @@ class Test(unittest.TestCase):
         mle.add_param(b)
         mle.add_param(h)
         tol = 1e-8
-        mle.fit(tol=tol, **prepared_data)
+        mle.fit(**prepared_data)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        self.assertAlmostEqual(h,   0.4060378612453205, delta=tol)
-        self.assertAlmostEqual(s_h, 0.13212794903767752, delta=tol)
         df = pd.read_csv(r"data\test_logistic.csv")
+
+        self.assertAlmostEqual(h,   0.4060377771971094, delta=tol)
+        self.assertAlmostEqual(s_h, 0.1321279480761052, delta=tol)
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -246,14 +249,15 @@ class Test(unittest.TestCase):
         mle.add_param(h)
 
         tol = 1e-8
-        mle.fit(tol=tol, **prepared_data)
+        mle.fit(**prepared_data)
         
         a, h = mle.params
         s_a, s_h = mle.std_error()
 
-        self.assertAlmostEqual(h,   0.30593893749482887, delta=tol)
-        self.assertAlmostEqual(s_h, 0.10535093644578421, delta=tol)
         df = pd.read_csv(r"data\test_logistic_cross.csv")
+
+        self.assertAlmostEqual(h,   0.3059389232047434, delta=tol)
+        self.assertAlmostEqual(s_h, 0.1053509333552778, delta=tol)
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
 
@@ -279,9 +283,10 @@ class Test(unittest.TestCase):
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        self.assertAlmostEqual(h,   0.2583303652037732, delta=tol)
-        self.assertAlmostEqual(s_h, 0.07857076508033528, delta=tol)
         df = pd.read_csv(r"data\test_negative_binomial.csv")
+
+        self.assertAlmostEqual(h,   0.25833036122242375, delta=tol)
+        self.assertAlmostEqual(s_h, 0.07857076505955522, delta=tol)
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -297,6 +302,8 @@ class Test(unittest.TestCase):
         mle.model = Compose(Poisson(n), Compose(Exp(), foo))
         mle.add_constraint([0, 1], Linear([1, 1]))
         g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
+        prepared_data, _ = maxlike.utils.prepare_series(
+            maxlike.utils.df_count(g, n).stack(), {'N': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean())
         a = np.log(g.groupby(level='t1').mean()) - log_mean
@@ -304,16 +311,16 @@ class Test(unittest.TestCase):
         mle.add_param(a)
         mle.add_param(b)
         mle.add_param(h)
+
         tol = 1e-8
-        prepared_data, _ = maxlike.utils.prepare_series(
-            maxlike.utils.df_count(g, n).stack(), {'N': np.sum})
         mle.fit(tol=tol, **prepared_data)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        self.assertAlmostEqual(h,   0.28055330673303397, delta=tol)
-        self.assertAlmostEqual(s_h, 0.05142277849813604, delta=tol)
         df = pd.read_csv(r"data\test_finite.csv")
+
+        self.assertAlmostEqual(h,   0.2805532986558426, delta=tol)
+        self.assertAlmostEqual(s_h, 0.0514227784627934, delta=tol)
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -371,13 +378,14 @@ class Test(unittest.TestCase):
 
         # calibration
         tol = 1e-8
-        mle.fit(tol=tol, **prepared_data)
+        mle.fit(**prepared_data)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        self.assertAlmostEqual(h,   0.2785288251171003, delta=tol)
-        self.assertAlmostEqual(s_h, 0.05147213254581855, delta=tol)
         df = pd.read_csv(r"data\test_poisson_matrix.csv")
+
+        self.assertAlmostEqual(h,   0.27852882496320425, delta=tol)
+        self.assertAlmostEqual(s_h, 0.05147213154587904, delta=tol)
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -430,14 +438,15 @@ class Test(unittest.TestCase):
 
         mle.model = CollapseMatrix() @ F
 
-        tol = 1e-12
-        mle.fit(tol=tol, **prepared_data)
+        tol = 1e-8
+        mle.fit(**prepared_data)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        self.assertAlmostEqual(h,   0.27655589971445516, delta=tol)
-        self.assertAlmostEqual(s_h, 0.06802789842975875, delta=tol)
         df = pd.read_csv(r"data\test_kullback_leibler.csv")
+
+        self.assertAlmostEqual(h,   0.2765559016304402, delta=tol)
+        self.assertAlmostEqual(s_h, 0.0680302933547584, delta=tol)
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
