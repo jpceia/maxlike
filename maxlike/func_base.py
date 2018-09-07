@@ -136,11 +136,26 @@ class Compose(Func):
     def hess(self, params, i, j):
         f_arg = self.__f_arg(params)
         h_val = 0
+        dg_i = []
+        dg_j = []
+
+        for k, g in enumerate(self.g_list):
+            dg_i.append(g.grad(params, i).drop_dim())
+
+        if i != j:
+            for k, g in enumerate(self.g_list):
+                dg_j.append(g.grad(params, j).drop_dim())
+        else:
+            dg_j = dg_i
+
         for k, g_k in enumerate(self.g_list):
             for l, g_l in enumerate(self.g_list):
-                h_val += self.f.hess(f_arg, k, l).\
-                    dot_left(g_k.grad(params, i).drop_dim()).transpose().\
-                    dot_left(g_l.grad(params, j).drop_dim()).transpose()
-            h_val += self.f.grad(f_arg, k).\
-                    dot_right(g_k.hess(params, i, j).drop_dim())
+                f_hess = self.f.hess(f_arg, k, l)
+                if f_hess.values.ndim == 0 and f_hess.values == 0:
+                    continue
+                h_val += f_hess.dot_left(dg_i[k]).transpose().\
+                                dot_left(dg_j[l]).transpose()
+            f_grad = self.f.grad(f_arg, k)
+            g_hess = g_k.hess(params, i, j).drop_dim()
+            h_val += f_grad.dot_right(g_hess)
         return h_val
