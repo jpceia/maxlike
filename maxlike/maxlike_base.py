@@ -40,7 +40,7 @@ class MaxLike(object):
         pass
 
     def reset_params(self):
-        self.params = Params()
+        self.params = ()
 
     def g(self, params):
         """
@@ -65,9 +65,9 @@ class MaxLike(object):
             fixed value.
         """
         try:
-            self.params.append(Param(values, mask=fixed))
+            self.params = self.params + (Param(values, mask=fixed), )
         except AttributeError:
-            self.params = Params()
+            self.params = ()
             self.add_param(values, fixed)
 
     def add_constraint(self, param_map, g):
@@ -132,7 +132,7 @@ class MaxLike(object):
             return (lambda x: x - np.arange(x.size))(
                 (lambda x: np.arange(x.size)[x])(arr))
 
-        shaped_array = Params()
+        shaped_array = []
         s_0 = 0
 
         # val is a scalar
@@ -158,7 +158,7 @@ class MaxLike(object):
                 shaped_array.append(Param(data, mask=p.mask))
                 s_0 = s_1
                 f_0 = f_1
-        return shaped_array
+        return tuple(shaped_array)
 
     def _reshape_params(self, params_free):
         return self._reshape_array(
