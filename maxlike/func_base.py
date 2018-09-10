@@ -3,6 +3,7 @@ from functools import wraps, lru_cache
 
 
 def call_func(f):
+    @lru_cache(None)
     @wraps(f)
     def wrapper(obj, params=None):
         if params is None:
@@ -14,6 +15,7 @@ def call_func(f):
 
 
 def vector_func(g):
+    @lru_cache(None)
     @wraps(g)
     def wrapper(obj, params=None, i=None):
         if params is None:
@@ -121,15 +123,12 @@ class Compose(Func):
             self.g_list = g_list
         self.f = f
 
-    @lru_cache(None)
     def __f_arg(self, params):
         return tuple([g(params) for g in self.g_list])
 
-    @lru_cache(None)
     def __call__(self, params):
         return self.f(self.__f_arg(params))
 
-    @lru_cache(None)
     def grad(self, params, i):
         f_arg = self.__f_arg(params)
         return sum([self.f.grad(f_arg, k).\
