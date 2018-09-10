@@ -1,14 +1,14 @@
 from six import with_metaclass
-from functools import wraps
+from functools import wraps, lru_cache
 
 
 def call_func(f):
     @wraps(f)
     def wrapper(obj, params=None):
         if params is None:
-            params = []
+            params = ()
         elif not isinstance(params, (tuple, list)):
-            params = [params]
+            params = (params)
         return f(obj, params)
     return wrapper
 
@@ -17,9 +17,9 @@ def vector_func(g):
     @wraps(g)
     def wrapper(obj, params=None, i=None):
         if params is None:
-            params = []
+            params = ()
         elif not isinstance(params, (tuple, list)):
-            params = [params]
+            params = (params)
         if i is not None:
             return g(obj, params, i)
         return [g(obj, params, k) for k in range(len(params))]
@@ -121,12 +121,15 @@ class Compose(Func):
             self.g_list = g_list
         self.f = f
 
+    @lru_cache(None)
     def __f_arg(self, params):
-        return [g(params) for g in self.g_list]
+        return tuple([g(params) for g in self.g_list])
 
+    @lru_cache(None)
     def __call__(self, params):
         return self.f(self.__f_arg(params))
 
+    @lru_cache(None)
     def grad(self, params, i):
         f_arg = self.__f_arg(params)
         return sum([self.f.grad(f_arg, k).\
