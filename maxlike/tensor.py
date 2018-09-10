@@ -1,5 +1,6 @@
 import abc
 import numpy as np
+from random import getrandbits
 from array import array
 from six import with_metaclass
 
@@ -11,7 +12,7 @@ def _last_diag(arr, axis1, axis2):
 
 class BaseTensor(object, with_metaclass(abc.ABCMeta)):
 
-    __slots__ = ['p1', 'p2', 'n', 'dim']
+    __slots__ = ['p1', 'p2', 'n', 'dim', 'hash']
 
     lambda_op = {
         'add': lambda x, y: x + y,
@@ -33,6 +34,7 @@ class BaseTensor(object, with_metaclass(abc.ABCMeta)):
         object.__setattr__(self, 'p2', p2)
         object.__setattr__(self, 'n', n)
         object.__setattr__(self, 'dim', dim)
+        object.__setattr__(self, 'hash', getrandbits(128))
 
     @abc.abstractmethod
     def toarray(self):
@@ -64,6 +66,10 @@ class BaseTensor(object, with_metaclass(abc.ABCMeta)):
 
     @abc.abstractmethod
     def __neg__(self):
+        pass
+
+    @abc.abstractmethod
+    def __hash__(self):
         pass
 
     @abc.abstractmethod
@@ -312,6 +318,9 @@ class GenericTensor(BaseTensor):
 
         raise ValueError
 
+    def __hash__(self):
+        return self.hash
+
     def __getitem__(self, i):
         return self.elements[i]
 
@@ -328,6 +337,7 @@ class Tensor(BaseTensor):
 
         super(Tensor, self).__init__(
             p1, p2, self.values.ndim - p1 - p2 - dim, dim)
+
         if p1_mapping:
             if p1_mapping is True:
                 assert p1 == self.n
@@ -337,6 +347,7 @@ class Tensor(BaseTensor):
                 p1_mapping = array('b', p1_mapping)
             else:
                 raise ValueError("p1_mapping defined incorrectly")
+
         else:
             p1_mapping = array('b')
 
@@ -349,6 +360,7 @@ class Tensor(BaseTensor):
                 p2_mapping = array('b', p2_mapping)
             else:
                 raise ValueError("p2_mapping defined incorrectly")
+
         else:
             p2_mapping = array('b')
 
@@ -911,6 +923,9 @@ class Tensor(BaseTensor):
             idx += [None] * dim
 
         return idx
+
+    def __hash__(self):
+        return self.hash
 
 
 def grad_tensor(values, params, i=0, p1_mapping=None, dim=0):
