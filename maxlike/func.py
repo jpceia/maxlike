@@ -242,7 +242,7 @@ class X(Func):
         return grad_tensor(np.ones_like(params[0]), params, i, True)
 
     def hess(self, params, i, j):
-        return hess_tensor(np.zeros_like(params[0]), params, i, j, True, True)
+        return Tensor(0)
 
 
 class Constant(Func):
@@ -253,10 +253,10 @@ class Constant(Func):
         return Tensor(self.vector)
 
     def grad(self, params, i):
-        return Tensor(np.zeros_like(self.vector))
+        return Tensor(0)
 
     def hess(self, params, i, j):
-        return Tensor(np.zeros_like(self.vector))
+        return Tensor(0)
 
 
 class Scalar(Func):
@@ -281,8 +281,7 @@ class Vector(Func):
         return grad_tensor(self.vector, params, i, None)
 
     def hess(self, params, i, j):
-        return hess_tensor(np.zeros_like(self.vector),
-                           params, i, j, None, None)
+        return Tensor(0)
 
 
 class Exp(Func):
