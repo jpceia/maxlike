@@ -52,7 +52,7 @@ class CopulaMeta(FuncMeta):
         res.__call__ = copulaWrap(res.__call__)
         return res
 
-class Copula(Func, with_metaclass(CopulaMeta, object)):
+class Copula(with_metaclass(CopulaMeta)):
     pass
 
 
