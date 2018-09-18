@@ -1,5 +1,5 @@
-from .maxlike_base import MaxLike
-from .common import *
+from .maxlike_base import *
+from scipy.special import factorial
 
 
 class Poisson(MaxLike):

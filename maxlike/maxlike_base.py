@@ -1,4 +1,6 @@
 import abc
+import numpy as np
+from random import getrandbits
 from .tensor import Tensor
 from .common import *
 
@@ -7,6 +9,16 @@ class ConvergenceError(Exception):
     def __init__(self, message, type=0):
         super(ConvergenceError, self).__init__(message)
         self.type = type
+
+
+class Param(np.ma.MaskedArray):
+    def __new__(cls, data, *args, **kwargs):
+        obj = super(Param, cls).__new__(cls, data, *args, **kwargs)
+        obj.hash = getrandbits(128)
+        return obj
+
+    def __hash__(self):
+        return self.hash
 
 
 class MaxLike(object):
