@@ -3,6 +3,12 @@ from .tensor import Tensor
 from .common import *
 
 
+class ConvergenceError(Exception):
+    def __init__(self, message, type=0):
+        super(ConvergenceError, self).__init__(message)
+        self.type = type
+
+
 class MaxLike(object):
     __metaclass__ = abc.ABCMeta
 
@@ -321,8 +327,9 @@ class MaxLike(object):
                 if verbose:
                     print("\tu=", u)
 
-        raise RuntimeError("Error: the objective function did not increase",
-                           "after %d steps" % max_steps)
+        raise ConvergenceError(
+            "Error: the objective function did not increase " +
+            "after %d steps" % max_steps, "step")
 
     def fit(self, tol=1e-8,  max_steps=None, verbose=0, scipy=0, **kwargs):
         """
@@ -406,7 +413,7 @@ class MaxLike(object):
             self.params = self._reshape_params(res.x)
             self.g_last = -res.fun
             if not res.success:
-                raise RuntimeError(res.message)
+                raise ConvengenceError(res.message)
         else:
             if max_steps is None:
                 max_steps = 20  # default value for custom model
@@ -419,5 +426,5 @@ class MaxLike(object):
                     print(i, self.g_last)
                 if abs(old_g / self.g_last - 1) < tol:
                     return None
-            raise RuntimeError("Error: the objective function did not",
-                               "converge after %d steps" % max_steps)
+            raise ConvergenceError("Error: the objective function did not",
+                                   "converge after %d steps" % max_steps)
