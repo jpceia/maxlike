@@ -4,6 +4,23 @@ from random import getrandbits
 from array import array
 from six import with_metaclass
 
+TENSOR_DTYPE = np.float64
+
+
+def set_dtype(s):
+    global TENSOR_DTYPE
+    if isinstance(s, str):
+        s = s.lower()
+        mapping = {
+            "int32": np.int32,
+            "int64": np.int64,
+            "float32": np.float32,
+            "float64": np.float64
+        }
+        TENSOR_DTYPE = mapping[s]
+    else:
+        TENSOR_DTYPE = s
+
 
 def _last_diag(arr, axis1, axis2):
     return np.diagonal(arr, axis1=axis1, axis2=axis2). \
@@ -330,9 +347,12 @@ class Tensor(BaseTensor):
     __slots__ = ['values', 'p1_mapping', 'p2_mapping']
 
     def __init__(self, values=0, p1=0, p2=0, dim=0,
-                 p1_mapping=None, p2_mapping=None):
+                 p1_mapping=None, p2_mapping=None, dtype=None):
 
-        object.__setattr__(self, 'values', np.asarray(values, dtype=np.float32))
+        if dtype is None:
+            dtype = TENSOR_DTYPE
+
+        object.__setattr__(self, 'values', np.asarray(values, dtype=dtype))
         self.values.flags["WRITEABLE"] = False
 
         super(Tensor, self).__init__(

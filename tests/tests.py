@@ -10,6 +10,8 @@ from maxlike.func import (
     Poisson, Sum, Product, CollapseMatrix)
 from skellam import skellam_cdf_root
 
+maxlike.tensor.set_dtype(np.float32)
+
 
 class Test(unittest.TestCase):
 
