@@ -8,8 +8,10 @@ def call_func(f):
     def wrapper(obj, params=None):
         if params is None:
             params = ()
-        elif not isinstance(params, (tuple, list)):
-            params = (params)
+        if isinstance(params, list):
+            params = tuple(params)
+        elif not isinstance(params, tuple):
+            params = (params, )
         return f(obj, params)
     return wrapper
 
@@ -20,8 +22,10 @@ def vector_func(g):
     def wrapper(obj, params=None, i=None):
         if params is None:
             params = ()
-        elif not isinstance(params, (tuple, list)):
-            params = (params)
+        if isinstance(params, list):
+            params = tuple(params)
+        elif not isinstance(params, tuple):
+            params = (params, )
         if i is not None:
             return g(obj, params, i)
         return [g(obj, params, k) for k in range(len(params))]
@@ -32,9 +36,11 @@ def matrix_func(h):
     @wraps(h)
     def wrapper(obj, params=None, i=None, j=None):
         if params is None:
-            params = []
-        elif not isinstance(params, (tuple, list)):
-            params = [params]
+            params = ()
+        if isinstance(params, list):
+            params = tuple(params)
+        elif not isinstance(params, tuple):
+            params = (params, )
         if i is not None and j is not None:
             return h(obj, params, i, j)
         return [[h(obj, params, k, l)
