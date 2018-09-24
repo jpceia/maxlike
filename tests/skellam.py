@@ -89,7 +89,7 @@ def skellam_cdf_root(target1, target2, tol=1e-8):
         new_s = s
         new_e = np.linalg.norm(new_s - target)
         for i in range(10):
-            if (all(new_ab > 0) and new_e < e):
+            if all(new_ab > 0) and new_e < e:
                 a, b = new_ab
                 break
             else:
