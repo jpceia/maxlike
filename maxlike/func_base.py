@@ -3,7 +3,7 @@ from functools import wraps, lru_cache
 
 
 def call_func(f):
-    @lru_cache(None)
+    #@lru_cache(None)
     @wraps(f)
     def wrapper(obj, params=None):
         if params is None:
@@ -17,7 +17,7 @@ def call_func(f):
 
 
 def vector_func(g):
-    @lru_cache(None)
+    #@lru_cache(None)
     @wraps(g)
     def wrapper(obj, params=None, i=None):
         if params is None:
