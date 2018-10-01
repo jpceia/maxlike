@@ -1,9 +1,9 @@
-from .func_base import FuncMeta, Func
-from .tensor import Tensor
 from scipy.special import ndtri
 from scipy.stats.mvn import mvnun
 from six import with_metaclass
 import numpy as np
+from .func_base import FuncMeta, Func
+from .tensor import Tensor
 
 
 def no_divwarn(foo):

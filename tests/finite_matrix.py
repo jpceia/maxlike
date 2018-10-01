@@ -1,7 +1,5 @@
-import sys
-sys.path.insert(0, r"D:\git\maxlike")
-from maxlike.func_base import Func
-from maxlike.tensor import Tensor, grad_tensor
+from maxlike.func_base import Func, grad_tensor
+from tensor import Tensor
 import numpy as np
 
 class FiniteMatrix(Func):

@@ -1,12 +1,10 @@
-import sys
-sys.path.insert(0, "..")
 import maxlike
 import numpy as np
 import pandas as pd
 from sympy import symbols, lambdify, diff
 from mpmath import findroot
 from maxlike.func import Func, Sum, X, Linear
-from maxlike.tensor import Tensor, grad_tensor, hess_tensor
+from maxlike.func_base import grad_tensor, hess_tensor
 from maxlike.utils import prepare_dataframe, prepare_series
 
 class SymbolicFunc(Func):

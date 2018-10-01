@@ -1,8 +1,8 @@
 import numpy as np
-from .common import *
-from .tensor import *
-from .func_base import *
+from tensor import Tensor
 from scipy.special import factorial, gammaln
+from .common import *
+from .func_base import *
 
 
 class FuncWrap(Func):
