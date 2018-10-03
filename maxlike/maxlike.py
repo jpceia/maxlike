@@ -1,4 +1,5 @@
-from .maxlike_base import *
+import numpy as np
+from .maxlike_base import MaxLike
 from scipy.special import factorial
 
 

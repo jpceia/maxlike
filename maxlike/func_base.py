@@ -1,6 +1,6 @@
-from six import with_metaclass
-from functools import wraps, lru_cache
 import numpy as np
+from six import with_metaclass
+from functools import wraps
 from .tensor import Tensor
 
 

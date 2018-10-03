@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.special import factorial, gammaln
 from .tensor import Tensor
-from .common import *
-from .func_base import *
+from .common import IndexMap
+from .func_base import Func, Affine, Compose, grad_tensor, hess_tensor
 
 
 class FuncWrap(Func):

@@ -2,7 +2,7 @@ import abc
 import numpy as np
 from random import getrandbits
 from .tensor import Tensor
-from .common import *
+from .common import IndexMap
 
 
 class ConvergenceError(Exception):

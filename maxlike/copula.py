@@ -1,8 +1,8 @@
+import numpy as np
 from scipy.special import ndtri
 from scipy.stats.mvn import mvnun
 from six import with_metaclass
-import numpy as np
-from .func_base import FuncMeta, Func
+from .func_base import FuncMeta
 from .tensor import Tensor
 
 

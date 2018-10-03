@@ -1,6 +1,3 @@
-from __future__ import print_function
-
-
 class IndexMap(list):
     def __init__(self, indexes):
         if isinstance(indexes, int):
