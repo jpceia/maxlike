@@ -1,7 +1,7 @@
 import abc
 import numpy as np
 from random import getrandbits
-from tensor import Tensor
+from .tensor import Tensor
 from .common import *
 
 

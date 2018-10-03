@@ -1,6 +1,6 @@
 import numpy as np
-from tensor import Tensor
 from scipy.special import factorial, gammaln
+from .tensor import Tensor
 from .common import *
 from .func_base import *
 

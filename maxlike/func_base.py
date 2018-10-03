@@ -1,7 +1,7 @@
 from six import with_metaclass
 from functools import wraps, lru_cache
-from tensor import Tensor
 import numpy as np
+from .tensor import Tensor
 
 
 def grad_tensor(values, params, i=0, p1_mapping=None, dim=0):
