@@ -2,7 +2,6 @@ import abc
 import numpy as np
 from random import getrandbits
 from .tensor import Tensor
-from .common import IndexMap
 
 
 class ConvergenceError(Exception):
@@ -66,7 +65,7 @@ class MaxLike(object):
         """
         g = self.like(params)
         for param_map, h in self.reg:
-            g -= h(param_map(params))
+            g -= h([params[k] for k in param_map])
         res = g / self.N.sum()
         return float(res.values)
 
@@ -99,7 +98,10 @@ class MaxLike(object):
         g : func
             Constraint function.
         """
-        self.constraint.append((IndexMap(param_map), 0, g))
+        if isinstance(param_map, int):
+            param_map = [param_map]
+
+        self.constraint.append((param_map, 0, g))
 
     def add_regularization(self, param_map, h):
         """
@@ -112,7 +114,10 @@ class MaxLike(object):
         h : func
             Regularization function
         """
-        self.reg.append((IndexMap(param_map), h))
+        if isinstance(param_map, int):
+            param_map = [param_map]
+
+        self.reg.append((param_map, h))
 
     def akaine_information_criterion(self):
         """
@@ -257,7 +262,7 @@ class MaxLike(object):
         # 2nd phase: Add constraints / regularization to grad and hess
         # --------------------------------------------------------------------
         for k, (param_map, gamma, g) in enumerate(self.constraint):
-            args = param_map(self.params)
+            args = [self.params[k] for k in param_map]
             grad_g = g.grad(args)
             hess_g = g.hess(args)
             for i, idx in enumerate(param_map):
@@ -268,7 +273,7 @@ class MaxLike(object):
                     hess[idx][param_map[j]] += gamma * hess_g[i][j]
 
         for param_map, h in self.reg:
-            args = param_map(self.params)
+            args = [self.params[k] for k in param_map]
             grad_h = h.grad(args)
             hess_h = h.hess(args)
             for i, idx in enumerate(param_map):
@@ -401,7 +406,7 @@ class MaxLike(object):
             for param_map, _, g in self.constraint:
                 def foo_constraint(_flat_params):
                     params = self._reshape_params(_flat_params)
-                    return g(param_map(params))
+                    return g([params[k] for k in param_map])
                 constraints.append({
                     'type': 'eq',
                     'fun': foo_constraint})

@@ -1,8 +1,18 @@
 import numpy as np
 from scipy.special import factorial, gammaln
 from .tensor import Tensor
-from .common import IndexMap
 from .func_base import Func, Affine, Compose, grad_tensor, hess_tensor
+
+
+class IndexMap(list):
+    def __init__(self, indexes):
+        if isinstance(indexes, int):
+            indexes = [indexes]
+        # assert min(indexes) >= 0
+        self.extend(indexes)
+
+    def __call__(self, params):
+        return tuple([params[k] for k in self])
 
 
 class FuncWrap(Func):
