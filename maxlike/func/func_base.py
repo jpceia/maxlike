@@ -1,7 +1,7 @@
 import numpy as np
 from six import with_metaclass
 from functools import wraps
-from .tensor import Tensor
+from ..tensor import Tensor
 
 
 def grad_tensor(values, params, i=0, p1_mapping=None, dim=0):

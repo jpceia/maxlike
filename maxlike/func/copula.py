@@ -3,7 +3,7 @@ from scipy.special import ndtri
 from scipy.stats.mvn import mvnun
 from six import with_metaclass
 from .func_base import FuncMeta
-from .tensor import Tensor
+from ..tensor import Tensor
 
 
 def no_divwarn(foo):
