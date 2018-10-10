@@ -100,7 +100,7 @@ def exclusive(o, p, dp_list=None):
     raise NotImplementedError
 
 
-def lasso_optimizer(q, X, y, tol=1e-8, reg=1):
+def lasso_regression(q, X, y, tol=1e-8, reg=1):
     if len(X.shape) < 2:
         X = X.reshape(-1, 1)
     a = np.zeros(X.shape[1])
