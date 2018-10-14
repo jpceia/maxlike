@@ -35,6 +35,10 @@ def exclusive(o, p, dp_list=None):
         i = np.argmin(rev[idx] > R)
         b = np.maximum((rev - R[i]) * q, 0)
         k = 1
+
+        if (b == 0).all():
+            return b
+
         if dp_list is not None:
 
             if not isinstance(dp_list, (list, tuple)):
