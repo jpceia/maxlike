@@ -101,6 +101,10 @@ def exclusive(o, p, dp_list=None):
 
 
 def lasso_regression(q, X, y, tol=1e-8, reg=1):
+    """
+    Lasso Regression with Kelly penalty
+    y : boolean array
+    """
     if len(X.shape) < 2:
         X = X.reshape(-1, 1)
     a = np.zeros(X.shape[1])
