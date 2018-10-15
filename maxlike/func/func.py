@@ -52,7 +52,6 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
 
 
 class X(Func):
-
     def __call__(self, params):
         return Tensor(params[0])
 
@@ -103,7 +102,6 @@ class Vector(Func):
 
 
 class Exp(Func):
-
     def __call__(self, params):
         return Tensor(np.exp(np.asarray(params[0])))
 
@@ -114,3 +112,16 @@ class Exp(Func):
         return hess_tensor(np.exp(np.asarray(params[0])),
                            params, i, j, True, True)
 
+
+class Logistic(Func):
+    def __call__(self, params):
+        return Tensor(1 / (1 + np.exp(-params[0])))
+
+    def grad(self, params, i):
+        f = self.__call__(params).values
+        return grad_tensor(f * (1 - f), params, i, True)
+
+    def hess(self, params, i, j):
+        f = self.__call__(params).values
+        return hess_tensor(f * (1 - f) * (1 - 2 * f),
+                           params, i, j, True, True)
