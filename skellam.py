@@ -79,13 +79,13 @@ def tol2size(tol=1e-8, *args):
     return int(-ndtri(tol) * sum(map(lambda x: x ** .5, args)) + sum(args)) + 1
 
 
-def skellam_cdf(a, b, n, tol=1e-8, inverse=False):
+def skellam_cdf(a, b, n=0, tol=1e-8, inverse=False):
     # assert isinstance(n, int)
     size = tol2size(tol, a, b)
     rng = np.arange(size)
     xy = rng[None, :] - rng[:, None]
     xy = (xy >= n) if inverse else (xy <= n)
-    return np.asarray(map(lambda v: v[xy].sum(), skellam_frame(a, b, size)))
+    return np.asarray(list(map(lambda v: v[xy].sum(), skellam_frame(a, b, size))))
 
 
 def skellam_cdf_pair(a, b, n=0, tol=1e-8):
