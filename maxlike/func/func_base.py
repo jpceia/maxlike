@@ -10,7 +10,7 @@ def grad_tensor(values, params, i=0, p1_mapping=None, dim=0):
         idx = [...]
     else:
         idx = [None] * p1 + [...]
-    return Tensor(values[idx], p1=p1, dim=dim, p1_mapping=p1_mapping)
+    return Tensor(values[tuple(idx)], p1=p1, dim=dim, p1_mapping=p1_mapping)
 
 
 def hess_tensor(values, params, i=0, j=0,
@@ -20,7 +20,7 @@ def hess_tensor(values, params, i=0, j=0,
     idx = [slice(None) if p1_mapping is None else None] * p1
     idx += [slice(None) if p2_mapping is None else None] * p2
     idx += [...]
-    return Tensor(values[idx], p1=p1, p2=p2, dim=dim,
+    return Tensor(values[tuple(idx)], p1=p1, p2=p2, dim=dim,
                   p1_mapping=p1_mapping, p2_mapping=p2_mapping)
 
 

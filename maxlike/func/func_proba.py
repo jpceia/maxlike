@@ -115,7 +115,7 @@ class CollapseMatrix(Func):
         val = val.swapaxes(0, p1 - 2)
         val = val.swapaxes(1, p1 - 1)
         p1_mapping = list(range(p1 - 2)) + [-1, -1]
-        idx = [None] * (p1 - 2) + [Ellipsis]
+        idx = tuple([None] * (p1 - 2) + [Ellipsis])
         return Tensor(val[idx], p1=p1, dim=1, p1_mapping=p1_mapping)
 
     def hess(self, params, i, j):
