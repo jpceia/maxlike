@@ -16,11 +16,12 @@ class Linear(Func):
                     for w, p in zip(params, self.weights)))
 
     def grad(self, params, i):
-        return grad_tensor(self.weights[i] * np.ones((1, ) * params[i].ndim),
-                           params, i)
+        return grad_tensor(self.weights[i] * np.ones((1, ) *
+                           np.asarray(params[i]).ndim), params, i)
 
     def hess(self, params, i, j):
-        return hess_tensor(np.zeros((1, ) * (params[j].ndim + params[i].ndim)),
+        return hess_tensor(np.zeros((1, ) *
+            (np.asarray(params[j]).ndim + np.asarray(params[i]).ndim)),
             params, i, j)
 
     def add_feature(self, weight):
