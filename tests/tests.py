@@ -1,12 +1,16 @@
 import unittest
 import pandas as pd
 import numpy as np
+import sys; sys.path.insert(0 , "..")
 import maxlike
+from skellam import skellam_cdf_root
 from scipy.special import logit
+from maxlike.preprocessing import prepare_dataframe, prepare_series, df_count
 from maxlike.func import (
     X, Vector, Linear, Quadratic, Compose, Exp, Constant, Scalar, 
     Poisson, Sum, Product, CollapseMatrix)
-from skellam import skellam_cdf_root
+
+
 
 maxlike.tensor.set_dtype(np.float32)
 
@@ -22,8 +26,7 @@ class Test(unittest.TestCase):
         mle.add_constraint([0, 1], Linear([1, 1]))
 
         g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
-        prepared_data, _ = maxlike.utils.prepare_series(
-            g, {'N': np.size, 'X': np.sum})
+        prepared_data, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
 
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean()) / 2
@@ -66,8 +69,7 @@ class Test(unittest.TestCase):
         mle.add_constraint([0, 1], Linear([1, 1]))
 
         g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
-        prepared_data, _ = maxlike.utils.prepare_series(
-            g, {'N': np.size, 'X': np.sum})
+        prepared_data, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
 
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean()) / 2
@@ -124,8 +126,7 @@ class Test(unittest.TestCase):
         mle.model = F
 
         g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
-        prepared_data, _ = maxlike.utils.prepare_series(
-            g, {'N': np.size, 'X': np.sum})
+        prepared_data, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
 
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         h1 = 0
@@ -169,8 +170,7 @@ class Test(unittest.TestCase):
         mle.add_regularization([0, 1], Quadratic(0, 1))
 
         g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
-        prepared_data, _ = maxlike.utils.prepare_series(
-            g, {'N': np.size, 'X': np.sum})
+        prepared_data, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
 
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean()) / 2
@@ -203,8 +203,7 @@ class Test(unittest.TestCase):
         mle.model.add(Vector(np.arange(2) - .5), 2, 2)
         mle.add_constraint([0, 1], Linear([1, 1]))
         g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g'] > 0
-        prepared_data, _ = maxlike.utils.prepare_series(
-            g, {'N': np.size, 'X': np.sum})
+        prepared_data, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean())
         a = np.log(g.groupby(level='t1').mean()) - log_mean
@@ -237,7 +236,7 @@ class Test(unittest.TestCase):
         # fetch and prepare data
         df = pd.read_csv(r"data\data_proba.csv", index_col=[0, 1])
         df['w'] = df['-1'] + df['1']
-        prepared_data, _ = maxlike.utils.prepare_dataframe(df, 'w', '1', {'X': np.sum})
+        prepared_data, _ = prepare_dataframe(df, 'w', '1', {'X': np.sum})
         N = prepared_data['N']
         S = prepared_data['X']
         u = -logit(S.sum(0) / N.sum(0))
@@ -269,8 +268,7 @@ class Test(unittest.TestCase):
         mle.model.add(Vector(np.arange(2) - .5), 2, 2)
         mle.add_constraint([0, 1], Linear([1, 1]))
         g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
-        prepared_data, _ = maxlike.utils.prepare_series(
-            g, {'N': np.size, 'X': np.sum})
+        prepared_data, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean())
         a = np.log(g.groupby(level='t1').mean()) - log_mean
@@ -302,8 +300,7 @@ class Test(unittest.TestCase):
         mle.model = Compose(Poisson(n), Compose(Exp(), foo))
         mle.add_constraint([0, 1], Linear([1, 1]))
         g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
-        prepared_data, _ = maxlike.utils.prepare_series(
-            maxlike.utils.df_count(g, n).stack(), {'N': np.sum})
+        prepared_data, _ = prepare_series(df_count(g, n).stack(), {'N': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean())
         a = np.log(g.groupby(level='t1').mean()) - log_mean
@@ -333,7 +330,7 @@ class Test(unittest.TestCase):
         # fetch and prepare data
         df = pd.read_csv(r"data\data_poisson_matrix.csv",
                          index_col=[0, 1], header=[0, 1]).stack([0, 1])
-        prepared_data, _ = maxlike.utils.prepare_series(df)
+        prepared_data, _ = prepare_series(df)
         N = prepared_data['N']
 
         def EX(u):
@@ -397,7 +394,7 @@ class Test(unittest.TestCase):
 
         # fetch and prepare data
         df1 = pd.read_csv(r"data\data_proba.csv", index_col=[0, 1])
-        prepared_data, _ = maxlike.utils.prepare_series(
+        prepared_data, _ = prepare_series(
             df1.stack(), {'N': np.sum})
 
         N = prepared_data['N']
