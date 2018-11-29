@@ -807,7 +807,7 @@ class Tensor(BaseTensor):
         r_idx = other.__reshape_idx(p1, p2, n, dim)
 
         # --------------------------------------------------------------------
-        # Addition and Multiplication
+        # Addition and Subtraction
         # --------------------------------------------------------------------
         if op_type in ["add", "sub", "rsub"]:
             if (self.p1_mapping == other.p1_mapping) & \
