@@ -1,15 +1,14 @@
 import unittest
 import pandas as pd
 import numpy as np
-import sys; sys.path.insert(0 , "..")
-import maxlike
-from skellam import skellam_cdf_root
 from scipy.special import logit
+# import sys; sys.path.insert(0 , "..")
+import maxlike
+from maxlike.analytics import skellam_cdf_root
 from maxlike.preprocessing import prepare_dataframe, prepare_series, df_count
 from maxlike.func import (
     X, Vector, Linear, Quadratic, Compose, Exp, Constant, Scalar, 
     Poisson, Sum, Product, CollapseMatrix)
-
 
 
 maxlike.tensor.set_dtype(np.float32)

@@ -5,7 +5,7 @@ setup(
     version='2.1.1',
     author='joao ceia',
     author_email='joao.p.ceia@gmail.com',
-    packages=['maxlike', 'maxlike.tensor', 'maxlike.func'],
+    packages=['maxlike', 'maxlike.tensor', 'maxlike.func', 'maxlike.analytics'],
     url='https://github.com/jpceia/maxlike',
     license='',
     description="""
