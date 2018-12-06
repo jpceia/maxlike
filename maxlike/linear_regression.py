@@ -58,13 +58,13 @@ class BaseLinearRegression(object):
         self.a_ = a
         return self
 
-    def predict(X):
-        if len(X.shape < 2):
+    def predict(self, X):
+        if X.ndim < 2:
             X = X.reshape(-1, 1)
-        return self.y_pred(a, X)
+        return self.y_pred(self.a_, X)
 
 
-class PoissonRegression(BaseLinearRegression):
+class PoissonLinearRegression(BaseLinearRegression):
 
     def y_pred(self, a, X):
         return (a * X).sum(1)
@@ -80,11 +80,10 @@ class PoissonRegression(BaseLinearRegression):
                  X[:, None, :] * X[:, :, None]).sum(0)
 
 
-class GaussianRegression(BaseLinearRegression):
+class GaussianLinearRegression(BaseLinearRegression):
 
     def fit(self, X, y):
         self.a_ = self.param_guess(X, y)
+        e = self.y_pred(self.a_, X) - y
+        self.s_ = (e * e).sum() / (y.size - self.a_.size - 1)
         return self
-
-    def predict(self, X):
-        return self.y_pred(self.a_, X)
