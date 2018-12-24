@@ -910,6 +910,11 @@ class Tensor(BaseTensor):
     def __repr__(self):  # just displays the shape
         return repr(self.values)
 
+    def __float__(self):
+        if self.values.ndim > 0:
+            raise ValueError
+        return float(self.values)
+
     def __array__(self):
         return self.values
 
