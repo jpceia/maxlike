@@ -285,8 +285,8 @@ class MaxLike(object):
         # 3rd phase: Reshape and flatten
         # --------------------------------------------------------------------
         flat_params = [p.compressed() for p in self.params]
-        grad = [grad[i].values[~p.mask]
-                for i, p in enumerate(self.params)] + grad[n:]
+        grad = [g.values[~p.mask] for g, p in zip(grad, self.params)] + \
+                grad[n:]
 
         # ------
         # | aa |
