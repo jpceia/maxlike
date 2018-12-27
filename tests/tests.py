@@ -16,6 +16,8 @@ maxlike.tensor.set_dtype(np.float32)
 
 class Test(unittest.TestCase):
 
+    verbose = True
+
     def test_poisson(self):
         mle = maxlike.Poisson()
         mle.model = Sum(3)
@@ -40,7 +42,7 @@ class Test(unittest.TestCase):
         mle.add_param(h, False)
 
         tol=1e-8
-        mle.fit(**prepared_data)
+        mle.fit(**prepared_data, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
@@ -83,7 +85,7 @@ class Test(unittest.TestCase):
         mle.add_param(h, False)
 
         tol = 1e-8
-        mle.fit(**prepared_data)
+        mle.fit(**prepared_data, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
@@ -144,7 +146,7 @@ class Test(unittest.TestCase):
         mle.add_param(h1)
 
         tol = 1e-8
-        mle.fit(**prepared_data)
+        mle.fit(**prepared_data, verbose=self.verbose)
         a, b, h, h1 = mle.params
         s_a, s_b, s_h, s_h1 = mle.std_error()
 
@@ -181,7 +183,7 @@ class Test(unittest.TestCase):
         mle.add_param(h)
 
         tol = 1e-8
-        mle.fit(**prepared_data)
+        mle.fit(**prepared_data, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
@@ -211,7 +213,7 @@ class Test(unittest.TestCase):
         mle.add_param(b)
         mle.add_param(h)
         tol = 1e-8
-        mle.fit(**prepared_data)
+        mle.fit(**prepared_data, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
@@ -247,7 +249,7 @@ class Test(unittest.TestCase):
         mle.add_param(h)
 
         tol = 1e-8
-        mle.fit(**prepared_data)
+        mle.fit(**prepared_data, verbose=self.verbose)
         
         a, h = mle.params
         s_a, s_h = mle.std_error()
@@ -374,7 +376,7 @@ class Test(unittest.TestCase):
 
         # calibration
         tol = 1e-8
-        mle.fit(**prepared_data)
+        mle.fit(**prepared_data, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
@@ -435,7 +437,7 @@ class Test(unittest.TestCase):
         mle.model = CollapseMatrix() @ F
 
         tol = 1e-8
-        mle.fit(**prepared_data)
+        mle.fit(**prepared_data, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
