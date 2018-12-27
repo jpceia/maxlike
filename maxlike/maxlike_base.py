@@ -241,8 +241,7 @@ class MaxLike(object):
         return self._reshape_array(np.sqrt(np.diag(-np.linalg.inv(
             self.flat_hess_))[:cut]))
 
-    def __step(self, verbose=False):
-        max_steps = 10
+    def newton_step(self, verbose=False):
         n = len(self.params)
         c_len = len(self.constraint)
 
@@ -284,7 +283,6 @@ class MaxLike(object):
         # --------------------------------------------------------------------
         # 3rd phase: Reshape and flatten
         # --------------------------------------------------------------------
-        flat_params = [p.compressed() for p in self.params]
         grad = [grad[i].values[~p.mask]
                 for i, p in enumerate(self.params)] + grad[n:]
 
@@ -311,7 +309,6 @@ class MaxLike(object):
         # --------------------------------------------------------------------
         # 4th phase: Consolidate blocks
         # --------------------------------------------------------------------
-        flat_params = np.concatenate(flat_params)
         grad = np.concatenate(grad)
         hess = np.vstack(list(map(np.hstack, hess)))
 
@@ -325,30 +322,13 @@ class MaxLike(object):
         # --------------------------------------------------------------------
         # 5th phase: Compute
         # --------------------------------------------------------------------
-        u = 1
-        d = np.linalg.solve(hess, grad)
-        if c_len > 0:
-            d = d[:-c_len]
+        step = np.linalg.solve(hess, grad)
+        step = step[:(-(c_len + 1) % step.shape[0]) + 1]
 
-        # change = np.linalg.norm(d) / np.linalg.norm(params)
-        for i in range(max_steps):
-            new_params = self._reshape_params(flat_params - u * d)
-            new_g = self.g(new_params)
-            if new_g - self.g_last >= 0:
-                self.params = new_params
-                self.g_last = new_g
-                self.flat_hess_ = hess
-                return None
-            else:
-                u *= .5
-                if verbose:
-                    print("\tu=", u)
+        self.flat_hess_ = hess
+        return step, grad
 
-        raise ConvergenceError(
-            "Error: the objective function did not increase " +
-            "after %d steps" % max_steps, "step")
-
-    def fit(self, tol=1e-8,  max_steps=None, verbose=0, scipy=0, **kwargs):
+    def fit(self, tol=1e-6,  max_steps=None, verbose=0, scipy=0, **kwargs):
         """
         Run the algorithm to find the best fit.
 
@@ -435,13 +415,44 @@ class MaxLike(object):
             if max_steps is None:
                 max_steps = 20  # default value for custom model
 
-            self.g_last = self.g(self.params)
-            for i in range(max_steps):
-                old_g = self.g_last
-                self.__step(verbose > 1)
+            max_inner_steps = 5
+
+            prev_g = self.g(self.params)
+            flat_params = np.concatenate([p.compressed() for p in self.params])
+
+            if verbose > 0:
+                print(0, prev_g)
+
+            for k in range(max_steps):
+                step, grad = self.newton_step(verbose > 1)
+
+                mult = 1
+                for _ in range(max_inner_steps):
+                    new_flat_params = flat_params - mult * step
+                    new_params = self._reshape_params(new_flat_params)
+                    new_g = self.g(new_params)
+                    if new_g - prev_g >= 0:
+                        break
+                    else:
+                        mult *= .5
+                        if verbose:
+                            print("\tmultiplier = ", mult)
+                else:
+                    raise ConvergenceError(
+                        "Error: the objective function did not increase " +
+                        "after %d steps" % max_inner_steps, "step")
+
+                e = np.linalg.norm(grad / grad.size)
+
                 if verbose > 0:
-                    print(i, self.g_last)
-                if abs(old_g / self.g_last - 1) < tol:
-                    return None
+                    print("%d\tg=%f\tgrad_norm=%f" % (k + 1, new_g, e))
+
+                if e < tol:
+                    return True
+
+                flat_params = new_flat_params
+                self.params = new_params
+                prev_g = new_g
+
             raise ConvergenceError("Error: the objective function did not",
                                    "converge after %d steps" % max_steps)
