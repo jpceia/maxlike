@@ -160,7 +160,7 @@ class MaxLike(object):
 
         # val is a scalar
         if isinstance(val, (int, float)):
-            for i, p in enumerate(self.params):
+            for p in self.params:
                 s_1 = s_0 + p.count()
                 data = np.insert(
                     flat_array[s_0:s_1],
@@ -171,7 +171,7 @@ class MaxLike(object):
         # val is an array
         else:
             f_0 = 0
-            for i, p in enumerate(self.params):
+            for p in self.params:
                 s_1 = s_0 + p.count()
                 f_1 = f_0 + p.mask.sum()
                 data = np.insert(
@@ -198,7 +198,7 @@ class MaxLike(object):
         s_ = [0]
         f_ = [0]
         val_map = []
-        for i, p in enumerate(self.params):
+        for p in self.params:
             s_.append(s_[-1] + p.count())
             f_.append(f_[-1] + p.mask.sum())
             val_map.append((lambda x: x - np.arange(x.size))(
