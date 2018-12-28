@@ -328,7 +328,7 @@ class MaxLike(object):
         self.flat_hess_ = hess
         return step, grad
 
-    def fit(self, tol=1e-6,  max_steps=None, verbose=0, scipy=0, **kwargs):
+    def fit(self, tol=1e-8,  max_steps=None, verbose=0, scipy=0, **kwargs):
         """
         Run the algorithm to find the best fit.
 
@@ -417,13 +417,14 @@ class MaxLike(object):
 
             max_inner_steps = 5
 
-            prev_g = self.g(self.params)
+            new_g = self.g(self.params)
             flat_params = np.concatenate([p.compressed() for p in self.params])
 
             if verbose > 0:
-                print(0, prev_g)
+                print(0, new_g)
 
             for k in range(max_steps):
+                prev_g = new_g
                 step, grad = self.newton_step(verbose > 1)
 
                 mult = 1
@@ -432,6 +433,8 @@ class MaxLike(object):
                     new_params = self._reshape_params(new_flat_params)
                     new_g = self.g(new_params)
                     if new_g - prev_g >= 0:
+                        flat_params = new_flat_params
+                        self.params = new_params
                         break
                     else:
                         mult *= .5
@@ -442,17 +445,11 @@ class MaxLike(object):
                         "Error: the objective function did not increase " +
                         "after %d steps" % max_inner_steps, "step")
 
-                e = np.linalg.norm(grad / grad.size)
-
                 if verbose > 0:
-                    print("%d\tg=%f\tgrad_norm=%f" % (k + 1, new_g, e))
+                    print(k + 1, new_g)
 
-                if e < tol:
+                if abs(prev_g / new_g - 1) < tol:
                     return True
-
-                flat_params = new_flat_params
-                self.params = new_params
-                prev_g = new_g
 
             raise ConvergenceError("Error: the objective function did not",
                                    "converge after %d steps" % max_steps)
