@@ -2,7 +2,7 @@ import unittest
 import pandas as pd
 import numpy as np
 from scipy.special import logit
-# import sys; sys.path.insert(0 , "..")
+import sys; sys.path.insert(0 , "..")
 import maxlike
 from maxlike.analytics import skellam_cdf_root
 from maxlike.preprocessing import prepare_dataframe, prepare_series, df_count
@@ -16,7 +16,7 @@ maxlike.tensor.set_dtype(np.float32)
 
 class Test(unittest.TestCase):
 
-    verbose = True
+    verbose = 0
 
     def test_poisson(self):
         mle = maxlike.Poisson()
