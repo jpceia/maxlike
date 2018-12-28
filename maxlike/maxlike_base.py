@@ -67,7 +67,7 @@ class MaxLike(object):
         for param_map, h in self.reg:
             g -= h([params[k] for k in param_map])
         res = g / self.N.sum()
-        return float(res.values)
+        return float(res)
 
     def add_param(self, values, fixed=None):
         """
