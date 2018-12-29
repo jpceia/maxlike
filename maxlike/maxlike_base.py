@@ -241,27 +241,25 @@ class MaxLike(object):
         return self._reshape_array(np.sqrt(np.diag(-np.linalg.inv(
             self.flat_hess_))[:cut]))
 
-    def newton_step(self, verbose=False):
-        n = len(self.params)
+    def newton_step(self, params, verbose=False):
+        n = len(params)
         c_len = len(self.constraint)
 
         # --------------------------------------------------------------------
         # 1st phase: Evaluate and sum
         # --------------------------------------------------------------------
-        grad = self.grad_like(self.params) + [0] * c_len
-        hess = self.hess_like(self.params)
+        grad = self.grad_like(params) + [0] * c_len
+        hess = self.hess_like(params)
 
         # Add blocks corresponding to constraint variables:
         # Hess_lambda_params = grad_g
-        hess_c = [[np.zeros_like(p)
-                   for p in self.params]
-                  for _ in range(c_len)]
+        hess_c = [[np.zeros_like(p) for p in params] for _ in range(c_len)]
 
         # --------------------------------------------------------------------
         # 2nd phase: Add constraints / regularization to grad and hess
         # --------------------------------------------------------------------
         for k, (param_map, gamma, g) in enumerate(self.constraint):
-            args = [self.params[k] for k in param_map]
+            args = [params[k] for k in param_map]
             grad_g = g.grad(args)
             hess_g = g.hess(args)
             for i, idx in enumerate(param_map):
@@ -272,7 +270,7 @@ class MaxLike(object):
                     hess[idx][param_map[j]] += gamma * hess_g[i][j]
 
         for param_map, h in self.reg:
-            args = [self.params[k] for k in param_map]
+            args = [params[k] for k in param_map]
             grad_h = h.grad(args)
             hess_h = h.hess(args)
             for i, idx in enumerate(param_map):
@@ -283,8 +281,7 @@ class MaxLike(object):
         # --------------------------------------------------------------------
         # 3rd phase: Reshape and flatten
         # --------------------------------------------------------------------
-        grad = [g.values[~p.mask] for g, p in zip(grad, self.params)] + \
-                grad[n:]
+        grad = [g.values[~p.mask] for g, p in zip(grad, params)] + grad[n:]
 
         # ------
         # | aa |
@@ -297,13 +294,12 @@ class MaxLike(object):
         # then hess[i][j].shape = shape[j] x shape[i]
 
         hess = [[hess[j][i].values[np.multiply.outer(
-            ~self.params[i].mask, ~p_j.mask)].reshape(
-            (self.params[i].count(), p_j.count()))
-            for i in range(j + 1)] for j, p_j in enumerate(self.params)]
+            ~params[i].mask, ~p_j.mask)].reshape(
+            (params[i].count(), p_j.count()))
+            for i in range(j + 1)] for j, p_j in enumerate(params)]
         hess = [[hess[i][j].transpose() for j in range(i)] +
                 [hess[j][i] for j in range(i, n)] for i in range(n)]
-        hess_c = [[hess_c[i][j][~p_j.mask]
-                   for j, p_j in enumerate(self.params)]
+        hess_c = [[hess_c[i][j][~p_j.mask] for j, p_j in enumerate(params)]
                   for i in range(c_len)]
 
         # --------------------------------------------------------------------
@@ -325,8 +321,7 @@ class MaxLike(object):
         step = np.linalg.solve(hess, grad)
         step = step[:(-(c_len + 1) % step.shape[0]) + 1]
 
-        self.flat_hess_ = hess
-        return step, grad
+        return step, grad, hess
 
     def fit(self, tol=1e-8,  max_steps=None, verbose=0, scipy=0, **kwargs):
         """
@@ -417,24 +412,24 @@ class MaxLike(object):
 
             max_inner_steps = 5
 
-            new_g = self.g(self.params)
-            flat_params = np.concatenate([p.compressed() for p in self.params])
+            params = self.params
+            flat_params = np.concatenate([p.compressed() for p in params])
+            new_g = self.g(params)
 
             if verbose > 0:
                 print(0, new_g)
 
             for k in range(max_steps):
                 prev_g = new_g
-                step, grad = self.newton_step(verbose > 1)
+                step, grad, hess = self.newton_step(params, verbose > 1)
 
                 mult = 1
                 for _ in range(max_inner_steps):
                     new_flat_params = flat_params - mult * step
-                    new_params = self._reshape_params(new_flat_params)
-                    new_g = self.g(new_params)
+                    params = self._reshape_params(new_flat_params)
+                    new_g = self.g(params)
                     if new_g - prev_g >= 0:
                         flat_params = new_flat_params
-                        self.params = new_params
                         break
                     else:
                         mult *= .5
@@ -449,6 +444,8 @@ class MaxLike(object):
                     print(k + 1, new_g)
 
                 if abs(prev_g / new_g - 1) < tol:
+                    self.params = params
+                    self.flat_hess_ = hess
                     return True
 
             raise ConvergenceError("Error: the objective function did not",
