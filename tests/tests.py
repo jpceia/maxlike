@@ -27,7 +27,7 @@ class Test(unittest.TestCase):
         mle.add_constraint([0, 1], Linear([1, 1]))
 
         g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
-        prepared_data, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
+        kwargs, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
 
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean()) / 2
@@ -42,7 +42,7 @@ class Test(unittest.TestCase):
         mle.add_param(h, False)
 
         tol=1e-8
-        mle.fit(**prepared_data, verbose=self.verbose)
+        mle.fit(**kwargs, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
@@ -70,7 +70,7 @@ class Test(unittest.TestCase):
         mle.add_constraint([0, 1], Linear([1, 1]))
 
         g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
-        prepared_data, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
+        kwargs, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
 
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean()) / 2
@@ -85,7 +85,7 @@ class Test(unittest.TestCase):
         mle.add_param(h, False)
 
         tol = 1e-8
-        mle.fit(**prepared_data, verbose=self.verbose)
+        mle.fit(**kwargs, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
@@ -127,7 +127,7 @@ class Test(unittest.TestCase):
         mle.model = F
 
         g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
-        prepared_data, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
+        kwargs, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
 
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         h1 = 0
@@ -146,7 +146,7 @@ class Test(unittest.TestCase):
         mle.add_param(h1)
 
         tol = 1e-8
-        mle.fit(**prepared_data, verbose=self.verbose)
+        mle.fit(**kwargs, verbose=self.verbose)
         a, b, h, h1 = mle.params
         s_a, s_b, s_h, s_h1 = mle.std_error()
 
@@ -171,7 +171,7 @@ class Test(unittest.TestCase):
         mle.add_regularization([0, 1], Quadratic(0, 1))
 
         g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
-        prepared_data, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
+        kwargs, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
 
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean()) / 2
@@ -183,7 +183,7 @@ class Test(unittest.TestCase):
         mle.add_param(h)
 
         tol = 1e-8
-        mle.fit(**prepared_data, verbose=self.verbose)
+        mle.fit(**kwargs, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
@@ -204,7 +204,7 @@ class Test(unittest.TestCase):
         mle.model.add(Vector(np.arange(2) - .5), 2, 2)
         mle.add_constraint([0, 1], Linear([1, 1]))
         g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g'] > 0
-        prepared_data, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
+        kwargs, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean())
         a = np.log(g.groupby(level='t1').mean()) - log_mean
@@ -213,7 +213,7 @@ class Test(unittest.TestCase):
         mle.add_param(b)
         mle.add_param(h)
         tol = 1e-8
-        mle.fit(**prepared_data, verbose=self.verbose)
+        mle.fit(**kwargs, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
@@ -237,9 +237,9 @@ class Test(unittest.TestCase):
         # fetch and prepare data
         df = pd.read_csv(r"data\data_proba.csv", index_col=[0, 1])
         df['w'] = df['-1'] + df['1']
-        prepared_data, _ = prepare_dataframe(df, 'w', '1', {'X': np.sum})
-        N = prepared_data['N']
-        S = prepared_data['X']
+        kwargs, _ = prepare_dataframe(df, 'w', '1', {'X': np.sum})
+        N = kwargs['N']
+        S = kwargs['X']
         u = -logit(S.sum(0) / N.sum(0))
         v = logit(S.sum(1) / N.sum(1))
         a = (u + v) / 2
@@ -249,7 +249,7 @@ class Test(unittest.TestCase):
         mle.add_param(h)
 
         tol = 1e-8
-        mle.fit(**prepared_data, verbose=self.verbose)
+        mle.fit(**kwargs, verbose=self.verbose)
         
         a, h = mle.params
         s_a, s_h = mle.std_error()
@@ -269,23 +269,22 @@ class Test(unittest.TestCase):
         mle.model.add(Vector(np.arange(2) - .5), 2, 2)
         mle.add_constraint([0, 1], Linear([1, 1]))
         g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
-        prepared_data, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
+        kwargs, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
-        log_mean = np.log(g.mean())
-        a = np.log(g.groupby(level='t1').mean()) - log_mean
-        b = log_mean - np.log(g.groupby(level='t2').mean())
+        log_mean = np.log(g.mean()) / 2
+        a = g.groupby(level='t1').mean().map(np.log) - log_mean
+        b = log_mean - g.groupby(level='t2').mean()
         mle.add_param(a)
         mle.add_param(b)
         mle.add_param(h)
         tol = 1e-8
-        mle.fit(tol=tol, **prepared_data)
+        mle.fit(tol=tol, **kwargs)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
         df = pd.read_csv(r"data\test_negative_binomial.csv")
-
         self.assertAlmostEqual(h,   0.25833036122242375, delta=tol)
-        self.assertAlmostEqual(s_h, 0.07857076505955522, delta=tol)
+        self.assertAlmostEqual(s_h, 0.07857005820984087, delta=tol)
         self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
         self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
@@ -301,7 +300,7 @@ class Test(unittest.TestCase):
         mle.model = Compose(Poisson(n), Compose(Exp(), foo))
         mle.add_constraint([0, 1], Linear([1, 1]))
         g = pd.read_csv(r"data\data1.csv", index_col=[0, 1, 2])['g']
-        prepared_data, _ = prepare_series(df_count(g, n).stack(), {'N': np.sum})
+        kwargs, _ = prepare_series(df_count(g, n).stack(), {'N': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean())
         a = np.log(g.groupby(level='t1').mean()) - log_mean
@@ -311,7 +310,7 @@ class Test(unittest.TestCase):
         mle.add_param(h)
 
         tol = 1e-8
-        mle.fit(tol=tol, **prepared_data)
+        mle.fit(**kwargs, tol=tol, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
@@ -331,8 +330,8 @@ class Test(unittest.TestCase):
         # fetch and prepare data
         df = pd.read_csv(r"data\data_poisson_matrix.csv",
                          index_col=[0, 1], header=[0, 1]).stack([0, 1])
-        prepared_data, _ = prepare_series(df)
-        N = prepared_data['N']
+        kwargs, _ = prepare_series(df)
+        N = kwargs['N']
 
         def EX(u):
             assert u.ndim <= 2
@@ -376,7 +375,7 @@ class Test(unittest.TestCase):
 
         # calibration
         tol = 1e-8
-        mle.fit(**prepared_data, verbose=self.verbose)
+        mle.fit(**kwargs, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
@@ -395,10 +394,10 @@ class Test(unittest.TestCase):
 
         # fetch and prepare data
         df1 = pd.read_csv(r"data\data_proba.csv", index_col=[0, 1])
-        prepared_data, _ = prepare_series(
+        kwargs, _ = prepare_series(
             df1.stack(), {'N': np.sum})
 
-        N = prepared_data['N']
+        N = kwargs['N']
 
         # guess params
         h = (skellam_cdf_root(*(N.sum((0, 1)) / N.sum())[[0, 2]]) *
@@ -437,7 +436,7 @@ class Test(unittest.TestCase):
         mle.model = CollapseMatrix() @ F
 
         tol = 1e-8
-        mle.fit(**prepared_data, verbose=self.verbose)
+        mle.fit(**kwargs, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
@@ -450,5 +449,6 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
+
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(verbosity=1)
