@@ -241,7 +241,7 @@ class MaxLike(object):
         return self._reshape_array(np.sqrt(np.diag(-np.linalg.inv(
             self.flat_hess_))[:cut]))
 
-    def newton_step(self, params, verbose=False):
+    def newton_step(self, params):
         n = len(params)
         c_len = len(self.constraint)
 
