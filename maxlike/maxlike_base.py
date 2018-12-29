@@ -235,20 +235,40 @@ class MaxLike(object):
         """
         Standard Deviation Array.
         """
-        cut = -len(self.constraint)
+        cut = len(self.constraint)
         if cut == 0:
             cut = None
         return self._reshape_array(np.sqrt(np.diag(-np.linalg.inv(
-            self.flat_hess_))[:cut]))
+            self.flat_hess_))[:-cut]))
 
-    def newton_step(self, params):
+    def flat_grad(self, params):
+        n = len(params)
+        grad = self.grad_like(params) + [0] * len(self.constraint)
+        for k, (param_map, gamma, g) in enumerate(self.constraint):
+            args = [params[k] for k in param_map]
+            grad_g = g.grad(args)
+            for i, idx in enumerate(param_map):
+                grad[idx] += gamma * grad_g[i]
+                grad[n + k] = np.asarray([g(args)])
+
+        for param_map, h in self.reg:
+            args = [params[k] for k in param_map]
+            grad_h = h.grad(args)
+            for i, idx in enumerate(param_map):
+                grad[idx] -= grad_h[i]
+
+        grad = [g.values[~p.mask] for g, p in zip(grad, params)] + grad[n:]
+        grad = np.concatenate(grad)
+
+        return grad
+
+    def flat_hess(self, params):
         n = len(params)
         c_len = len(self.constraint)
 
         # --------------------------------------------------------------------
         # 1st phase: Evaluate and sum
         # --------------------------------------------------------------------
-        grad = self.grad_like(params) + [0] * c_len
         hess = self.hess_like(params)
 
         # Add blocks corresponding to constraint variables:
@@ -263,25 +283,20 @@ class MaxLike(object):
             grad_g = g.grad(args)
             hess_g = g.hess(args)
             for i, idx in enumerate(param_map):
-                grad[idx] += gamma * grad_g[i]
-                grad[n + k] = np.asarray([g(args)])
                 hess_c[k][idx] += np.array(grad_g[i])
                 for j in range(i + 1):
                     hess[idx][param_map[j]] += gamma * hess_g[i][j]
 
         for param_map, h in self.reg:
             args = [params[k] for k in param_map]
-            grad_h = h.grad(args)
             hess_h = h.hess(args)
             for i, idx in enumerate(param_map):
-                grad[idx] -= grad_h[i]
                 for j in range(i + 1):
                     hess[idx][param_map[j]] -= hess_h[i][j]
 
         # --------------------------------------------------------------------
         # 3rd phase: Reshape and flatten
         # --------------------------------------------------------------------
-        grad = [g.values[~p.mask] for g, p in zip(grad, params)] + grad[n:]
 
         # ------
         # | aa |
@@ -305,7 +320,6 @@ class MaxLike(object):
         # --------------------------------------------------------------------
         # 4th phase: Consolidate blocks
         # --------------------------------------------------------------------
-        grad = np.concatenate(grad)
         hess = np.vstack(list(map(np.hstack, hess)))
 
         if c_len > 0:
@@ -315,12 +329,14 @@ class MaxLike(object):
                 np.hstack([hess_c,
                            np.zeros((c_len, c_len))])])
 
-        # --------------------------------------------------------------------
-        # 5th phase: Compute
-        # --------------------------------------------------------------------
+        return hess
+     
+    def newton_step(self, params):
+        grad = self.flat_grad(params)
+        hess = self.flat_hess(params)
         step = np.linalg.solve(hess, grad)
+        c_len = len(self.constraint)
         step = step[:(-(c_len + 1) % step.shape[0]) + 1]
-
         return step, grad, hess
 
     def fit(self, tol=1e-8,  max_steps=None, verbose=0, scipy=0, **kwargs):
@@ -421,7 +437,7 @@ class MaxLike(object):
 
             for k in range(max_steps):
                 prev_g = new_g
-                step, grad, hess = self.newton_step(params, verbose > 1)
+                step, grad, hess = self.newton_step(params)
 
                 mult = 1
                 for _ in range(max_inner_steps):
@@ -433,7 +449,7 @@ class MaxLike(object):
                         break
                     else:
                         mult *= .5
-                        if verbose:
+                        if verbose > 1:
                             print("\tmultiplier = ", mult)
                 else:
                     raise ConvergenceError(
