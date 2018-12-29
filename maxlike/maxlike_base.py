@@ -242,14 +242,16 @@ class MaxLike(object):
             self.flat_hess_))[:-cut]))
 
     def flat_grad(self, params):
+
         n = len(params)
         grad = self.grad_like(params) + [0] * len(self.constraint)
+
         for k, (param_map, gamma, g) in enumerate(self.constraint):
             args = [params[k] for k in param_map]
             grad_g = g.grad(args)
             for i, idx in enumerate(param_map):
                 grad[idx] += gamma * grad_g[i]
-                grad[n + k] = np.asarray([g(args)])
+                grad[n + k] = [g(args)]
 
         for param_map, h in self.reg:
             args = [params[k] for k in param_map]
@@ -283,7 +285,7 @@ class MaxLike(object):
             grad_g = g.grad(args)
             hess_g = g.hess(args)
             for i, idx in enumerate(param_map):
-                hess_c[k][idx] += np.array(grad_g[i])
+                hess_c[k][idx] += grad_g[i]
                 for j in range(i + 1):
                     hess[idx][param_map[j]] += gamma * hess_g[i][j]
 
