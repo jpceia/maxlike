@@ -1,6 +1,9 @@
 import abc
 import numpy as np
+from functools import wraps
+from collections import OrderedDict
 from random import getrandbits
+from six import with_metaclass
 from .tensor import Tensor
 
 
@@ -20,7 +23,22 @@ class Param(np.ma.MaskedArray):
         return self.hash
 
 
-class MaxLike(object):
+class MaxlikeBase(type):
+    @staticmethod
+    def wrapped_like(foo):
+        @wraps(foo)
+        def wrapper(obj, params):
+            return foo(obj, params, **obj.feat_dico)
+        return wrapper
+
+    def __new__(cls, name, bases, attrs, **kwargs):
+        for f_name in ['g', 'like', 'grad_like', 'hess_like']:
+            if f_name in attrs:
+                attrs[f_name] = MaxlikeBase.wrapped_like(attrs[f_name])
+        return type.__new__(cls, name, bases, attrs, **kwargs)
+
+
+class MaxLike(with_metaclass(MaxlikeBase, object)):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
@@ -31,26 +49,26 @@ class MaxLike(object):
         self.constraint = []
         self.reg = []
 
-        self.N = None
-
+        self.feat_dico = OrderedDict()
+        self.feat_dico['N'] = None
         self.g_last = None
 
     @abc.abstractmethod
-    def like(self, params):
+    def like(self, params, **kwargs):
         """
         Likelihood function.
         """
         pass
 
     @abc.abstractmethod
-    def grad_like(self, params):
+    def grad_like(self, params, **kwargs):
         """
         Calculates the gradient of the log-likelihood function.
         """
         pass
 
     @abc.abstractmethod
-    def hess_like(self, params):
+    def hess_like(self, params, **kwargs):
         """
         Calculates the hessian of the log-likelihood function.
         """
@@ -59,14 +77,14 @@ class MaxLike(object):
     def reset_params(self):
         self.params = ()
 
-    def g(self, params):
+    def g(self, params, N, **kwargs):
         """
         Objective function, to maximize.
         """
         g = self.like(params)
         for param_map, h in self.reg:
             g -= h([params[k] for k in param_map])
-        res = g / self.N.sum()
+        res = g / N.sum()
         return float(res)
 
     def add_param(self, values, fixed=None):
@@ -372,8 +390,9 @@ class MaxLike(object):
             False.
         """
         dim = getattr(self, 'dim', 0)
-        for k, v in kwargs.items():
-            self.__dict__[k] = Tensor(v, dim=dim)
+        for k in self.feat_dico:
+            assert k in kwargs
+            self.feat_dico[k] = Tensor(kwargs[k], dim=dim)
 
         if scipy > 0:
             if max_steps is None:

@@ -10,20 +10,19 @@ class Poisson(MaxLike):
 
     def __init__(self):
         MaxLike.__init__(self)
-        self.X = None
+        self.feat_dico['X'] = None
 
-    def like(self, params):
+    def like(self, params, N, X):
         ln_y = self.model(params)
-        return (self.X * ln_y - self.N * np.exp(ln_y) -
-                np.log(factorial(self.X))).sum()
+        return (X * ln_y - N * np.exp(ln_y) - np.log(factorial(X))).sum()
 
-    def grad_like(self, params):
-        delta = self.X - self.N * np.exp(self.model(params))
+    def grad_like(self, params, N, X):
+        delta = X - N * np.exp(self.model(params))
         return [(d * delta).sum() for d in self.model.grad(params)]
 
-    def hess_like(self, params):
-        y = self.N * np.exp(self.model(params))
-        delta = self.X - y
+    def hess_like(self, params, N, X):
+        y = N * np.exp(self.model(params))
+        delta = X - y
         der = self.model.grad(params)
         return [[(self.model.hess(params, i, j) * delta -
                   der[i] * der[j].transpose() * y).sum()
@@ -37,28 +36,30 @@ class Logistic(MaxLike):
 
     def __init__(self):
         MaxLike.__init__(self)
-        self.X = None
+        self.feat_dico['X'] = None
 
-    def like(self, params):
+    def like(self, params, N, X):
         """
         p = 1 / (1 + e^-y)
         like = sum_k x_k * ln p + (1 - x_k) * ln (1-p)
              = - ((N - X) * y + N * ln(1 + e^-y))
         """
         y = self.model(params)
-        return -(self.N * np.log(1 + np.exp(-y)) + (self.N - self.X) * y).sum()
+        return -(N * np.log(1 + np.exp(-y)) + (N - X) * y).sum()
 
-    def grad_like(self, params):
+    def grad_like(self, params, N, X):
         # (X - p * N) * d_y
-        delta = self.X - self.N / (1 + np.exp(-self.model(params)))
+        y = self.model(params)
+        delta = X - N / (1 + np.exp(-y))
         return [(d * delta).sum() for d in self.model.grad(params)]
 
-    def hess_like(self, params):
+    def hess_like(self, params, N, X):
         # (X - p * N) * hess_y - p * (1 - p) * N * di_y * dj_y^T
-        p = 1 / (1 + np.exp(-self.model(params)))
+        y = self.model(params)
+        p = 1 / (1 + np.exp(-y))
         der = self.model.grad(params)
-        delta = self.X - p * self.N
-        delta2 = p * (1 - p) * self.N
+        delta = X - p * N
+        delta2 = p * (1 - p) * N
         return[[(self.model.hess(params, i, j) * delta -
                  der[i] * der[j].transpose() * delta2).sum()
                 for j in range(i + 1)]
@@ -82,7 +83,7 @@ class Finite(MaxLike):
         self.dim = dim
         MaxLike.__init__(self)
 
-    def like(self, params):
+    def like(self, params, N):
         """
         evaluation of:
             sum_k sum_u N_{k, u} * (log p(x=u|k) - log Z(k))
@@ -92,9 +93,9 @@ class Finite(MaxLike):
         """
         p = self.model(params)
         z = p.sum(False)
-        return (self.N * (np.log(p) - np.log(z))).sum()
+        return (N * (np.log(p) - np.log(z))).sum()
 
-    def grad_like(self, params):
+    def grad_like(self, params, N):
         """
         Derivative of
             sum_k sum_u N_{k, u} * (log p(x=u|k) - log Z(k))
@@ -106,10 +107,10 @@ class Finite(MaxLike):
         z = p.sum(False)
         for d in self.model.grad(params):
             dz = d.sum(False)
-            grad.append((self.N * (d / p - dz / z)).sum())
+            grad.append((N * (d / p - dz / z)).sum())
         return grad
 
-    def hess_like(self, params):
+    def hess_like(self, params, N):
         hess = []
         p = self.model(params)
         z = p.sum(False)
@@ -122,7 +123,7 @@ class Finite(MaxLike):
                 hz = h.sum(False)
                 H1 = (h - der[i] * der[j].transpose() / p) / p
                 H2 = (hz - dz[i] * dz[j].transpose() / z) / z
-                hess_line.append((self.N * (H1 - H2)).sum())
+                hess_line.append((N * (H1 - H2)).sum())
             hess.append(hess_line)
         return hess
 
@@ -136,35 +137,35 @@ class NegativeBinomial(MaxLike):
     def __init__(self, scale=1):
         MaxLike.__init__(self)
         self.scale = scale  # the model uses a fixed scale param
-        self.X = None
+        self.feat_dico['X'] = None
 
-    def like(self, params):
+    def like(self, params, N, X):
         # m = exp(y)
         # f = x * ln m - (x + r) * ln (r + m)
         # sum => X * ln m - (X + r * N) * ln (r + m)
         y = self.model(params)
         r = self.scale
-        return (self.X * y - (self.X + r * self.N) *
+        return (X * y - (X + r * N) *
                 np.log(r + np.exp(y))).sum()
 
-    def grad_like(self, params):
+    def grad_like(self, params, N, X):
         # grad_m f = x / m - (x + r) / (m + r)
         # sum => X / m - (X + r * N) / (m + r)
         m = np.exp(self.model(params))
         r = self.scale
         # delta = m *  grad_m f
-        delta = self.X - (self.X + r * self.N) * m / (m + r)
+        delta = X - (X + r * N) * m / (m + r)
         return [(d * delta).sum() for d in self.model.grad(params)]
 
-    def hess_like(self, params):
+    def hess_like(self, params, N, X):
         # hess_m = (x + r) / (m + r)^2 - x / m^2
         # sum => (X + r * N) / (m + r)^2 - X / m^2
         m = np.exp(self.model(params))
         r = self.scale
         der = self.model.grad(params)
         s = m / (m + r)
-        delta = self.X - (self.X + r * self.N) * s
-        delta2 = (self.X + r * self.N) * s * s - self.X + delta
+        delta = X - (X + r * N) * s
+        delta2 = (X + r * N) * s * s - X + delta
         return [[(self.model.hess(params, i, j) * delta +
                   der[i] * der[j].transpose() * delta2).sum()
                  for j in range(i + 1)]
