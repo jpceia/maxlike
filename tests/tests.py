@@ -162,6 +162,42 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
         self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
 
+    def test_zero_inflated_poisson(self):
+        mle = maxlike.ZeroInflatedPoisson(z=2)
+        mle.model = Sum(3)
+        mle.model.add(X(), 0, 0)
+        mle.model.add(-X(), 1, 1)
+        mle.model.add(Vector(np.arange(2) - .5), 2, 2)
+        mle.add_constraint([0, 1], Linear([1, 1]))
+
+        g = pd.read_csv(self.data_folder + "data1.csv", index_col=[0, 1, 2])['g']
+        kwargs, _ = prepare_series(g, {
+            'N': np.size, 'X': np.sum, 'Z': lambda x: (x == 0).sum()})
+
+        h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
+        log_mean = np.log(g.mean()) / 2
+        a = g.groupby(level='t1').mean().map(np.log) - log_mean
+        b = log_mean - g.groupby(level='t2').mean()
+        mle.add_param(a.values)
+        mle.add_param(b.values)
+        mle.add_param(h)
+
+        tol = 1e-8
+        mle.fit(**kwargs, verbose=self.verbose)
+        a, b, h = mle.params
+        s_a, s_b, s_h = mle.std_error()
+        r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
+
+        df = pd.read_csv(self.data_folder + "test_zero_inflated_poisson.csv")
+
+        self.assertAlmostEqual(h,   0.22075127261375144,  delta=tol)
+        self.assertAlmostEqual(s_h, 0.0458165945789084, delta=tol)
+        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
+        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
+        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
+        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
+        self.assertTrue(np.allclose(r, df['r_ab'].values, atol=tol))
+
     def test_poisson_reg(self):
         mle = maxlike.Poisson()
         mle.model = Sum(3)

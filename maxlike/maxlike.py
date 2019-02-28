@@ -29,6 +29,43 @@ class Poisson(MaxLike):
                  for j in range(i + 1)] for i in range(len(der))]
 
 
+class ZeroInflatedPoisson(MaxLike):
+    """
+    Class to model data under a Zero inflated Poisson distribution
+
+        P(X=0)   = d / (e ** y + d - 1)
+        P(X=x>0) = y ** x / (x! * (e ** y + d - 1))
+    """
+    def __init__(self, z=1):
+        MaxLike.__init__(self)
+        assert z >= 0
+        self.z = z
+        self.feat_dico['X'] = None
+        self.feat_dico['Z'] = None
+
+    def like(self, params, N, X, Z):
+        ln_y = self.model(params)
+        return (X * ln_y + Z * np.log(self.z) -
+                N * np.log(np.exp(np.exp(ln_y)) + self.z - 1) - 
+                np.log(factorial(X))).sum()
+
+    def grad_like(self, params, N, X, Z):
+        y = np.exp(self.model(params))
+        delta = X - N * y / (1 + (self.z - 1) * np.exp(-y))
+        return [(d * delta).sum() for d in self.model.grad(params)]
+
+    def hess_like(self, params, N, X, Z):
+        y = np.exp(self.model(params))
+        t = y / (1 + (self.z - 1) * np.exp(-y))
+        der = self.model.grad(params)
+        delta = X - N * t
+        delta2 = N * t * (1 + t * (self.z - 1) * np.exp(-y))
+        return[[(self.model.hess(params, i, j) * delta -
+                 der[i] * der[j].transpose() * delta2).sum()
+                for j in range(i + 1)]
+               for i in range(len(der))]
+
+
 class Logistic(MaxLike):
     """
     Class to model under a Logistic Regression
