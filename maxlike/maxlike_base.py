@@ -2,6 +2,7 @@ import abc
 import numpy as np
 from functools import wraps
 from collections import OrderedDict
+from scipy.linalg import pinvh
 from random import getrandbits
 from six import with_metaclass
 from .tensor import Tensor
@@ -359,7 +360,8 @@ class MaxLike(with_metaclass(MaxlikeBase, object)):
         step = step[:(-(c_len + 1) % step.shape[0]) + 1]
         return step, grad, hess
 
-    def fit(self, tol=1e-8,  max_steps=None, verbose=0, scipy=0, **kwargs):
+    def fit(self, tol=1e-8, verbose=0, scipy=0, max_steps=None,
+            method=None, **kwargs):
         """
         Run the algorithm to find the best fit.
 
@@ -398,6 +400,9 @@ class MaxLike(with_metaclass(MaxlikeBase, object)):
             if max_steps is None:
                 max_steps = 50  # default value for SciPy
 
+            if method is None:
+                method = "SLSQP"
+
             from scipy.optimize import minimize
 
             use_jac = scipy > 1  # SciPy==2 to use gradient for optimization
@@ -428,7 +433,7 @@ class MaxLike(with_metaclass(MaxlikeBase, object)):
 
             res = minimize(
                 opt_like, flat_params,
-                method="SLSQP",
+                method=method,
                 jac=use_jac,
                 tol=tol,
                 constraints=constraints,
@@ -443,11 +448,17 @@ class MaxLike(with_metaclass(MaxlikeBase, object)):
             self.g_last = -res.fun
             if not res.success:
                 raise ConvergenceError(res.message)
+
+            return True
+
         else:
             if max_steps is None:
-                max_steps = 20  # default value for custom model
+                max_steps = 20  # default value
 
-            max_inner_steps = 5
+            if method is None:
+                method = "newton"
+            else:
+                method = method.lower()
 
             params = self.params
             flat_params = np.concatenate([p.compressed() for p in params])
@@ -456,34 +467,71 @@ class MaxLike(with_metaclass(MaxlikeBase, object)):
             if verbose > 0:
                 print(0, new_g)
 
-            for k in range(max_steps):
-                prev_g = new_g
-                step, grad, hess = self.newton_step(params)
+            if method == "newton":
 
-                mult = 1
-                for _ in range(max_inner_steps):
-                    new_flat_params = flat_params - mult * step
-                    params = self._reshape_params(new_flat_params)
-                    new_g = self.g(params)
-                    if new_g - prev_g >= 0:
-                        flat_params = new_flat_params
-                        break
+                max_inner_steps = 5
+                for k in range(max_steps):
+                    prev_g = new_g
+                    step, grad, hess = self.newton_step(params)
+
+                    mult = 1
+                    for _ in range(max_inner_steps):
+                        new_flat_params = flat_params - mult * step
+                        params = self._reshape_params(new_flat_params)
+                        new_g = self.g(params)
+                        if new_g - prev_g >= 0:
+                            flat_params = new_flat_params
+                            break
+                        else:
+                            mult *= .5
+                            if verbose > 1:
+                                print("\tmultiplier = ", mult)
                     else:
-                        mult *= .5
-                        if verbose > 1:
-                            print("\tmultiplier = ", mult)
-                else:
-                    raise ConvergenceError(
-                        "Error: the objective function did not increase " +
-                        "after %d steps" % max_inner_steps, "step")
+                        raise ConvergenceError(
+                            "Error: the objective function did not increase " +
+                            "after %d steps" % max_inner_steps, "step")
 
-                if verbose > 0:
-                    print(k + 1, new_g)
+                    if verbose > 0:
+                        print(k + 1, new_g)
 
-                if abs(prev_g / new_g - 1) < tol:
-                    self.params = params
-                    self.flat_hess_ = hess
-                    return True
+                    if abs(prev_g / new_g - 1) < tol:
+                        self.params = params
+                        self.flat_hess_ = hess
+                        return True
+
+            elif method == "broyden":
+
+                grad = self.flat_grad(params)
+                
+                J = pinvh(self.flat_hess(params).data)
+                c_len = len(self.constraint)
+                i1 = (-(c_len + 1) % grad.shape[0]) + 1
+
+                for k in range(max_steps):
+                    prev_g = new_g
+                    grad_prev = grad
+
+                    step = -np.dot(J, grad)
+                    flat_params += step[:i1]
+                    params = self._reshape_params(flat_params)
+                    
+                    new_g = self.g(params)
+
+                    if verbose > 0:
+                        print(k + 1, new_g)
+
+                    if abs(prev_g / new_g - 1) < tol:
+                        self.params = params
+                        self.flat_hess_ = pinvh(J)
+                        return True
+                    
+                    grad = self.flat_grad(params)
+                    dgrad = grad - grad_prev
+                    J += np.outer(step - np.dot(J, dgrad), dgrad) / \
+                         (dgrad * dgrad).sum()
+            
+            else:
+                raise ValueError("Invalid Method")
 
             raise ConvergenceError("Error: the objective function did not",
                                    "converge after %d steps" % max_steps)
