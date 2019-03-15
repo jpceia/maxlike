@@ -73,6 +73,12 @@ def poisson_cdf(a, n):
     return poisson_vector(a, n + 1).sum(1)
 
 
+def poisson_mid_cdf(a, n):
+    # assert isinstance(n, int) and n >= 0
+    v = poisson_vector(a, n + 1)
+    return v[:, :-1].sum(1) + 0.5 * v[:, -1]
+
+
 def tol2size(tol=1e-8, *args):
     if len(args) == 0:
         args = [1]  # standard value
@@ -188,15 +194,63 @@ def skellam_cdf_root(target1, target2, n=0, tol=1e-8):
         new_s = s
         new_e = np.linalg.norm(new_s - target)
         for i in range(10):
-            if all(new_ab > 0) and new_e < e:
+            if new_e < e:
                 a, b = new_ab
                 break
             else:
+                scale_factor *= .5
                 new_ab = np.maximum((a, b) + scale_factor * step, floor)
                 new_s = skellam_cdf_pair(new_ab[0], new_ab[1], n, tol)[:, 0]
                 new_e = np.linalg.norm(new_s - target)
-                scale_factor *= .5
         count += 1
         if count > max_steps:
             return [np.NaN, np.NaN]
     return a, b
+
+
+def skellam_triangle_root(b, target, tol=1e-8):
+    """
+    finds the root of
+        g(a) = P(X_a < Y_b) + 0.5 * P(X_a == Y_b) - target
+
+    TODO: smart guess
+    """
+    if target <= 0 or target >= 1:
+        return np.NaN
+    a = b
+    e = 1
+    count = 0
+    floor = 1e-6
+    max_steps = 50
+    size = tol2size(.5 * tol, b)
+    Poi_b, dPoi_b = poisson_vector(b, size)
+    rng_b = np.arange(size)
+    while e > abs(tol):
+        size = tol2size(tol, a, b)
+        rng_a = np.arange(size)
+        xy = rng_b[None, :] - rng_a[:, None]
+        Poi_a, dPoi_a = poisson_vector(a, size)
+        frame = Poi_a[:, None] * Poi_b[None, :]
+        dframe = dPoi_a[:, None] * Poi_b[None, :]
+        s = frame[xy < 0].sum() + 0.5 * frame[xy == 0].sum()
+        ds = dframe[xy < 0].sum() + 0.5 * dframe[xy == 0].sum()
+        e = abs(target - s)
+        step = (target - s) / ds
+        scale_factor = 1
+        new_a = np.maximum(a + scale_factor * step, floor)
+        new_s = s
+        new_e = abs(target - new_s)
+        for i in range(10):
+            if new_e < e:
+                a = new_a
+                break
+            else:
+                scale_factor *= .5
+                new_a = np.maximum(a + scale_factor * step, floor)
+                Poi_a, _ = poisson_vector(new_a, size)
+                frame = Poi_a[:, None] * Poi_b[None, :]
+                new_s = frame[xy < 0].sum() + 0.5 * frame[xy == 0].sum()
+                new_e = abs(target - new_s)
+        if count > max_steps:
+            return np.NaN
+    return a
