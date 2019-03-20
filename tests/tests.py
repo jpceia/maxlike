@@ -52,11 +52,11 @@ class Test(unittest.TestCase):
 
         self.assertAlmostEqual(h,   0.2541710859203631,  delta=tol)
         self.assertAlmostEqual(s_h, 0.04908858811901998, delta=tol)
-        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
-        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
-        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
-        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
-        self.assertTrue(np.allclose(r, df['r_ab'].values, atol=tol))
+        np.testing.assert_allclose(a, df['a'].values, atol=tol)
+        np.testing.assert_allclose(b, df['b'].values, atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'].values, atol=tol)
+        np.testing.assert_allclose(s_b, df['s_b'].values, atol=tol)
+        np.testing.assert_allclose(r, df['r_ab'].values, atol=tol)
 
     def test_poisson2(self):
         mle = maxlike.Poisson()
@@ -94,10 +94,10 @@ class Test(unittest.TestCase):
 
         self.assertAlmostEqual(h,   0.2541710859203631,  delta=tol)
         self.assertAlmostEqual(s_h, 0.04908858811901998, delta=tol)
-        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
-        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
-        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
-        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
+        np.testing.assert_allclose(a, df['a'].values, atol=tol)
+        np.testing.assert_allclose(b, df['b'].values, atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'].values, atol=tol)
+        np.testing.assert_allclose(s_b, df['s_b'].values, atol=tol)
 
     def test_poisson3(self):
         mle = maxlike.Poisson()
@@ -157,10 +157,10 @@ class Test(unittest.TestCase):
         self.assertAlmostEqual(s_h,  0.05505120713100134, delta=tol)
         self.assertAlmostEqual(h1,   0.13188676189444215, delta=tol)
         self.assertAlmostEqual(s_h1, 0.07186638797269668, delta=tol)
-        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
-        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
-        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
-        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
+        np.testing.assert_allclose(a, df['a'].values, atol=tol)
+        np.testing.assert_allclose(b, df['b'].values, atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'].values, atol=tol)
+        np.testing.assert_allclose(s_b, df['s_b'].values, atol=tol)
 
     def test_zero_inflated_poisson(self):
         mle = maxlike.ZeroInflatedPoisson(z=2)
@@ -192,11 +192,11 @@ class Test(unittest.TestCase):
 
         self.assertAlmostEqual(h,   0.22075127261375144,  delta=tol)
         self.assertAlmostEqual(s_h, 0.0458165945789084, delta=tol)
-        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
-        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
-        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
-        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
-        self.assertTrue(np.allclose(r, df['r_ab'].values, atol=tol))
+        np.testing.assert_allclose(a, df['a'].values, atol=tol)
+        np.testing.assert_allclose(b, df['b'].values, atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'].values, atol=tol)
+        np.testing.assert_allclose(s_b, df['s_b'].values, atol=tol)
+        np.testing.assert_allclose(r, df['r_ab'].values, atol=tol)
 
     def test_poisson_reg(self):
         mle = maxlike.Poisson()
@@ -228,10 +228,10 @@ class Test(unittest.TestCase):
 
         self.assertAlmostEqual(h,   0.2754693450042746, delta=tol)
         self.assertAlmostEqual(s_h, 0.0511739425670764, delta=tol)
-        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
-        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
-        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
-        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
+        np.testing.assert_allclose(a, df['a'].values, atol=tol)
+        np.testing.assert_allclose(b, df['b'].values, atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'].values, atol=tol)
+        np.testing.assert_allclose(s_b, df['s_b'].values, atol=tol)
 
     def test_logistic(self):
         mle = maxlike.Logistic()
@@ -258,10 +258,10 @@ class Test(unittest.TestCase):
 
         self.assertAlmostEqual(h,   0.4060377771971094, delta=tol)
         self.assertAlmostEqual(s_h, 0.1321279480761052, delta=tol)
-        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
-        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
-        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
-        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
+        np.testing.assert_allclose(a, df['a'].values, atol=tol)
+        np.testing.assert_allclose(b, df['b'].values, atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'].values, atol=tol)
+        np.testing.assert_allclose(s_b, df['s_b'].values, atol=tol)
 
     def test_logistic_cross(self):
         mle = maxlike.Logistic()
@@ -295,8 +295,8 @@ class Test(unittest.TestCase):
 
         self.assertAlmostEqual(h,   0.3059389232047434, delta=tol)
         self.assertAlmostEqual(s_h, 0.1053509333552778, delta=tol)
-        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
-        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
+        np.testing.assert_allclose(a, df['a'].values, atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'].values, atol=tol)
 
     def test_negative_binomial(self):
         mle = maxlike.NegativeBinomial()
@@ -322,10 +322,10 @@ class Test(unittest.TestCase):
         df = pd.read_csv(self.data_folder + "test_negative_binomial.csv")
         self.assertAlmostEqual(h,   0.25833036122242375, delta=tol)
         self.assertAlmostEqual(s_h, 0.07857005820984087, delta=tol)
-        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
-        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
-        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
-        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
+        np.testing.assert_allclose(a, df['a'].values, atol=tol)
+        np.testing.assert_allclose(b, df['b'].values, atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'].values, atol=tol)
+        np.testing.assert_allclose(s_b, df['s_b'].values, atol=tol)
 
     def test_finite(self):
         n = 8
@@ -355,10 +355,10 @@ class Test(unittest.TestCase):
 
         self.assertAlmostEqual(h,   0.2805532986558426, delta=tol)
         self.assertAlmostEqual(s_h, 0.0514227784627934, delta=tol)
-        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
-        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
-        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
-        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
+        np.testing.assert_allclose(a, df['a'].values, atol=tol)
+        np.testing.assert_allclose(b, df['b'].values, atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'].values, atol=tol)
+        np.testing.assert_allclose(s_b, df['s_b'].values, atol=tol)
 
     def test_poisson_matrix(self): 
         n = 8
@@ -420,10 +420,10 @@ class Test(unittest.TestCase):
 
         self.assertAlmostEqual(h,   0.27852882496320425, delta=tol)
         self.assertAlmostEqual(s_h, 0.05147213154587904, delta=tol)
-        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
-        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
-        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
-        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
+        np.testing.assert_allclose(a, df['a'].values, atol=tol)
+        np.testing.assert_allclose(b, df['b'].values, atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'].values, atol=tol)
+        np.testing.assert_allclose(s_b, df['s_b'].values, atol=tol)
 
     def test_kullback_leibler(self):
         n = 8
@@ -479,12 +479,12 @@ class Test(unittest.TestCase):
 
         df = pd.read_csv(self.data_folder + "test_kullback_leibler.csv")
 
-        self.assertAlmostEqual(h,   0.2765559016304402, delta=tol)
+        self.assertAlmostEqual(h,   0.27655587703454143, delta=tol)
         self.assertAlmostEqual(s_h, 0.0680302933547584, delta=tol)
-        self.assertTrue(np.allclose(a, df['a'].values, atol=tol))
-        self.assertTrue(np.allclose(b, df['b'].values, atol=tol))
-        self.assertTrue(np.allclose(s_a, df['s_a'].values, atol=tol))
-        self.assertTrue(np.allclose(s_b, df['s_b'].values, atol=tol))
+        np.testing.assert_allclose(a, df['a'].values, atol=tol)
+        np.testing.assert_allclose(b, df['b'].values, atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'].values, atol=tol)
+        np.testing.assert_allclose(s_b, df['s_b'].values, atol=tol)
 
 
 if __name__ == '__main__':
