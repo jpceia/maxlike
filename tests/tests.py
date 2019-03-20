@@ -1,9 +1,9 @@
+import os
 import unittest
 import pandas as pd
 import numpy as np
-from scipy.special import logit
-import os, sys; sys.path.insert(0 , "..")
 import maxlike
+from scipy.special import logit
 from maxlike.analytics import skellam_cdf_root
 from maxlike.preprocessing import prepare_dataframe, prepare_series, df_count
 from maxlike.func import (
