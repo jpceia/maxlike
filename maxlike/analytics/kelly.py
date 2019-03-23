@@ -10,15 +10,15 @@ def bernoulli(odd, prob, prob_err=None):
     return k * b
 
 
-def exclusive_qp(o, p, dp=None, l1=0, l2=0):
+def exclusive_qp(o, p, a=None, dp=None, l1=0, l2=0):
     """
-    L = sum_k p_k * log(1 + o_k * x_k - sum(X))
-    D_i  L =   sum_k p_k * (d_ik * o_i - 1) / (1 + o_k * x_k - sum(X))
-    D_ij L = - sum_k p_k * (d_ik * o_i - 1) * (d_jk * o_j - 1) / (1 + o_k * x_k - sum(X)) ^ 2
+    L = sum_k p_k * log(1 + a_k + o_k * x_k - sum(X))
+    D_i  L =   sum_k p_k * (d_ik * o_i - 1) / (1 + a_k + o_k * x_k - sum(X))
+    D_ij L = - sum_k p_k * (d_ik * o_i - 1) * (d_jk * o_j - 1) / (1 + a_k + o_k * x_k - sum(X)) ^ 2
 
     at X=0 we have
-    D_i  L =   sum_k p_k * (d_ik * o_i - 1)
-    D_ij L = - sum_k p_k * (d_ik * o_i - 1) * (d_jk * o_j - 1)
+    D_i  L =   sum_k p_k * (d_ik * o_i - 1) / (1 + a_k)
+    D_ij L = - sum_k p_k * (d_ik * o_i - 1) * (d_jk * o_j - 1) / (1 + a_k) ^ 2
 
     hence, to find max of L we can approximate
     L ~ b * X + .5 * X.T * A * X
@@ -28,7 +28,9 @@ def exclusive_qp(o, p, dp=None, l1=0, l2=0):
     assert l1 >= 0
     assert l2 >= 0
     n = o.shape[0]
-    D = np.eye(n) * o - 1
+    if a is None:
+        a = np.zeros(n)
+    D = (np.eye(n) * o - 1) / (1 + a)
     A = (p * D[:, None, :] * D[:, :, None]).sum(0) + np.eye(n) * l2
     b = (p[:, None] * D).sum(0) - l1
     best_idx = []
