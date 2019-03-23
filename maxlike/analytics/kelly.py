@@ -10,6 +10,67 @@ def bernoulli(odd, prob, prob_err=None):
     return k * b
 
 
+def exclusive_qp(o, p, dp=None, l1=0, l2=0):
+    """
+    L = sum_k p_k * log(1 + o_k * x_k - sum(X))
+    D_i  L =   sum_k p_k * (d_ik * o_i - 1) / (1 + o_k * x_k - sum(X))
+    D_ij L = - sum_k p_k * (d_ik * o_i - 1) * (d_jk * o_j - 1) / (1 + o_k * x_k - sum(X)) ^ 2
+
+    at X=0 we have
+    D_i  L =   sum_k p_k * (d_ik * o_i - 1)
+    D_ij L = - sum_k p_k * (d_ik * o_i - 1) * (d_jk * o_j - 1)
+
+    hence, to find max of L we can approximate
+    L ~ b * X + .5 * X.T * A * X
+    X >= 0
+    sum(X) < 1
+    """
+    assert l1 >= 0
+    assert l2 >= 0
+    n = o.shape[0]
+    D = np.eye(n) * o - 1
+    A = (p * D[:, None, :] * D[:, :, None]).sum(0) + np.eye(n) * l2
+    b = (p[:, None] * D).sum(0) - l1
+    best_idx = []
+    prev_idx = []
+    best_val = 0
+    best_x = np.zeros(n)
+    bBreak = False
+    for step in range(n):
+        bBreak = True
+        c = -1
+        for k in range(n - step):
+            idx = prev_idx[:]
+            while True:
+                c = c + 1
+                if c not in prev_idx:
+                    idx += [c]
+                    break
+            A_ = A[np.ix_(idx, idx)]
+            b_ = b[idx]
+            x = np.zeros(n)
+            x[idx] = np.linalg.solve(A_, b_)
+            val = (b_[:, None] * A_ * b_[None, :]).sum()
+            if val > best_val and (x >= 0).all():
+                best_val = val
+                best_idx = idx
+                best_x = x
+                bBreak = False
+        prev_idx = best_idx[:]
+        if bBreak:
+            break
+
+    if dp is None:
+        return best_x
+
+    mask = np.zeros(n)
+    mask[best_idx] = 1
+    u = (best_x[:, None] * A * best_x[None, :]).sum()
+    v = np.dot(dp, np.dot(A, dp.T)).sum()
+    frac = u / (u + v)
+    return frac * best_x
+
+
 def exclusive(o, p, dp_list=None):
     """
     Exclusive Kelly Algorithm:
