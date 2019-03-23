@@ -52,11 +52,12 @@ class Test(unittest.TestCase):
 
         self.assertAlmostEqual(h,   0.2541710859203631,  delta=tol)
         self.assertAlmostEqual(s_h, 0.04908858811901998, delta=tol)
-        np.testing.assert_allclose(a, df['a'].values, atol=tol)
-        np.testing.assert_allclose(b, df['b'].values, atol=tol)
-        np.testing.assert_allclose(s_a, df['s_a'].values, atol=tol)
-        np.testing.assert_allclose(s_b, df['s_b'].values, atol=tol)
-        np.testing.assert_allclose(r, df['r_ab'].values, atol=tol)
+        np.testing.assert_allclose(a[~a.mask], df['a'].values[~a.mask], atol=tol)
+        np.testing.assert_allclose(b[~b.mask], df['b'].values[~b.mask], atol=tol)
+        np.testing.assert_allclose(s_a[~a.mask], df['s_a'].values[~a.mask], atol=tol)
+        np.testing.assert_allclose(s_b[~b.mask], df['s_b'].values[~b.mask], atol=tol)
+        np.testing.assert_allclose(
+            r[~(a.mask|b.mask)], df['r_ab'].values[~(a.mask|b.mask)], atol=tol)
 
     def test_poisson2(self):
         mle = maxlike.Poisson()
@@ -94,10 +95,10 @@ class Test(unittest.TestCase):
 
         self.assertAlmostEqual(h,   0.2541710859203631,  delta=tol)
         self.assertAlmostEqual(s_h, 0.04908858811901998, delta=tol)
-        np.testing.assert_allclose(a, df['a'].values, atol=tol)
-        np.testing.assert_allclose(b, df['b'].values, atol=tol)
-        np.testing.assert_allclose(s_a, df['s_a'].values, atol=tol)
-        np.testing.assert_allclose(s_b, df['s_b'].values, atol=tol)
+        np.testing.assert_allclose(a[~a.mask], df['a'].values[~a.mask], atol=tol)
+        np.testing.assert_allclose(b[~b.mask], df['b'].values[~b.mask], atol=tol)
+        np.testing.assert_allclose(s_a[~a.mask], df['s_a'].values[~a.mask], atol=tol)
+        np.testing.assert_allclose(s_b[~b.mask], df['s_b'].values[~b.mask], atol=tol)
 
     def test_poisson3(self):
         mle = maxlike.Poisson()
