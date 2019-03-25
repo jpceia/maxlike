@@ -1,2 +1,2 @@
 # maxlike
-Python module to model count data.
+Python package to model count data.
