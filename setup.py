@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='maxlike',
-    version='2.1.1',
+    version='2.3.1',
     author='joao ceia',
     author_email='joao.p.ceia@gmail.com',
     packages=['maxlike', 'maxlike.tensor', 'maxlike.func', 'maxlike.analytics'],
