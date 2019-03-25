@@ -53,6 +53,7 @@ class MaxLike(with_metaclass(MaxlikeBase, object)):
         self.feat_dico = OrderedDict()
         self.feat_dico['N'] = None
         self.g_last = None
+        self.converged = False
 
     @abc.abstractmethod
     def like(self, params, **kwargs):
@@ -248,7 +249,12 @@ class MaxLike(with_metaclass(MaxlikeBase, object)):
         """
         Covariance Matrix.
         """
-        return self._reshape_matrix(-np.linalg.inv(self.flat_hess_))
+        try:
+            mask = self.flat_hess_.mask
+        except AttributeError:
+            mask = None
+        return self._reshape_matrix(
+            -np.ma.array(pinvh(self.flat_hess_.data), mask=mask))
 
     def std_error(self):
         """
@@ -360,7 +366,7 @@ class MaxLike(with_metaclass(MaxlikeBase, object)):
         step = step[:(-(c_len + 1) % step.shape[0]) + 1]
         return step, grad, hess
 
-    def fit(self, tol=1e-8, verbose=0, scipy=0, max_steps=None,
+    def fit(self, tol=1e-8, max_steps=None, verbose=0, scipy=0, 
             method=None, **kwargs):
         """
         Run the algorithm to find the best fit.
@@ -383,7 +389,13 @@ class MaxLike(with_metaclass(MaxlikeBase, object)):
         scipy: int (optional)
             0 : scipy is not used (default)
             1 : scipy using func values
-            2 : scipy using func and grad values 
+            2 : scipy using func and grad values
+
+        method: string (optional)
+            Method to calibrate the model
+            * newton
+            * broyden
+            * SLSQP
 
         Returns
         -------
@@ -487,6 +499,7 @@ class MaxLike(with_metaclass(MaxlikeBase, object)):
                             if verbose > 1:
                                 print("\tmultiplier = ", mult)
                     else:
+                        self.converged = False
                         raise ConvergenceError(
                             "Error: the objective function did not increase " +
                             "after %d steps" % max_inner_steps, "step")
@@ -501,37 +514,50 @@ class MaxLike(with_metaclass(MaxlikeBase, object)):
 
             elif method == "broyden":
 
-                grad = self.flat_grad(params)
-                
-                J = pinvh(self.flat_hess(params).data)
-                c_len = len(self.constraint)
-                i1 = (-(c_len + 1) % grad.shape[0]) + 1
-
-                for k in range(max_steps):
-                    prev_g = new_g
-                    grad_prev = grad
-
-                    step = -np.dot(J, grad)
-                    flat_params += step[:i1]
-                    params = self._reshape_params(flat_params)
-                    
-                    new_g = self.g(params)
-
-                    if verbose > 0:
-                        print(k + 1, new_g)
-
-                    if abs(prev_g / new_g - 1) < tol:
-                        self.params = params
-                        self.flat_hess_ = pinvh(J)
-                        return True
-                    
+                try:
                     grad = self.flat_grad(params)
-                    dgrad = grad - grad_prev
-                    J += np.outer(step - np.dot(J, dgrad), dgrad) / \
-                         (dgrad * dgrad).sum()
+
+                    if not (self.converged and
+                            hasattr(self, 'flat_hess_') and
+                            self.flat_hess_.shape[0] == grad.shape[0]):
+                        self.flat_hess_ = self.flat_hess(params).data
+
+                    J = pinvh(self.flat_hess_)
+                    
+                    c_len = len(self.constraint)
+                    i1 = (-(c_len + 1) % grad.shape[0]) + 1
+
+                    for k in range(max_steps):
+                        prev_g = new_g
+                        grad_prev = grad
+
+                        step = -np.dot(J, grad)
+                        flat_params += step[:i1]
+                        params = self._reshape_params(flat_params)
+                        
+                        new_g = self.g(params)
+
+                        if verbose > 0:
+                            print(k + 1, new_g)
+
+                        if abs(prev_g / new_g - 1) < tol:
+                            self.params = params
+                            self.flat_hess_ = pinvh(J)
+                            self.converged = True
+                            return True
+                        
+                        grad = self.flat_grad(params)
+                        dgrad = grad - grad_prev
+                        J += np.outer(step - np.dot(J, dgrad), dgrad) / \
+                             (dgrad * dgrad).sum()
+
+                except Exception as err:
+                    self.converged = False
+                    raise err
             
             else:
                 raise ValueError("Invalid Method")
 
+            self.converged = False
             raise ConvergenceError("Error: the objective function did not",
                                    "converge after %d steps" % max_steps)
