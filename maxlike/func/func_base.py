@@ -28,11 +28,13 @@ def call_func(f):
     #@lru_cache(None)
     @wraps(f)
     def wrapper(obj, params=None):
-        if params is None:
-            params = ()
+        if isinstance(params, tuple):
+            pass
         elif isinstance(params, list):
             params = tuple(params)
-        elif not isinstance(params, tuple):
+        elif params is None:
+            params = ()
+        else:
             params = (params, )
         return f(obj, params)
     return wrapper
@@ -42,11 +44,13 @@ def vector_func(g):
     #@lru_cache(None)
     @wraps(g)
     def wrapper(obj, params=None, i=None):
-        if params is None:
-            params = ()
+        if isinstance(params, tuple):
+            pass
         elif isinstance(params, list):
             params = tuple(params)
-        elif not isinstance(params, tuple):
+        elif params is None:
+            params = ()
+        else:
             params = (params, )
         if i is not None:
             return g(obj, params, i)
@@ -57,11 +61,13 @@ def vector_func(g):
 def matrix_func(h):
     @wraps(h)
     def wrapper(obj, params=None, i=None, j=None):
-        if params is None:
-            params = ()
+        if isinstance(params, tuple):
+            pass
         elif isinstance(params, list):
             params = tuple(params)
-        elif not isinstance(params, tuple):
+        elif params is None:
+            params = ()
+        else:
             params = (params, )
         if i is not None and j is not None:
             return h(obj, params, i, j)
