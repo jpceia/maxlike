@@ -122,4 +122,4 @@ class CollapseMatrix(Func):
         return Tensor(val[idx], p1=p1, dim=1, p1_mapping=p1_mapping)
 
     def hess(self, params, i, j):
-        return Tensor()
+        return Tensor(0)

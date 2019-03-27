@@ -2,7 +2,7 @@ import numpy as np
 from six import with_metaclass
 from array import array
 from functools import wraps
-from ..tensor import Tensor
+from ..tensor import Tensor, nullfoo
 
 
 def grad_tensor(values, params, i=0, p1_mapping=None, dim=0):
@@ -108,14 +108,24 @@ def matrix_func(h):
     return wrapper
 
 
+def not_implemented_foo(*args, **kwargs):
+    raise NotImplementedError
+
+
 class FuncMeta(type):
 
     def __new__(cls, name, bases, attrs, **kwargs):
         attrs['__call__'] = call_func(attrs['__call__'])
         if 'grad' in attrs:
-            attrs['grad'] = vector_func(attrs['grad'])
+            grad = vector_func(attrs['grad'])
+        else:
+            grad = not_implemented_foo
         if 'hess' in attrs:
-            attrs['hess'] = matrix_func(attrs['hess'])
+            hess = matrix_func(attrs['hess'])
+        else:
+            hess = not_implemented_foo
+        attrs['grad'] = grad
+        attrs['hess'] = hess
         return type.__new__(cls, name, bases, attrs, **kwargs)
 
 
@@ -159,6 +169,7 @@ class Func(with_metaclass(FuncMeta, object)):
 
 
 class Affine(Func):
+
     def __init__(self, base, a=1, b=0):
         if isinstance(base, Affine):
             self.base = base.base
@@ -202,7 +213,7 @@ class Compose(Func):
 
     def hess(self, params, i, j):
         f_arg = self.__f_arg(params)
-        h_val = 0
+        h_val = Tensor(0)
         dg_i = []
         dg_j = []
 
