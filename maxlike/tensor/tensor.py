@@ -86,12 +86,11 @@ class BaseTensor(object, with_metaclass(abc.ABCMeta)):
         pass
 
     @abc.abstractmethod
-    def __hash__(self):
-        pass
-
-    @abc.abstractmethod
     def bin_op(self, op_type):
         pass
+
+    def __hash__(self):
+        return self.hash
 
     def shape(self):
         return "(%d|%d|%d|%d)" % \
@@ -334,9 +333,6 @@ class GenericTensor(BaseTensor):
                 raise ValueError
 
         raise ValueError
-
-    def __hash__(self):
-        return self.hash
 
     def __getitem__(self, i):
         return self.elements[i]
@@ -934,6 +930,3 @@ class Tensor(BaseTensor):
             idx += [None] * dim
 
         return tuple(idx)
-
-    def __hash__(self):
-        return self.hash
