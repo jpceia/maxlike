@@ -359,28 +359,14 @@ class Tensor(BaseTensor):
             p1, p2, self.values.ndim - p1 - p2 - dim, dim)
 
         if p1_mapping:
-            if p1_mapping is True:
-                assert p1 == self.n
-                p1_mapping = array('b', range(p1))
-            elif isinstance(p1_mapping, (list, tuple, range, array)):
-                assert len(p1_mapping) == p1
-                p1_mapping = array('b', p1_mapping)
-            else:
-                raise ValueError("p1_mapping defined incorrectly")
-
+            if not isinstance(p1_mapping, array):
+                raise ValueError("Invalid mapping")
         else:
             p1_mapping = array('b')
 
         if p2_mapping:
-            if p2_mapping is True:
-                assert p2 == self.n
-                p2_mapping = array('b', range(p2))
-            elif isinstance(p2_mapping, (list, tuple, range, array)):
-                assert len(p2_mapping) == p2
-                p2_mapping = array('b', p2_mapping)
-            else:
-                raise ValueError("p2_mapping defined incorrectly")
-
+            if not isinstance(p2_mapping, array):
+                raise ValueError("Invalid mapping")
         else:
             p2_mapping = array('b')
 

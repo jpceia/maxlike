@@ -1,15 +1,25 @@
 import numpy as np
 from six import with_metaclass
+from array import array
 from functools import wraps
 from ..tensor import Tensor
 
 
 def grad_tensor(values, params, i=0, p1_mapping=None, dim=0):
+
     p1 = np.asarray(params[i]).ndim
     if p1_mapping is None:
         idx = [...]
+        p1_mapping = array('b')
     else:
         idx = [None] * p1 + [...]
+        if p1_mapping is True:
+            p1_mapping = array('b', range(p1))
+        elif isinstance(p1_mapping, (list, tuple)):
+            p1_mapping = array('b', p1_mapping)
+        else:
+            raise ValueError("Invalid mapping")
+        
     return Tensor(values[tuple(idx)], p1=p1, dim=dim, p1_mapping=p1_mapping)
 
 
@@ -17,9 +27,30 @@ def hess_tensor(values, params, i=0, j=0,
                 p1_mapping=None, p2_mapping=None, dim=0):
     p1 = np.asarray(params[i]).ndim
     p2 = np.asarray(params[j]).ndim
-    idx = [slice(None) if p1_mapping is None else None] * p1
+    idx  = [slice(None) if p1_mapping is None else None] * p1
     idx += [slice(None) if p2_mapping is None else None] * p2
     idx += [...]
+
+    if p1_mapping is None:
+        p1_mapping = array('b')
+    else:
+        if p1_mapping is True:
+            p1_mapping = array('b', range(p1))
+        elif isinstance(p1_mapping, (list, tuple)):
+            p1_mapping = array('b', p1_mapping)
+        else:
+            raise ValueError("Invalid mapping")
+
+    if p2_mapping is None:
+        p2_mapping = array('b')
+    else:
+        if p2_mapping is True:
+            p2_mapping = array('b', range(p2))
+        elif isinstance(p2_mapping, (list, tuple)):
+            p2_mapping = array('b', p2_mapping)
+        else:
+            raise ValueError("Invalid mapping")
+
     return Tensor(values[tuple(idx)], p1=p1, p2=p2, dim=dim,
                   p1_mapping=p1_mapping, p2_mapping=p2_mapping)
 

@@ -1,5 +1,6 @@
 import unittest
 import numpy as np
+from array import array
 from maxlike import Tensor
 
 
@@ -15,12 +16,14 @@ class Test(unittest.TestCase):
         n = 3
         a = Tensor(np.arange(1, n * n + 1).reshape((n, n)))
         b = Tensor(np.arange(n * n + 1, 2 * n * n + 1).reshape((n, n)))
-        a1 = Tensor(a.values[None, :, :], 1, 0, 0, [0])
-        b1 = Tensor(b.values[None, :, :], 1, 0, 0, [0])
-        b2 = Tensor(b.values[None, :, :], 1, 0, 0, [1])
-        c1 = Tensor(np.arange(1, n * n * n + 1).reshape((n, n, n)), 1, 0, 0,)
-        a12 = Tensor(a.values[None, None, :, :], 1, 1, 0, [0], [1])
-        b21 = Tensor(b.values[None, None, :, :], 1, 1, 0, [0], [1])
+        a1 = Tensor(a.values[None, :, :], 1, 0, 0, array('b', [0]))
+        b1 = Tensor(b.values[None, :, :], 1, 0, 0, array('b', [0]))
+        b2 = Tensor(b.values[None, :, :], 1, 0, 0, array('b', [1]))
+        c1 = Tensor(np.arange(1, n * n * n + 1).reshape((n, n, n)), 1, 0, 0)
+        a12 = Tensor(a.values[None, None, :, :], 1, 1, 0,
+                     array('b', [0]), array('b', [1]))
+        b21 = Tensor(b.values[None, None, :, :], 1, 1, 0,
+                     array('b', [0]), array('b', [1]))
 
         self.check_comm(lambda x: -x, a)
         self.check_comm(lambda x: -x, a1)

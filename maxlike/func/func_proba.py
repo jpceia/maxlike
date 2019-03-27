@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.special import factorial, gammaln
+from array import array
 from ..tensor import Tensor
 from .func_base import Func, grad_tensor, hess_tensor
 
@@ -114,7 +115,9 @@ class CollapseMatrix(Func):
         val = np.stack(val, -1)
         val = val.swapaxes(0, p1 - 2)
         val = val.swapaxes(1, p1 - 1)
-        p1_mapping = list(range(p1 - 2)) + [-1, -1]
+        p1_mapping = array('b', range(p1 - 2))
+        p1_mapping.append(-1)
+        p1_mapping.append(-1)
         idx = tuple([None] * (p1 - 2) + [Ellipsis])
         return Tensor(val[idx], p1=p1, dim=1, p1_mapping=p1_mapping)
 
