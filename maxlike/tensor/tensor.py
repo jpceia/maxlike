@@ -27,6 +27,10 @@ def _last_diag(arr, axis1, axis2):
         swapaxes(-1, axis2 - 1)
 
 
+def nullfoo(*args, **kwargs):
+    return Tensor(0)
+
+
 class BaseTensor(object, with_metaclass(abc.ABCMeta)):
 
     __slots__ = ['p1', 'p2', 'n', 'dim', 'hash']
