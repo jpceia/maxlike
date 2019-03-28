@@ -1,5 +1,6 @@
 import os
 from setuptools import setup
+from Cython.Build import cythonize
 
 
 __version__ = '2.3.1'
@@ -14,6 +15,11 @@ with open("README.md") as f:
     __doc__ = f.read()
 
 
+def numpy_include():
+    import numpy
+    return numpy.get_include()
+
+
 
 setup(
     name=__package__,
@@ -24,5 +30,7 @@ setup(
     url='https://github.com/jpceia/maxlike',
     license='',
     description=__doc__,
-    install_requires=required
+    install_requires=required,
+    include_dirs = [numpy_include()],
+    ext_modules=cythonize("maxlike/tensor/ctensor.pyx")
 )

@@ -1,5 +1,6 @@
 import abc
 import numpy as np
+from .ctensor import *
 from random import getrandbits
 from array import array
 from six import with_metaclass
@@ -21,11 +22,6 @@ def set_dtype(s):
         TENSOR_DTYPE = mapping[s]
     else:
         TENSOR_DTYPE = s
-
-
-def _last_diag(arr, axis1, axis2):
-    return np.diagonal(arr, axis1=axis1, axis2=axis2). \
-        swapaxes(-1, axis2 - 1)
 
 
 class BaseTensor(object, with_metaclass(abc.ABCMeta)):
@@ -399,18 +395,14 @@ class Tensor(BaseTensor):
             return Tensor(val, self.p1, self.p2, 0,
                           self.p1_mapping, self.p2_mapping)
 
-        if self.p1_mapping:
-            for k, f in enumerate(self.p1_mapping):
-                if f >= 0:
-                    val = val.swapaxes(k, p + f)
-        if self.p2_mapping:
-            for k, f in enumerate(self.p2_mapping):
-                if f >= 0:
-                    if self.p1_mapping and f in self.p1_mapping:
-                        k = self.p1_mapping.index(f)
-                        cross_map[k] = k
-                    else:
-                        val = val.swapaxes(self.p1 + k, p + f)
+        val = arr_swapaxes(val, 0, p, self.p1_mapping)
+        for k, f in enumerate(self.p2_mapping):
+            if f >= 0:
+                if self.p1_mapping and f in self.p1_mapping:
+                    k = self.p1_mapping.index(f)
+                    cross_map[k] = k
+                else:
+                    val = val.swapaxes(self.p1 + k, p + f)
 
         if sum_dim is True:
             idx = tuple(p + np.arange(self.n + self.dim))
@@ -465,23 +457,9 @@ class Tensor(BaseTensor):
             pn = p + self.n
             rng = np.arange(self.values.ndim)
             rng[p:pn] = rng[p:pn][np.argsort(xmap)]
-            p1_mapping = array('b')
-            p2_mapping = array('b')
-
-            if self.p1_mapping:
-                for k in self.p1_mapping:
-                    if k < 0:
-                        p1_mapping.append(-1)
-                    else:
-                        p1_mapping.append(xmap[k])
-
-            if self.p2_mapping:
-                for k in self.p2_mapping:
-                    if k < 0:
-                        p2_mapping.append(-1)
-                    else:
-                        p2_mapping.append(xmap[k])
-
+            xmap = array('b', xmap)
+            p1_mapping = compose_mappings(xmap, self.p1_mapping)
+            p2_mapping = compose_mappings(xmap, self.p2_mapping)
             return Tensor(
                 self.values.transpose(rng)[tuple(idx)],
                 p1=self.p1,
@@ -604,32 +582,15 @@ class Tensor(BaseTensor):
                 [None] * (dim - other.dim)
         r_idx = [None] * other.p1 + [...] + [None] * (dim - self.dim)
 
-        p1_mapping = array('b')
         val = self.values
-
+        val = arr_swapaxes(val, 0, p, self.p1_mapping)
+        val = np.multiply(other.values[tuple(l_idx)], val[tuple(r_idx)])
+        val = arr_swapaxes(val, other.p1, other.p1 + p, self.p1_mapping)
         if self.p1_mapping:
-            for k, f in enumerate(self.p1_mapping):
-                if f >= 0:
-                    val = val.swapaxes(k, p + f)
-        val = other.values[tuple(l_idx)] * val[tuple(r_idx)]
-
-        if self.p1_mapping:
-            
-            for k, f in enumerate(self.p1_mapping):
-                if f >= 0:
-                    val = val.swapaxes(other.p1 + k, other.p1 + p + f)
-            
-            if other.p1_mapping:
-                for f in other.p1_mapping:
-                    if f < 0:
-                        p1_mapping.append(-1)
-                    else:
-                        p1_mapping.append(self.p1_mapping[f])
+            p1_mapping = compose_mappings(self.p1_mapping, other.p1_mapping)
         else:
-            if other.p1_mapping:
-                for k, f in enumerate(other.p1_mapping):
-                    if f >= 0:
-                        val = val.swapaxes(k, other.p1 + f)
+            p1_mapping = array('b')
+            val = arr_swapaxes(val, 0, other.p1, other.p1_mapping)
 
         val = val.sum(tuple(other.p1 + np.arange(other.n)))
         return Tensor(val, p1=other.p1, p2=self.p2, dim=dim,
@@ -673,53 +634,26 @@ class Tensor(BaseTensor):
         r_idx = [None] * p + [slice(None)] * (self.p1 + self.n) + \
                 [None] * (dim - self.dim)
 
-        p1_mapping = array('b')
-        p2_mapping = array('b')
-
         val = self.values
-        if self.p1_mapping:
-            for k, f in enumerate(self.p1_mapping):
-                if f >= 0:
-                    val = val.swapaxes(k, self.p1 + f)
+        val = arr_swapaxes(val, 0, self.p1, self.p1_mapping)
         val = other.values[tuple(l_idx)] * val[tuple(r_idx)]
-
-        if self.p1_mapping:
-            for k, f in enumerate(self.p1_mapping):
-                if f >= 0:
-                    val = val.swapaxes(p + k, p + self.p1 + f)
-
-            if other.p1_mapping:
-                for k in other.p1_mapping:
-                    if k < 0:
-                        p1_mapping.append(-1)
+        val = arr_swapaxes(val, p, p + self.p1, self.p1_mapping)
+        if not self.p1_mapping:
+            val = arr_swapaxes(val, 0, p, other.p1_mapping)
+            for k, f in enumerate(other.p2_mapping):
+                if f is not None:
+                    if other.p1_mapping and f in other.p1_mapping:
+                        # overlap
+                        idx = [None] * val.ndim
+                        idx[other.p1_mapping.index(f)] = slice(None)
+                        idx[other.p1 + k] = slice(None)
+                        val = val * np.eye(val.shape[k])[tuple(idx)]
                     else:
-                        p1_mapping.append(self.p1_mapping[k])
+                        # no overlap
+                        val = val.swapaxes(other.p1 + k, p + f)
 
-            if other.p2_mapping:
-                for k in other.p2_mapping:
-                    if k < 0:
-                        p2_mapping.append(-1)
-                    else:
-                        p2_mapping.append(self.p1_mapping[k])
-        else:
-            if other.p1_mapping:
-                for k, f in enumerate(other.p1_mapping):
-                    if f >= 0:
-                        val = val.swapaxes(k, p + f)
-
-            if other.p2_mapping:
-                for k, f in enumerate(other.p2_mapping):
-                    if f is not None:
-                        if other.p1_mapping and f in other.p1_mapping:
-                            # overlap
-                            idx = [None] * val.ndim
-                            idx[other.p1_mapping.index(f)] = slice(None)
-                            idx[other.p1 + k] = slice(None)
-                            val = val * np.eye(val.shape[k])[tuple(idx)]
-                        else:
-                            # no overlap
-                            val = val.swapaxes(other.p1 + k, p + f)
-
+        p1_mapping = compose_mappings(self.p1_mapping, other.p1_mapping)
+        p2_mapping = compose_mappings(self.p1_mapping, other.p2_mapping)
         val = val.sum(tuple(p + np.arange(other.n)))
         return Tensor(val, p1=other.p1, p2=other.p2, dim=dim,
                       p1_mapping=p1_mapping,
@@ -823,60 +757,25 @@ class Tensor(BaseTensor):
 
         if self.p1_mapping:
             p1_mapping = self.p1_mapping
-            if other.p1_mapping:
-                if p1_mapping != other.p1_mapping:
-                    for fs, fo in zip(p1_mapping, other.p1_mapping):
-                        if fs != fo:
-                            idx = [None] * l_values.ndim
-                            idx[p + fs] = slice(None)
-                            idx[p + fo] = slice(None)
-                            l_values = l_values * np.eye(
-                                l_values.shape[p + fs])[tuple(idx)]
-            elif other.p1:
-                for k, f in enumerate(p1_mapping):
-                    if f >= 0:
-                        idx = [slice(None)] * r_values.ndim
-                        idx[k] = None
-                        r_values = _last_diag(
-                            r_values, k, other.p1 + other.p2 + f)[tuple(idx)]
+            l_values = arr_expand_diag(l_values, p, self.p1_mapping, other.p1_mapping)
+            if not other.p1_mapping and other.p1:
+                r_values = arr_take_diag(r_values, 0, other.p1 + other.p2,
+                                         self.p1_mapping)
         else:
             p1_mapping = other.p1_mapping
             if p1_mapping and self.p1:
-                for k, f in enumerate(p1_mapping):
-                    if f >= 0:
-                        idx = [slice(None)] * l_values.ndim
-                        idx[k] = None
-                        l_values = _last_diag(l_values, k, p + f)[tuple(idx)]
+                l_values = arr_take_diag(l_values, 0, p, other.p1_mapping)
 
         if self.p2_mapping:
             p2_mapping = self.p2_mapping
-            if other.p2_mapping:
-                if self.p2_mapping != other.p2_mapping:
-                    for fs, fo in zip(p2_mapping, other.p2_mapping):
-                        if fs != fo:
-                            idx = [None] * r_values.ndim
-                            idx[p + fs] = slice(None)
-                            idx[p + fo] = slice(None)
-                            l_values = l_values * np.eye(
-                                l_values.shape[p + fs])[tuple(idx)]
-            elif other.p2:
-                for k, f in enumerate(p2_mapping):
-                    if f >= 0:
-                        idx = [slice(None)] * r_values.ndim
-                        idx[self.p1 + k] = None
-                        r_values = _last_diag(
-                            r_values,
-                            other.p1 + k,
-                            other.p1 + other.p2 + f)[tuple(idx)]
+            l_values = arr_expand_diag(l_values, p, self.p2_mapping, other.p2_mapping)
+            if not other.p2_mapping and other.p2: 
+                r_values = arr_take_diag(r_values, other.p1, other.p1 + other.p2,
+                                         self.p2_mapping)
         else:
             p2_mapping = other.p2_mapping
-            if other.p2_mapping and self.p2:
-                for k, f in enumerate(p2_mapping):
-                    if f >= 0:
-                        idx = [slice(None)] * l_values.ndim
-                        idx[self.p1 + k] = None
-                        l_values = _last_diag(l_values,
-                            axis1=self.p1 + k, axis2=p + f)[tuple(idx)]
+            if self.p2:
+                l_values = arr_take_diag(l_values, self.p1, p, other.p2_mapping)
 
         return Tensor(
             Tensor.lambda_op[op_type](l_values[l_idx], r_values[r_idx]),
