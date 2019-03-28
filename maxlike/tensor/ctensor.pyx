@@ -57,4 +57,22 @@ cpdef np.ndarray arr_swapaxes(np.ndarray arr, int q, int p, array mapping):
             arr = arr.swapaxes(k, p + f)
         k += 1
     return arr
-        
+
+
+cdef np.ndarray arr_swapaxes_cross(np.ndarray arr, int p, array map1, array map2):
+    cdef k, f, l, n
+    cdef int[:] idx = np.ones(arr.ndim, dtype=np.int)
+    k = p
+    for f in map2:
+        n = arr.shape[k - p]
+        if map1 and f in map1:
+            l = map1.index(f)
+            idx[l] = n
+            idx[k] = n
+            val = val * np.eye(n).reshape(idx)
+            idx[l] = 1
+            idx[k] = 1
+        else:
+            arr = arr.swapaxes(k, p + f)
+        k += 1
+    return arr

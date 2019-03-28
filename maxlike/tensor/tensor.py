@@ -640,17 +640,8 @@ class Tensor(BaseTensor):
         val = arr_swapaxes(val, p, p + self.p1, self.p1_mapping)
         if not self.p1_mapping:
             val = arr_swapaxes(val, 0, p, other.p1_mapping)
-            for k, f in enumerate(other.p2_mapping):
-                if f is not None:
-                    if other.p1_mapping and f in other.p1_mapping:
-                        # overlap
-                        idx = [None] * val.ndim
-                        idx[other.p1_mapping.index(f)] = slice(None)
-                        idx[other.p1 + k] = slice(None)
-                        val = val * np.eye(val.shape[k])[tuple(idx)]
-                    else:
-                        # no overlap
-                        val = val.swapaxes(other.p1 + k, p + f)
+            val = arr_swapaxes_cross(val, other.p1,
+                  other.p1_mapping, other.p2_mapping)
 
         p1_mapping = compose_mappings(self.p1_mapping, other.p1_mapping)
         p2_mapping = compose_mappings(self.p1_mapping, other.p2_mapping)
