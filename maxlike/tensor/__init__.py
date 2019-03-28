@@ -1,1 +1,1 @@
-from .tensor import Tensor, set_dtype, nullfoo
+from .tensor import Tensor, set_dtype

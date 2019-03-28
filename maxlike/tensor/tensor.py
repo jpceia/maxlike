@@ -3,6 +3,7 @@ import numpy as np
 from random import getrandbits
 from array import array
 from six import with_metaclass
+from types import MethodType
 
 TENSOR_DTYPE = np.float64
 
@@ -25,10 +26,6 @@ def set_dtype(s):
 def _last_diag(arr, axis1, axis2):
     return np.diagonal(arr, axis1=axis1, axis2=axis2). \
         swapaxes(-1, axis2 - 1)
-
-
-def nullfoo(*args, **kwargs):
-    return Tensor(0)
 
 
 class BaseTensor(object, with_metaclass(abc.ABCMeta)):

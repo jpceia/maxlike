@@ -1,7 +1,8 @@
 from ..tensor import Tensor
-from .func_base import Func, Affine
+from .func_base import Func, Affine, null_method, isnull
 from .func import X, Constant, Scalar, Vector
 from six.moves import reduce
+from types import MethodType
 
 
 class IndexMap(list):
@@ -16,6 +17,7 @@ class IndexMap(list):
 
 
 class FuncWrap(Func):
+
     def __init__(self, foo, param_map, feat_map=None, n_feat=None,
                  dim_map=None, n_dim=0, feat_flip=None):
         assert isinstance(foo, Func)
@@ -37,6 +39,12 @@ class FuncWrap(Func):
         else:
             self.dim_map = IndexMap(dim_map)
 
+        if isnull(foo.grad):
+            self.grad = null_method(self)
+
+        if isnull(foo.hess):
+            self.hess = null_method(self)
+
     def __call__(self, params):
         return self.foo(self.param_map(params)).\
             expand(self.feat_map, self.n_feat).flip(self.feat_flip).\
@@ -57,7 +65,7 @@ class FuncWrap(Func):
             idx = self.param_map.index(i)
             jdx = self.param_map.index(j)
         except ValueError:
-            return Tensor()
+            return Tensor(0)
         else:
             return self.foo.hess(
                 self.param_map(params), idx, jdx).\
@@ -66,6 +74,7 @@ class FuncWrap(Func):
 
 
 class Sum(Func):
+
     def __init__(self, n_feat, n_dim=0):
         self.atoms = []
         self.n_feat = n_feat
@@ -131,6 +140,7 @@ class Sum(Func):
 
 
 class Product(Func):
+
     def __init__(self, n_feat, n_dim=0):
         self.atoms = []
         self.n_feat = n_feat

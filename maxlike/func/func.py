@@ -1,9 +1,10 @@
 import numpy as np
-from ..tensor import Tensor, nullfoo
-from .func_base import Func, grad_tensor, hess_tensor
+from ..tensor import Tensor
+from .func_base import Func, grad_tensor, hess_tensor, null_func
 
 
 class Linear(Func):
+
     def __init__(self, weight_list=None):
         if weight_list is None:
             weight_list = []
@@ -29,6 +30,7 @@ class Linear(Func):
 
 
 class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
+
     def __init__(self, u=0, s=1):
         self.u = u
         self.s = s
@@ -54,8 +56,9 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
 
 class X(Func):
 
-    def __init__(self):
-        self.hess = nullfoo
+    def __new__(cls, *args, **kwargs):
+        cls.hess = null_func
+        return super().__new__(cls)
 
     def __call__(self, params):
         return Tensor(params[0])
@@ -66,10 +69,13 @@ class X(Func):
 
 class Constant(Func):
 
+    def __new__(cls, *args, **kwargs):
+        cls.grad = null_func
+        cls.hess = null_func
+        return super().__new__(cls)
+
     def __init__(self, vector):
         self.vector = np.asarray(vector)
-        self.grad = nullfoo
-        self.hess = nullfoo
 
     def __call__(self, params):
         return Tensor(self.vector)
@@ -77,8 +83,9 @@ class Constant(Func):
 
 class Scalar(Func):
 
-    def __init__(self):
-        self.hess = nullfoo
+    def __new__(cls, *args, **kwargs):
+        cls.hess = null_func
+        return super().__new__(cls)
 
     def __call__(self, params):
         return Tensor(params[0])
@@ -89,9 +96,12 @@ class Scalar(Func):
 
 class Vector(Func):
 
+    def __new__(cls, *args, **kwargs):
+        cls.hess = null_func
+        return super().__new__(cls)
+
     def __init__(self, vector):
         self.vector = np.asarray(vector)
-        self.hess = nullfoo
 
     def __call__(self, params):
         return Tensor(np.asarray(params[0]) * self.vector)

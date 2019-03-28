@@ -1,8 +1,21 @@
 import numpy as np
 from six import with_metaclass
+from types import MethodType
 from array import array
 from functools import wraps
-from ..tensor import Tensor, nullfoo
+from ..tensor import Tensor
+
+
+def null_func(obj, *args, **kwargs):
+    return Tensor(0)
+
+def null_method(obj):
+    return MethodType(null_func, obj)
+
+def isnull(foo):
+    return getattr(foo, 'null', False)
+
+null_func.null = True  # dummy attribute
 
 
 def grad_tensor(values, params, i=0, p1_mapping=None, dim=0):
@@ -108,7 +121,7 @@ def matrix_func(h):
     return wrapper
 
 
-def not_implemented_foo(*args, **kwargs):
+def not_implemented_foo(obj, *args, **kwargs):
     raise NotImplementedError
 
 
@@ -171,6 +184,13 @@ class Func(with_metaclass(FuncMeta, object)):
 class Affine(Func):
 
     def __init__(self, base, a=1, b=0):
+
+        if isnull(base.grad):
+            self.grad = null_method(self)
+
+        if isnull(base.hess):
+            self.hess = null_method(self)
+
         if isinstance(base, Affine):
             self.base = base.base
             self.a = a * base.a
@@ -193,11 +213,29 @@ class Affine(Func):
 class Compose(Func):
 
     def __init__(self, f, g_list):
+
         if not isinstance(g_list, (list, tuple)):
             self.g_list = [g_list]
         else:
             self.g_list = g_list
+
         self.f = f
+
+        if isnull(f.grad):
+            self.grad = null_method(self)
+            if isnull(f.hess):
+                self.hess = null_method(self)
+
+        elif isnull(f.hess):
+            def hess(obj, params, i, j):
+                f_arg = obj.__f_arg(params)
+                h_val = Tensor(0)
+                for k, g in enumerate(obj.g_list):
+                    h_val += obj.f.grad(f_arg, k).dot_right(
+                             g.hess(params, i, j).drop_dim())
+                return h_val
+            
+            self.hess = MethodType(hess, self)
 
     def __f_arg(self, params):
         return tuple([g(params) for g in self.g_list])

@@ -2,7 +2,7 @@ import numpy as np
 from scipy.special import factorial, gammaln
 from array import array
 from ..tensor import Tensor
-from .func_base import Func, grad_tensor, hess_tensor
+from .func_base import Func, grad_tensor, hess_tensor, null_func
 
 
 class Poisson(Func):
@@ -74,6 +74,10 @@ class NegativeBinomial(Func):
 
 class CollapseMatrix(Func):
 
+    def __new__(cls, *args, **kwargs):
+        cls.hess = null_func
+        return super().__new__(cls)
+
     def __init__(self, conditions=None):
         """
         Condition or list of conditions with the form
@@ -120,6 +124,3 @@ class CollapseMatrix(Func):
         p1_mapping.append(-1)
         idx = tuple([None] * (p1 - 2) + [Ellipsis])
         return Tensor(val[idx], p1=p1, dim=1, p1_mapping=p1_mapping)
-
-    def hess(self, params, i, j):
-        return Tensor(0)
