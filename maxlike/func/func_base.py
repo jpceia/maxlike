@@ -267,10 +267,10 @@ class Compose(Func):
         for k, g_k in enumerate(self.g_list):
             for l, g_l in enumerate(self.g_list):
                 f_hess = self.f.hess(f_arg, k, l)
-                if f_hess.values.ndim == 0 and f_hess.values == 0:
-                    continue
                 h_val += f_hess.dot_left(dg_i[k]).transpose().\
                                 dot_left(dg_j[l]).transpose()
+            if isnull(g_k.hess):
+                continue
             f_grad = self.f.grad(f_arg, k)
             g_hess = g_k.hess(params, i, j).drop_dim()
             h_val += f_grad.dot_right(g_hess)
