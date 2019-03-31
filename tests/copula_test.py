@@ -4,22 +4,22 @@ import numpy as np
 import pandas as pd
 from maxlike import copula
 
-
 def normalize(u):
     return u / u.sum()
 
 
-data_folder = os.path.dirname(os.path.abspath(__file__)) + "/data/copula"
-
 
 class Test(unittest.TestCase):
-
-    f_x = normalize(np.array([0.00, 1.22, 1.63, 2.21, 1.11, 0.00, 0.00]))
-    f_y = normalize(np.array([0.01, 1.95, 1.33, 3.45, 2.59, 0.33, 0.00]))
     
     @staticmethod
     def _path(test_name):
+        data_folder = os.path.dirname(os.path.abspath(__file__)) + "/data/copula"
         return "{}/{}.csv".format(data_folder, test_name)
+
+    def setUp(self):
+        f_xy = pd.read_csv(self._path("gaussian")).values
+        self.f_x = normalize(f_xy.sum(1))
+        self.f_y = normalize(f_xy.sum(0))
 
     def check_is_copula(self, f_xy):
         self.assertTrue(f_xy.max() <= 1)
