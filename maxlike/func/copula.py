@@ -79,7 +79,10 @@ class Gaussian(Copula):
         self.rho = rho
 
     def __call__(self, x, y):
-        return gauss_bivar(ndtri(x), ndtri(y), self.rho)
+        return gauss_bivar(
+            np.clip(ndtri(x), -999, 999),
+            np.clip(ndtri(y), -999, 999),
+            self.rho)
 
 
 class Clayton(Copula):
@@ -97,6 +100,7 @@ class Clayton(Copula):
         assert rho > 0
         self.a = rho
 
+    @no_divwarn
     def __call__(self, x, y):
         return np.power(
             np.power(x, -self.a) + np.power(y, -self.a) - 1,
@@ -120,9 +124,11 @@ class Gumbel(Copula):
         assert rho >= 1
         self.a = rho
 
+    @no_divwarn
     def __call__(self, x, y):
         return np.exp(-np.power(
-            np.power(-np.log(x), self.a) + np.power(-np.log(y), self.a),
+            np.power(-np.log(x), self.a) +
+            np.power(-np.log(y), self.a),
             1 / self.a))
 
 
