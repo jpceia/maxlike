@@ -70,6 +70,8 @@ class Gaussian(Copula):
     where:
     tau := Kendall's tau
     rho := Pearson's Rho
+
+    Degenerates into independence copula when rho=0
     """
     def __init__(self, rho=0):
         assert rho <= 1
@@ -111,6 +113,8 @@ class Gumbel(Copula):
     a = 1 / (1 - t)
 
     a >= 1
+
+    Degenerates into independence copula when a=1
     """
     def __init__(self, rho=1):
         assert rho >= 1
@@ -145,6 +149,8 @@ class AkiMikhailHaq(Copula):
     C(u,v) = uv / (1 - rho * (1-u) * (1-v))
 
     -1 < rho < 1
+
+    Degenerates into independence copula when a=1
     """
     def __init__(self, rho=0):
         assert rho <= 1
