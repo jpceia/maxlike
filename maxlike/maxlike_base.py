@@ -252,10 +252,11 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         return self._reshape_array(np.sqrt(np.diag(-np.linalg.inv(
             self.flat_hess_))[:-cut]))
 
-    def flat_grad(self, params, y, der):
+    def flat_grad(self, params, *args, **kwargs):
 
         n = len(params)
-        grad = self.grad_like(params, y, der) + [0] * len(self.constraint)
+        grad = self.grad_like(params, *args, **kwargs)
+        grad += [0] * len(self.constraint)
 
         for k, (param_map, gamma, g) in enumerate(self.constraint):
             args = [params[k] for k in param_map]
@@ -275,14 +276,14 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
 
         return grad
 
-    def flat_hess(self, params, y, der, hess):
+    def flat_hess(self, params, *args, **kwargs):
         n = len(params)
         c_len = len(self.constraint)
 
         # --------------------------------------------------------------------
         # 1st phase: Evaluate and sum
         # --------------------------------------------------------------------
-        hess = self.hess_like(params, y, der, hess)
+        hess = self.hess_like(params, *args, **kwargs)
 
         # Add blocks corresponding to constraint variables:
         # Hess_lambda_params = grad_g
