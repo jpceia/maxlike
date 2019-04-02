@@ -20,7 +20,7 @@ class Test(unittest.TestCase):
     verbose = 0
 
 
-    def test_poisson(self):
+    def test_poisson1(self):
         mle = maxlike.Poisson()
         mle.model = Sum(3)
         mle.model.add(X(), 0, 0)
@@ -49,7 +49,7 @@ class Test(unittest.TestCase):
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
-        df = pd.read_csv(data_folder + "test_poisson.csv")
+        df = pd.read_csv(data_folder + "test_poisson1.csv")
 
         self.assertAlmostEqual(h,   0.2541710859203631,  delta=tol)
         self.assertAlmostEqual(s_h, 0.04908858811901998, delta=tol)
@@ -92,7 +92,7 @@ class Test(unittest.TestCase):
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        df = pd.read_csv(data_folder + "test_poisson.csv")
+        df = pd.read_csv(data_folder + "test_poisson1.csv")
 
         self.assertAlmostEqual(h,   0.2541710859203631,  delta=tol)
         self.assertAlmostEqual(s_h, 0.04908858811901998, delta=tol)
