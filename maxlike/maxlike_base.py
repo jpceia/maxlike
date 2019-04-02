@@ -85,7 +85,7 @@ class MaxLike(with_metaclass(MaxlikeBase, object)):
         """
         g = self.like(params)
         for param_map, h in self.reg:
-            g -= h([params[k] for k in param_map])
+            g -= h.eval([params[k] for k in param_map])
         res = g / N.sum()
         return float(res)
 
@@ -276,7 +276,7 @@ class MaxLike(with_metaclass(MaxlikeBase, object)):
             grad_g = g.grad(args)
             for i, idx in enumerate(param_map):
                 grad[idx] += gamma * grad_g[i]
-                grad[n + k] = [g(args)]
+                grad[n + k] = [g.eval(args)]
 
         for param_map, h in self.reg:
             args = [params[k] for k in param_map]

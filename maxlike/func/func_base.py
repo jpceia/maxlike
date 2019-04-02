@@ -1,4 +1,5 @@
 import numpy as np
+import inspect
 from six import with_metaclass
 from types import MethodType
 from array import array
@@ -68,7 +69,7 @@ def hess_tensor(values, params, i=0, j=0,
                   p1_mapping=p1_mapping, p2_mapping=p2_mapping)
 
 
-def call_func(f):
+def eval_func(f):
     #@lru_cache(None)
     @wraps(f)
     def wrapper(obj, params=None):
@@ -128,7 +129,7 @@ def not_implemented_foo(obj, *args, **kwargs):
 class FuncMeta(type):
 
     def __new__(cls, name, bases, attrs, **kwargs):
-        attrs['__call__'] = call_func(attrs['__call__'])
+        attrs['eval'] = eval_func(attrs['eval'])
         if 'grad' in attrs:
             grad = vector_func(attrs['grad'])
         else:
@@ -144,7 +145,7 @@ class FuncMeta(type):
 
 class Func(with_metaclass(FuncMeta, object)):
 
-    def __call__(self, params):
+    def eval(self, params):
         raise NotImplementedError
 
     def grad(self, params, i):
@@ -200,8 +201,8 @@ class Affine(Func):
             self.a = a
             self.b = b
 
-    def __call__(self, params):
-        return self.a * self.base(params) + self.b
+    def eval(self, params):
+        return self.a * self.base.eval(params) + self.b
 
     def grad(self, params, i):
         return self.a * self.base.grad(params, i)
@@ -238,10 +239,10 @@ class Compose(Func):
             self.hess = MethodType(hess, self)
 
     def __f_arg(self, params):
-        return tuple([g(params) for g in self.g_list])
+        return tuple([g.eval(params) for g in self.g_list])
 
-    def __call__(self, params):
-        return self.f(self.__f_arg(params))
+    def eval(self, params):
+        return self.f.eval(self.__f_arg(params))
 
     def grad(self, params, i):
         f_arg = self.__f_arg(params)
@@ -269,8 +270,6 @@ class Compose(Func):
                 f_hess = self.f.hess(f_arg, k, l)
                 h_val += f_hess.dot_left(dg_i[k]).transpose().\
                                 dot_left(dg_j[l]).transpose()
-            if isnull(g_k.hess):
-                continue
             f_grad = self.f.grad(f_arg, k)
             g_hess = g_k.hess(params, i, j).drop_dim()
             h_val += f_grad.dot_right(g_hess)

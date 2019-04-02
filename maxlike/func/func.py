@@ -12,7 +12,7 @@ class Linear(Func):
             weight_list = [weight_list]
         self.weights = weight_list
 
-    def __call__(self, params):
+    def eval(self, params):
         return sum(((w * np.asarray(p)).sum()
                     for w, p in zip(params, self.weights)))
 
@@ -35,7 +35,7 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
         self.u = u
         self.s = s
 
-    def __call__(self, params):
+    def eval(self, params):
         val = 0
         for p in params:
             z = (np.asarray(p) - self.u) / self.s
@@ -60,7 +60,7 @@ class X(Func):
         cls.hess = null_func
         return super().__new__(cls)
 
-    def __call__(self, params):
+    def eval(self, params):
         return Tensor(params[0])
 
     def grad(self, params, i):
@@ -77,7 +77,7 @@ class Constant(Func):
     def __init__(self, vector):
         self.vector = np.asarray(vector)
 
-    def __call__(self, params):
+    def eval(self, params):
         return Tensor(self.vector)
 
 
@@ -87,7 +87,7 @@ class Scalar(Func):
         cls.hess = null_func
         return super().__new__(cls)
 
-    def __call__(self, params):
+    def eval(self, params):
         return Tensor(params[0])
 
     def grad(self, params, i):
@@ -103,7 +103,7 @@ class Vector(Func):
     def __init__(self, vector):
         self.vector = np.asarray(vector)
 
-    def __call__(self, params):
+    def eval(self, params):
         return Tensor(np.asarray(params[0]) * self.vector)
 
     def grad(self, params, i):
@@ -111,7 +111,7 @@ class Vector(Func):
 
 
 class Exp(Func):
-    def __call__(self, params):
+    def eval(self, params):
         return Tensor(np.exp(np.asarray(params[0])))
 
     def grad(self, params, i):
@@ -123,14 +123,14 @@ class Exp(Func):
 
 
 class Logistic(Func):
-    def __call__(self, params):
+    def eval(self, params):
         return Tensor(1 / (1 + np.exp(-params[0])))
 
     def grad(self, params, i):
-        f = self.__call__(params).values
+        f = self.eval(params).values
         return grad_tensor(f * (1 - f), params, i, True)
 
     def hess(self, params, i, j):
-        f = self.__call__(params).values
+        f = self.eval(params).values
         return hess_tensor(f * (1 - f) * (1 - 2 * f),
                            params, i, j, True, True)

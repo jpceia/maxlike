@@ -14,7 +14,7 @@ class Poisson(Func):
     def __init__(self, size=10):
         self.size = size
 
-    def __call__(self, params):
+    def eval(self, params):
         a = np.asarray(params[0])
         rng = np.arange(self.size)
         vec = (a[..., None] ** rng) / factorial(rng)
@@ -42,7 +42,7 @@ class NegativeBinomial(Func):
         self.size = size
         self.r = r
 
-    def __call__(self, params):
+    def eval(self, params):
         """
         exp(
             gammaln(r + x) - gammaln(r) - ln x! +
@@ -90,7 +90,7 @@ class CollapseMatrix(Func):
                 (1, -1, 0, -1),
             ]
 
-    def __call__(self, params):
+    def eval(self, params):
         """
         CollapseMatrix function assumes that there is just one param that is
         a Tensor with dim=2 (frame)

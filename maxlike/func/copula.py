@@ -49,11 +49,13 @@ def copulaWrap(C):
 class CopulaMeta(FuncMeta):
     def __new__(cls, name, bases, attrs, **kwargs):
         res = type.__new__(cls, name, bases, attrs, **kwargs)
-        res.__call__ = copulaWrap(res.__call__)
+        res.eval = copulaWrap(res.eval)
         return res
 
+
 class Copula(with_metaclass(CopulaMeta)):
-    pass
+    def eval(self, x, y):
+        raise NotImplementedError
 
 
 class Gaussian(Copula):
@@ -78,7 +80,7 @@ class Gaussian(Copula):
         assert rho >= -1
         self.rho = rho
 
-    def __call__(self, x, y):
+    def eval(self, x, y):
         return gauss_bivar(
             np.clip(ndtri(x), -999, 999),
             np.clip(ndtri(y), -999, 999),
@@ -101,7 +103,7 @@ class Clayton(Copula):
         self.a = rho
 
     @no_divwarn
-    def __call__(self, x, y):
+    def eval(self, x, y):
         return np.power(
             np.power(x, -self.a) + np.power(y, -self.a) - 1,
             -1 / self.a)
@@ -125,7 +127,7 @@ class Gumbel(Copula):
         self.a = rho
 
     @no_divwarn
-    def __call__(self, x, y):
+    def eval(self, x, y):
         return np.exp(-np.power(
             np.power(-np.log(x), self.a) +
             np.power(-np.log(y), self.a),
@@ -142,7 +144,7 @@ class Frank(Copula):
         assert rho != 0
         self.a = rho
 
-    def __call__(self, x, y):
+    def eval(self, x, y):
         return (-1 / self.a) * np.log(1 +
             (np.exp(-self.a * x) - 1) *
             (np.exp(-self.a * y) - 1) /
@@ -163,5 +165,5 @@ class AkiMikhailHaq(Copula):
         assert rho >= -1
         self.rho = rho
 
-    def __call__(self, x, y):
+    def eval(self, x, y):
         return x * y / (1 - self.rho * (1 - x) * (1 - y))
