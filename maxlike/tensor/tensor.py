@@ -4,7 +4,7 @@ from .ctensor import *
 from random import getrandbits
 from array import array
 from six import with_metaclass
-from types import MethodType
+
 
 TENSOR_DTYPE = np.float64
 
