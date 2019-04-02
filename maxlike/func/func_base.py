@@ -230,7 +230,7 @@ class Compose(Func):
                              g.hess(params, i, j).drop_dim())
                 return h_val
             
-            self.hess = MethodType(hess, self)
+            self.hess = MethodType(matrix_func(hess), self)
 
     def __f_arg(self, params):
         return tuple([g.eval(params) for g in self.g_list])
