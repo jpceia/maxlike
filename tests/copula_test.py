@@ -4,17 +4,17 @@ import numpy as np
 import pandas as pd
 from maxlike import copula
 
+
 def normalize(u):
     return u / u.sum()
-
 
 
 class Test(unittest.TestCase):
     
     @staticmethod
     def _path(test_name):
-        data_folder = os.path.dirname(os.path.abspath(__file__)) + "/data/copula"
-        return "{}/{}.csv".format(data_folder, test_name)
+        data_folder = os.path.dirname(os.path.abspath(__file__))
+        return "{}/data/copula/{}.csv".format(data_folder, test_name)
 
     def setUp(self):
         f_xy = pd.read_csv(self._path("gaussian")).values
@@ -29,7 +29,7 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(f_xy.sum(1), self.f_x)
 
     def test_gaussian(self):
-        indep_xy = self.f_x[:, None] * self.f_y[None]
+        indep_xy = self.f_x[:, None] * self.f_y[None, :]
         f_xy = copula.Gaussian(rho=0)([self.f_x, self.f_y]).values
         np.testing.assert_allclose(f_xy, indep_xy)
         f_xy = copula.Gaussian(rho=0.5)([self.f_x, self.f_y]).values
@@ -44,7 +44,7 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(f_xy, xy_static)
 
     def test_gumbel(self):
-        indep_xy = self.f_x[:, None] * self.f_y[None]
+        indep_xy = self.f_x[:, None] * self.f_y[None, :]
         f_xy = copula.Gumbel(rho=1)([self.f_x, self.f_y]).values
         np.testing.assert_allclose(f_xy, indep_xy)
         
@@ -67,7 +67,7 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(f_xy, xy_static)
 
     def test_amh(self):
-        indep_xy = self.f_x[:, None] * self.f_y[None]
+        indep_xy = self.f_x[:, None] * self.f_y[None, :]
         f_xy = copula.AkiMikhailHaq(rho=0)([self.f_x, self.f_y]).values
         np.testing.assert_allclose(f_xy, indep_xy)
 
