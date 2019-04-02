@@ -148,12 +148,6 @@ class Func(with_metaclass(FuncMeta, object)):
     def eval(self, params):
         raise NotImplementedError
 
-    def grad(self, params, i):
-        raise NotImplementedError
-
-    def hess(self, params, i, j):
-        raise NotImplementedError
-
     def __add__(self, b):
         return Affine(self, 1, b)
 
