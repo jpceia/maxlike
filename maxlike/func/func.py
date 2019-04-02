@@ -6,10 +6,7 @@ from .func_base import Func, grad_tensor, hess_tensor, null_func
 class Linear(Func):
 
     def __init__(self, weight_list=None):
-        if weight_list is None:
-            weight_list = []
-        elif not isinstance(weight_list, (list, tuple)):
-            weight_list = [weight_list]
+        assert isinstance(weight_list, (list, tuple))
         self.weights = weight_list
 
     def eval(self, params):
@@ -24,9 +21,6 @@ class Linear(Func):
         return hess_tensor(np.zeros((1, ) *
             (np.asarray(params[j]).ndim + np.asarray(params[i]).ndim)),
             params, i, j)
-
-    def add_feature(self, weight):
-        self.weights.append(weight)
 
 
 class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
