@@ -45,20 +45,20 @@ class FuncWrap(Func):
         if isnull(foo.hess):
             self.hess = null_method(self)
 
+    def _expand(self, x):
+        return x.expand(self.feat_map, self.n_feat).flip(self.feat_flip).\
+                 expand(self.dim_map, self.n_dim, dim=True)
+
     def eval(self, params):
-        return self.foo.eval(self.param_map(params)).\
-            expand(self.feat_map, self.n_feat).flip(self.feat_flip).\
-            expand(self.dim_map, self.n_dim, dim=True)
+        return self._expand(self.foo.eval(self.param_map(params)))
 
     def grad(self, params, i):
         try:
             idx = self.param_map.index(i)
         except ValueError:
-            return Tensor()
+            return Tensor(0)
         else:
-            return self.foo.grad(self.param_map(params), idx).\
-                expand(self.feat_map, self.n_feat).flip(self.feat_flip).\
-                expand(self.dim_map, self.n_dim, dim=True)
+            return self._expand(self.foo.grad(self.param_map(params), idx))
 
     def hess(self, params, i, j):
         try:
@@ -67,10 +67,7 @@ class FuncWrap(Func):
         except ValueError:
             return Tensor(0)
         else:
-            return self.foo.hess(
-                self.param_map(params), idx, jdx).\
-                    expand(self.feat_map, self.n_feat).flip(self.feat_flip).\
-                    expand(self.dim_map, self.n_dim, dim=True)
+            return self._expand(self.foo.hess(self.param_map(params), idx, jdx))
 
 
 class Sum(Func):
