@@ -369,19 +369,8 @@ class Tensor(BaseTensor):
     def toarray(self):
         arr = self.values
         p = self.p1 + self.p2
-        for k, f in enumerate(self.p1_mapping):
-            if f >= 0:
-                idx = [None] * arr.ndim
-                idx[k] = slice(None)
-                idx[p + f] = slice(None)
-                arr = arr * np.eye(arr.shape[p + f])[tuple(idx)]
-
-        for k, f in enumerate(self.p2_mapping):
-            if f >= 0:
-                idx = [None] * arr.ndim
-                idx[self.p1 + k] = slice(None)
-                idx[p + f] = slice(None)
-                arr = arr * np.eye(arr.shape[p + f])[tuple(idx)]
+        arr = arr_expand_diag(arr,       0, p, self.p1_mapping)
+        arr = arr_expand_diag(arr, self.p1, p, self.p2_mapping)
         return arr
 
     def sum(self, sum_val=True, sum_dim=True):
@@ -723,9 +712,9 @@ class Tensor(BaseTensor):
                 return Tensor(
                     Tensor.lambda_op[op_type](
                         l_values[l_idx], r_values[r_idx]),
-                    p1=p1, p2=p2, dim=dim,
-                    p1_mapping=self.p1_mapping,
-                    p2_mapping=self.p2_mapping)
+                        p1=p1, p2=p2, dim=dim,
+                        p1_mapping=self.p1_mapping,
+                        p2_mapping=self.p2_mapping)
 
             # there are other cases where we can do merging
             # when the shape of one of the arrays 'contains' the other
@@ -748,7 +737,8 @@ class Tensor(BaseTensor):
 
         if self.p1_mapping:
             p1_mapping = self.p1_mapping
-            l_values = arr_expand_diag(l_values, p, self.p1_mapping, other.p1_mapping)
+            l_values = arr_expand_cross_diag(
+                l_values, p, self.p1_mapping, other.p1_mapping)
             if not other.p1_mapping and other.p1:
                 r_values = arr_take_diag(r_values, 0, other.p1 + other.p2,
                                          self.p1_mapping)
@@ -759,7 +749,8 @@ class Tensor(BaseTensor):
 
         if self.p2_mapping:
             p2_mapping = self.p2_mapping
-            l_values = arr_expand_diag(l_values, p, self.p2_mapping, other.p2_mapping)
+            l_values = arr_expand_cross_diag(
+                l_values, p, self.p2_mapping, other.p2_mapping)
             if not other.p2_mapping and other.p2: 
                 r_values = arr_take_diag(r_values, other.p1, other.p1 + other.p2,
                                          self.p2_mapping)

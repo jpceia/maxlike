@@ -20,7 +20,24 @@ cpdef np.ndarray arr_take_diag(np.ndarray arr, char q, char p, char[:] mapping):
     return arr
 
 
-cpdef np.ndarray arr_expand_diag(np.ndarray arr, char p, char[:] map1, char[:] map2):
+cpdef np.ndarray arr_expand_diag(np.ndarray arr, char q, char p, char[:] mapping):
+    cdef char k, f
+    cdef int n
+    cdef int[:] idx = np.ones(arr.ndim, dtype=np.int)
+    for k in range(len(mapping)):
+        f = mapping[k]
+        if f < 0:
+            continue
+        n = arr.shape[p + f]
+        idx[q + k] = n
+        idx[p + f] = n
+        arr = arr * np.eye(n).reshape(idx)
+        idx[q + k] = 1
+        idx[p + f] = 1
+    return arr
+
+
+cpdef np.ndarray arr_expand_cross_diag(np.ndarray arr, char p, char[:] map1, char[:] map2):
     cdef char i, j
     cdef int n
     cdef int[:] idx = np.ones(arr.ndim, dtype=np.int)
