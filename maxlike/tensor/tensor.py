@@ -4,6 +4,7 @@ from .ctensor import *
 from random import getrandbits
 from array import array
 from six import with_metaclass
+from enum import IntEnum
 
 
 TENSOR_DTYPE = np.float64
@@ -24,19 +25,29 @@ def set_dtype(s):
         TENSOR_DTYPE = s
 
 
+class TensorOp(IntEnum):
+    ADD = 0
+    SUB = 1
+    RSUB = 2
+    MUL = 3
+    DIV = 4
+    RDIV = 5
+    NEG = 6
+
+
 class BaseTensor(object, with_metaclass(abc.ABCMeta)):
 
     __slots__ = ['p1', 'p2', 'n', 'dim', 'hash']
 
-    lambda_op = {
-        'add': np.add,
-        'sub': np.subtract,
-        'rsub': lambda x, y: np.subtract(y, x),
-        'mul': np.multiply,
-        'div': np.divide,
-        'rdiv': lambda x, y: np.divide(y, x),
-        'neg': np.negative,
-    }
+    lambda_op = [
+        np.add,
+        np.subtract,
+        lambda x, y: np.subtract(y, x),
+        np.multiply,
+        np.divide,
+        lambda x, y: np.divide(y, x),
+        np.negative,
+    ]
 
     @abc.abstractmethod
     def __init__(self, p1=0, p2=0, n=0, dim=0):
@@ -94,34 +105,34 @@ class BaseTensor(object, with_metaclass(abc.ABCMeta)):
                (self.p1, self.p2, self.n, self.dim)
 
     def __add__(self, other):
-        return self.bin_op(other, "add")
+        return self.bin_op(other, TensorOp.ADD)
 
     def __radd__(self, other):
-        return self.bin_op(other, "add")
+        return self.bin_op(other, TensorOp.ADD)
 
     def __sub__(self, other):
-        return self.bin_op(other, "sub")
+        return self.bin_op(other, TensorOp.SUB)
 
     def __rsub__(self, other):
-        return self.bin_op(other, "rsub")
+        return self.bin_op(other, TensorOp.RSUB)
 
     def __mul__(self, other):
-        return self.bin_op(other, "mul")
+        return self.bin_op(other, TensorOp.MUL)
 
     def __rmul__(self, other):
-        return self.bin_op(other, "mul")
+        return self.bin_op(other, TensorOp.MUL)
 
     def __div__(self, other):
-        return self.bin_op(other, "div")
+        return self.bin_op(other, TensorOp.DIV)
 
     def __truediv__(self, other):
-        return self.bin_op(other, "div")
+        return self.bin_op(other, TensorOp.DIV)
 
     def __rdiv__(self, other):
-        return self.bin_op(other, "rdiv")
+        return self.bin_op(other, TensorOp.RDIV)
 
     def __rtruediv__(self, other):
-        return self.bin_op(other, "rdiv")
+        return self.bin_op(other, TensorOp.RDIV)
 
     def __setattr__(self, *ignored):
         raise NotImplementedError
@@ -280,7 +291,7 @@ class GenericTensor(BaseTensor):
         # Tensor
         if isinstance(other, Tensor):
             new_elements = list(self.elements)
-            if op_type in ["add", "sub"]:
+            if op_type in [TensorOp.ADD, TensorOp.SUB]:
                 for k, el in enumerate(new_elements):
                     new_el = el.bin_op(other, op_type)
                     if isinstance(new_el, Tensor):
@@ -288,24 +299,24 @@ class GenericTensor(BaseTensor):
                         break
                 else:
                     # other isn't coherent with any of the current elements
-                    if op_type == "add":
+                    if op_type == TensorOp.ADD:
                         new_elements.append(other)
-                    elif op_type == "sub":
+                    elif op_type == TensorOp.SUB:
                         new_elements.append(-other)
                     else:
                         raise ValueError
 
-            elif op_type == "rsub":
+            elif op_type == TensorOp.RSUB:
                 new_elements = [-el for el in new_elements]
                 for k, el in enumerate(new_elements):
-                    new_el = el.bin_op(other, "add")
+                    new_el = el.bin_op(other, TensorOp.ADD)
                     if isinstance(new_el, Tensor):
                         new_elements[k] = new_el
                         break
                 else:
                     new_elements.append(other)
 
-            elif op_type in ["mul", "div"]:
+            elif op_type in [TensorOp.MUL, TensorOp.DIV]:
                 for k, el in enumerate(new_elements):
                     new_elements[k] = el.bin_op(other, op_type)
             else:
@@ -315,13 +326,13 @@ class GenericTensor(BaseTensor):
 
         # GenericTensor
         if isinstance(other, GenericTensor):
-            if op_type in ["add", "sub"]:
+            if op_type in [TensorOp.ADD, TensorOp.SUB]:
                 gt = GenericTensor(self.p1, self.p2, self.n, self.dim,
                                    self.elements)
                 for el in other.elements:
                     gt = gt.bin_op(el, op_type)
                 return gt
-            elif op_type == "mul":
+            elif op_type == TensorOp.MUL:
                 gt = GenericTensor(p1, p2, n, dim)
                 for el in other.elements:
                     gt = gt + self * el
@@ -647,10 +658,10 @@ class Tensor(BaseTensor):
     def bin_op(self, other, op_type):
 
         if isinstance(other, GenericTensor):
-            if op_type in ["add", "mul"]:
+            if op_type in [TensorOp.ADD, TensorOp.MUL]:
                 new_op = op_type
-            elif op_type == "sub":
-                new_op = "rsub"
+            elif op_type == TensorOp.SUB:
+                new_op = TensorOp.RSUB
             else:
                 raise ValueError("Only +, -, * for T / GT operations")
 
@@ -706,7 +717,7 @@ class Tensor(BaseTensor):
         # --------------------------------------------------------------------
         # Addition and Subtraction
         # --------------------------------------------------------------------
-        if op_type in ["add", "sub", "rsub"]:
+        if op_type in [TensorOp.ADD, TensorOp.SUB, TensorOp.RSUB]:
             if (self.p1_mapping == other.p1_mapping) & \
                     (self.p2_mapping == other.p2_mapping):
                 return Tensor(
@@ -719,11 +730,11 @@ class Tensor(BaseTensor):
             # there are other cases where we can do merging
             # when the shape of one of the arrays 'contains' the other
 
-            if op_type == "add":
+            if op_type == TensorOp.ADD:
                 elements = [self, other]
-            elif op_type == "sub":
+            elif op_type ==  TensorOp.SUB:
                 elements = [self, -other]
-            elif op_type == "rsub":
+            elif op_type == TensorOp.RSUB:
                 elements = [-self, other]
             else:
                 raise ValueError
