@@ -242,8 +242,22 @@ class Compose(Func):
                              g.hess(params, i, j).drop_dim())
                              for k, g in enumerate(obj.g_list)))
                 return h_val
+
+            def eval(obj, params):
+                n = len(params)
+                g_val, g_grad, g_hess = zip(*(g.eval(params) for g in obj.g_list))
+                g_grad = [[d.drop_dim() for d in grad] for grad in g_grad]
+                val, f_grad, f_hess = obj.f.eval(g_val)
+                grad = [sum((f_grad[k].dot_left(d_k[i])
+                             for k, d_k in enumerate(g_grad)))
+                        for i in range(n)]
+                hess = [[sum((f_grad[k].dot_right(h_k[i][j].drop_dim())
+                              for k, h_k in enumerate(g_hess)))
+                         for j in range(i + 1)] for i in range(n)]
+                return val, grad, hess
             
             self.hess = MethodType(matrix_func(hess), self)
+            self.eval = MethodType(eval, self)
 
     def __call__(self, params):
         g_val = [g(params) for g in self.g_list]
