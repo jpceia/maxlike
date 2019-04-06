@@ -111,6 +111,12 @@ class Exp(Func):
     def hess(self, params, i, j):
         return hess_tensor(Exp.__val(params), params, i, j, True, True)
 
+    def eval(self, params):
+        f = Exp.__val(params)
+        return Tensor(f), \
+               [grad_tensor(f, params, 0, True)], \
+               [[hess_tensor(f, params, 0, 0, True, True)]]
+
 
 class Logistic(Func):
 
@@ -129,3 +135,11 @@ class Logistic(Func):
         f = Logistic.__val(params)
         return hess_tensor(f * (1 - f) * (1 - 2 * f),
                            params, i, j, True, True)
+
+    def eval(self, params):
+        f = Logistic.__val(params)
+        return Tensor(f),\
+               [grad_tensor(f * (1 - f), params, 0, True)], \
+               [[hess_tensor(f * (1 - f) * (1 - 2 * f),
+                             params, 0, 0, True, True)]]
+
