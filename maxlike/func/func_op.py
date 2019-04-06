@@ -135,6 +135,20 @@ class Sum(Func):
     def hess(self, params, i, j):
         return sum((w * atom.hess(params, i, j) for w, atom in self.atoms))
 
+    def eval(self, params):
+        n = len(params)
+        val = Tensor(0)
+        grad = [Tensor(0)] * n
+        hess = [[Tensor(0)] * (i + 1) for i in range(n)]
+        for w, atom in self.atoms:
+            atom_val, atom_grad, atom_hess = atom.eval(params)
+            val += w * atom_val
+            for i in range(n):
+                grad[i] += w * atom_grad[i]
+                for j in range(i + 1):
+                    hess[i][j] += w * atom_hess[i][j]
+        return val, grad, hess
+
 
 class Product(Func):
 
