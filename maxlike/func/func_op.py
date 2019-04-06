@@ -210,3 +210,21 @@ class Product(Func):
                          for l, a_l in enumerate(self.atoms) if k != l))
             hess += Product._prod(f_val, [k]) * a_k.hess(params, i, j)
         return hess
+
+    def eval(self, params):
+        n = len(params)
+        val = 1
+        grad = [Tensor(0)] * n
+        hess = [[Tensor(0)] * (i + 1) for i in range(n)]
+        for k, atom in enumerate(self.atoms):
+            atom_val, atom_grad, atom_hess = atom.eval(params)
+            for i in range(n):
+                for j in range(i + 1):
+                    hess[i][j] = val * atom_hess[i][j] + \
+                                 atom_val * hess[i][j] + \
+                                 grad[i] * atom_grad[j].transpose() + \
+                                 atom_grad[i] * grad[j].transpose()
+            for i in range(n):
+                grad[i] = val * atom_grad[i] + atom_val * grad[i]
+            val *= atom_val
+        return val, grad, hess
