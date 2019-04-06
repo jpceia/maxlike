@@ -50,23 +50,16 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
 
 class X(Func):
 
-    def __new__(cls, *args, **kwargs):
-        cls.hess = null_func
-        return super().__new__(cls)
-
     def __call__(self, params):
         return Tensor(params[0])
 
     def grad(self, params, i):
         return grad_tensor(np.ones_like(params[0]), params, i, True)
 
+    hess = null_func
+
 
 class Constant(Func):
-
-    def __new__(cls, *args, **kwargs):
-        cls.grad = null_func
-        cls.hess = null_func
-        return super().__new__(cls)
 
     def __init__(self, vector):
         self.vector = np.asarray(vector)
@@ -74,12 +67,11 @@ class Constant(Func):
     def __call__(self, params):
         return Tensor(self.vector)
 
+    grad = null_func
+    hess = null_func
+
 
 class Scalar(Func):
-
-    def __new__(cls, *args, **kwargs):
-        cls.hess = null_func
-        return super().__new__(cls)
 
     def __call__(self, params):
         return Tensor(params[0])
@@ -87,12 +79,10 @@ class Scalar(Func):
     def grad(self, params, i):
         return Tensor(1)
 
+    hess = null_func
+
 
 class Vector(Func):
-
-    def __new__(cls, *args, **kwargs):
-        cls.hess = null_func
-        return super().__new__(cls)
 
     def __init__(self, vector):
         self.vector = np.asarray(vector)
@@ -102,6 +92,8 @@ class Vector(Func):
 
     def grad(self, params, i):
         return grad_tensor(self.vector, params, i, None)
+
+    hess = null_func
 
 
 class Exp(Func):

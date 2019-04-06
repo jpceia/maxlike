@@ -74,9 +74,7 @@ class NegativeBinomial(Func):
 
 class CollapseMatrix(Func):
 
-    def __new__(cls, *args, **kwargs):
-        cls.hess = null_func
-        return super().__new__(cls)
+    hess = null_func
 
     def __init__(self, conditions=None):
         """
