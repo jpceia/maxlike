@@ -234,7 +234,7 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
     def test_zero_inflated_poisson(self):
-        mle = maxlike.ZeroInflatedPoisson(z=2)
+        mle = maxlike.ZeroInflatedPoisson(s=2)
         mle.model = Sum(3)
         mle.model.add(X(), 0, 0)
         mle.model.add(-X(), 1, 1)
