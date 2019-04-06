@@ -211,6 +211,13 @@ class Affine(Func):
     def hess(self, params, i, j):
         return self.a * self.base.hess(params, i, j)
 
+    def eval(self, params):
+        base_val, base_grad, base_hess = self.base.eval(params)
+        val = self.a * base_val + self.b
+        grad = self.a * grad_val
+        hess = self.a * hess_val
+        return val, grad, hess
+
 
 class Compose(Func):
 
