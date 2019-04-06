@@ -35,6 +35,17 @@ class Poisson(Func):
         vec = np.insert(vec[..., :-1], 0, 0, -1)
         return hess_tensor(vec, params, i, j, True, True, dim=1)
 
+    def eval(self, params):
+        a = np.asarray(params[0])
+        rng = np.arange(self.size)
+        vec = (a[..., None] ** rng) / factorial(rng)
+        val = Tensor(vec, dim=1)
+        vec = np.insert(vec[..., :-1], 0, 0, -1)
+        grad = grad_tensor(vec, params, 0, True, dim=1)
+        vec = np.insert(vec[..., :-1], 0, 0, -1)
+        hess = hess_tensor(vec, params, 0, 0, True, True, dim=1)
+        return val, [grad], [[hess]]
+
 
 class NegativeBinomial(Func):
 
