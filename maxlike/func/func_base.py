@@ -279,3 +279,29 @@ class Compose(Func):
             g_hess = g_k.hess(params, i, j).drop_dim()
             h_val += f_grad.dot_right(g_hess)
         return h_val
+
+
+    def eval(self, params):
+        g_val, g_grad, g_hess = zip(*(g.eval(params) for g in self.g_list))
+        g_grad = [[d.drop_dim() for d in grad] for grad in g_grad]
+        val, f_grad, f_hess = self.f.eval(g_val)
+        grad, hess = [], []
+
+        for i in range(len(params)):
+
+            grad.append(sum((
+                f_grad[k].dot_left(d_k[i])
+                for k, d_k in enumerate(g_grad))))
+
+            hess_line = []
+            for j in range(i + 1):
+                hess_ij = Tensor(0)
+                for k, (d_k, h_k) in enumerate(zip(g_grad, g_hess)):
+                    hess_ij += f_grad[k].dot_right(h_k[i][j].drop_dim())
+                    hess_ij += sum((
+                        f_hess[k][l].dot_left(d_k[i]).transpose().\
+                        dot_left(d_l[j]).transpose()
+                        for l, d_l in enumerate(g_grad)))
+                hess_line.append(hess_ij)
+            hess.append(hess_line)
+        return val, grad, hess
