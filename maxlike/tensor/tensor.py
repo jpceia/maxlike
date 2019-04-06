@@ -29,13 +29,13 @@ class BaseTensor(object, with_metaclass(abc.ABCMeta)):
     __slots__ = ['p1', 'p2', 'n', 'dim', 'hash']
 
     lambda_op = {
-        'add': lambda x, y: x + y,
-        'sub': lambda x, y: x - y,
-        'rsub': lambda x, y: y - x,
-        'mul': lambda x, y: x * y,
-        'div': lambda x, y: x / y,
-        'rdiv': lambda x, y: y / x,
-        'neg': lambda x: -x,
+        'add': np.add,
+        'sub': np.subtract,
+        'rsub': lambda x, y: np.subtract(y, x),
+        'mul': np.multiply,
+        'div': np.divide,
+        'rdiv': lambda x, y: np.divide(y, x),
+        'neg': np.negative,
     }
 
     @abc.abstractmethod
