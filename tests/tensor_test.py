@@ -15,18 +15,28 @@ class Test(unittest.TestCase):
         msg = "\nM1=\n{}\n\nM2=\n{}\n"
         self.assertTrue(np.allclose(m1, m2), msg.format(m1, m2))
 
-    def test_bin_op(self):
+    def setUp(self):
         n = 3
-        a = Tensor(np.arange(1, n * n + 1).reshape((n, n)))
-        b = Tensor(np.arange(n * n + 1, 2 * n * n + 1).reshape((n, n)))
-        a1 = Tensor(a.values[None, :, :], 1, 0, 0, array('b', [0]))
-        b1 = Tensor(b.values[None, :, :], 1, 0, 0, array('b', [0]))
-        b2 = Tensor(b.values[None, :, :], 1, 0, 0, array('b', [1]))
-        c1 = Tensor(np.arange(1, n * n * n + 1).reshape((n, n, n)), 1, 0, 0)
-        a12 = Tensor(a.values[None, None, :, :], 1, 1, 0,
-                     array('b', [0]), array('b', [1]))
-        b21 = Tensor(b.values[None, None, :, :], 1, 1, 0,
-                     array('b', [0]), array('b', [1]))
+        self.a = Tensor(np.arange(1, n * n + 1).reshape((n, n)))
+        self.b = Tensor(np.arange(n * n + 1, 2 * n * n + 1).reshape((n, n)))
+        self.a1 = Tensor(self.a.values[None, :, :], 1, 0, 0, array('b', [0]))
+        self.b1 = Tensor(self.b.values[None, :, :], 1, 0, 0, array('b', [0]))
+        self.b2 = Tensor(self.b.values[None, :, :], 1, 0, 0, array('b', [1]))
+        self.c1 = Tensor(np.arange(1, n * n * n + 1).reshape((n, n, n)), 1, 0, 0)
+        self.a12 = Tensor(self.a.values[None, None, :, :], 1, 1, 0,
+                          array('b', [0]), array('b', [1]))
+        self.b21 = Tensor(self.b.values[None, None, :, :], 1, 1, 0,
+                          array('b', [0]), array('b', [1]))
+
+    def test_bin_op(self):
+        a = self.a
+        b = self.b
+        a1 = self.a1
+        b1 = self.b1
+        b2 = self.b2
+        c1 = self.c1
+        a12 = self.a12
+        b21 = self.b21
 
         self.check_comm(lambda x: -x, a)
         self.check_comm(lambda x: -x, a1)
@@ -273,6 +283,26 @@ class Test(unittest.TestCase):
                 self.check_comm(*args)
             except ZeroDivisionError:
                 pass
+
+    def test_sum(self):
+        a = self.a
+        b = self.b
+        a1 = self.a1
+        b1 = self.b1
+        b2 = self.b2
+        c1 = self.c1
+        a12 = self.a12
+        b21 = self.b21
+
+        tensor_sum = lambda x: x.sum() if isinstance(x, BaseTensor) \
+                                       else x.sum((-1, -2)).transpose()
+        self.check_comm(tensor_sum, a)
+        self.check_comm(tensor_sum, a1)
+        self.check_comm(tensor_sum, c1)
+        self.check_comm(tensor_sum, a12)
+        self.check_comm(tensor_sum, a1 + b2)
+        self.check_comm(tensor_sum, a12 + b21)
+
 
 if __name__ == "__main__":
     unittest.main()
