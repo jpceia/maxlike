@@ -397,12 +397,13 @@ class Tensor(BaseTensor):
 
         val = arr_swapaxes(val, 0, p, self.p1_mapping)
         for k, f in enumerate(self.p2_mapping):
-            if f >= 0:
-                if self.p1_mapping and f in self.p1_mapping:
-                    k = self.p1_mapping.index(f)
-                    cross_map[k] = k
-                else:
-                    val = val.swapaxes(self.p1 + k, p + f)
+            if f < 0:
+                continue
+            if f in self.p1_mapping:
+                l = self.p1_mapping.index(f)
+                cross_map[l] = k
+            else:
+                val = val.swapaxes(self.p1 + k, p + f)
 
         if sum_dim is True:
             idx = tuple(p + np.arange(self.n + self.dim))
