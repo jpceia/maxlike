@@ -14,7 +14,7 @@ class Poisson(Func):
     def __init__(self, size=10):
         self.size = size
 
-    def eval(self, params):
+    def __call__(self, params):
         a = np.asarray(params[0])
         rng = np.arange(self.size)
         vec = (a[..., None] ** rng) / factorial(rng)
@@ -23,16 +23,16 @@ class Poisson(Func):
     def grad(self, params, i):
         a = np.asarray(params[0])
         rng = np.arange(self.size)
-        vec = ((a[..., None] ** rng) / factorial(rng))[..., :-1]
-        vec = np.insert(vec, 0, 0, -1)
+        vec = ((a[..., None] ** rng) / factorial(rng))
+        vec = np.insert(vec[..., :-1], 0, 0, -1)
         return grad_tensor(vec, params, i, True, dim=1)
 
     def hess(self, params, i, j):
         a = np.asarray(params[0])
         rng = np.arange(self.size)
-        vec = ((a[..., None] ** rng) / factorial(rng))[..., :-2]
-        vec = np.insert(vec, 0, 0, -1)
-        vec = np.insert(vec, 0, 0, -1)
+        vec = ((a[..., None] ** rng) / factorial(rng))
+        vec = np.insert(vec[..., :-1], 0, 0, -1)
+        vec = np.insert(vec[..., :-1], 0, 0, -1)
         return hess_tensor(vec, params, i, j, True, True, dim=1)
 
 
@@ -42,7 +42,7 @@ class NegativeBinomial(Func):
         self.size = size
         self.r = r
 
-    def eval(self, params):
+    def __call__(self, params):
         """
         exp(
             gammaln(r + x) - gammaln(r) - ln x! +
@@ -90,7 +90,7 @@ class CollapseMatrix(Func):
                 (1, -1, 0, -1),
             ]
 
-    def eval(self, params):
+    def __call__(self, params):
         """
         CollapseMatrix function assumes that there is just one param that is
         a Tensor with dim=2 (frame)

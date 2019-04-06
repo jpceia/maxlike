@@ -49,8 +49,8 @@ class FuncWrap(Func):
         return x.expand(self.feat_map, self.n_feat).flip(self.feat_flip).\
                  expand(self.dim_map, self.n_dim, dim=True)
 
-    def eval(self, params):
-        return self._expand(self.foo.eval(self.param_map(params)))
+    def __call__(self, params):
+        return self._expand(self.foo(self.param_map(params)))
 
     def grad(self, params, i):
         try:
@@ -126,8 +126,8 @@ class Sum(Func):
                     dim_map, self.n_dim)))
         return self
 
-    def eval(self, params):
-        return sum((w * atom.eval(params) for w, atom in self.atoms)) + self.b
+    def __call__(self, params):
+        return sum((w * atom(params) for w, atom in self.atoms)) + self.b
 
     def grad(self, params, i):
         return sum((w * atom.grad(params, i) for w, atom in self.atoms))
@@ -177,23 +177,22 @@ class Product(Func):
         except TypeError as err:
             return 1.0
 
-    def eval(self, params):
+    def __call__(self, params):
         return reduce(lambda x, y: x * y,
-                      (atom.eval(params) for atom in self.atoms))
+                      (atom(params) for atom in self.atoms))
 
     def grad(self, params, i):
-        f_val = [atom.eval(params) for atom in self.atoms]
+        f_val = [atom(params) for atom in self.atoms]
         return sum((Product._prod(f_val, [k]) * atom.grad(params, i)
                     for k, atom in enumerate(self.atoms)))
 
     def hess(self, params, i, j):
-        f_val = [atom.eval(params) for atom in self.atoms]
-        hess_val = 0
+        f_val = [atom(params) for atom in self.atoms]
+        hess = 0
         for k, a_k in enumerate(self.atoms):
-            hess_val += sum((Product._prod(f_val, [k, l]) *
-                             a_k.grad(params, i) *
-                             a_l.grad(params, j).transpose()
-                             for l, a_l in enumerate(self.atoms) if k != l))
-            hess_val += Product._prod(f_val, [k]) * a_k.hess(params, i, j)
-        return hess_val
-
+            hess += sum((Product._prod(f_val, [k, l]) *
+                         a_k.grad(params, i) *
+                         a_l.grad(params, j).transpose()
+                         for l, a_l in enumerate(self.atoms) if k != l))
+            hess += Product._prod(f_val, [k]) * a_k.hess(params, i, j)
+        return hess

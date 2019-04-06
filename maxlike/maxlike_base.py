@@ -68,10 +68,10 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         Objective function, to maximize.
         """
         if y is None:
-            y = self.model.eval(params)
+            y = self.model(params)
         g = self.like(params, y)
         for param_map, h in self.reg:
-            g -= h.eval([params[k] for k in param_map])
+            g -= h([params[k] for k in param_map])
         res = g / self.N.sum()
         return float(res)
 
@@ -263,7 +263,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
             grad_g = g.grad(args)
             for i, idx in enumerate(param_map):
                 grad[idx] += gamma * grad_g[i]
-                grad[n + k] = [g.eval(args)]
+                grad[n + k] = [g(args)]
 
         for param_map, h in self.reg:
             args = [params[k] for k in param_map]
@@ -347,9 +347,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
      
     def newton_step(self, params):
         
-        y = self.model.eval(params)
-        der = self.model.grad(params)
-        hess = self.model.hess(params)
+        y, der, hess = self.model.eval(params)
 
         g = self.g(params, y)
         lgrad = self.flat_grad(params, y, der)
@@ -416,7 +414,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
             if use_jac:
                 def opt_like(_flat_params):
                     params = self._reshape_params(_flat_params)
-                    y, der = self.model.eval(params), self.model.grad(params)
+                    y, der = self.model(params), self.model.grad(params)
                     jac = self.grad_like(params, y, der)
                     flat_jac = np.concatenate([
                         j.values[~p.mask] for j, p in zip(jac, self.params)])
@@ -484,7 +482,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
                     for _ in range(max_inner_steps):
                         new_flat_params = flat_params - mult * step
                         params = self._reshape_params(new_flat_params)
-                        g = self.g(params, self.model.eval(params))
+                        g = self.g(params, self.model(params))
                         if g >= prev_g:
                             flat_params = new_flat_params
                             break
@@ -511,12 +509,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
                     print(0, g)
 
                 try:
-                    y, der, hess = (
-                        self.model.eval(params),
-                        self.model.grad(params),
-                        self.model.hess(params)
-                    )
-                    
+                    y, der, hess = self.model.eval(params)
                     grad = self.flat_grad(params, y, der)
 
                     if not (self.converged and
@@ -547,7 +540,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
                             self.converged = True
                             return True
                         
-                        y, der = self.model.eval(params), self.model.grad(params)
+                        y, der = self.model(params), self.model.grad(params)
                         grad = self.flat_grad(params, y, der)
                         dgrad = grad - grad_prev
                         J += np.outer(step - np.dot(J, dgrad), dgrad) / \

@@ -69,7 +69,7 @@ def hess_tensor(values, params, i=0, j=0,
                   p1_mapping=p1_mapping, p2_mapping=p2_mapping)
 
 
-def eval_func(f):
+def call_func(f):
     #@lru_cache(None)
     @wraps(f)
     def wrapper(obj, params=None):
@@ -129,7 +129,7 @@ def not_implemented_foo(obj, *args, **kwargs):
 class FuncMeta(type):
 
     def __new__(cls, name, bases, attrs, **kwargs):
-        attrs['eval'] = eval_func(attrs['eval'])
+        call = call_func(attrs['__call__'])
         if 'grad' in attrs:
             grad = vector_func(attrs['grad'])
         else:
@@ -138,6 +138,13 @@ class FuncMeta(type):
             hess = matrix_func(attrs['hess'])
         else:
             hess = not_implemented_foo
+        if 'eval' not in attrs:
+            def eval_func(obj, params):
+                return attrs['__call__'](obj, params), \
+                       attrs['grad'](obj, params), \
+                       attrs['hess'](obj, params)
+            attrs['eval'] = eval_func
+        attrs['__call__'] = call
         attrs['grad'] = grad
         attrs['hess'] = hess
         return type.__new__(cls, name, bases, attrs, **kwargs)
@@ -145,7 +152,7 @@ class FuncMeta(type):
 
 class Func(with_metaclass(FuncMeta, object)):
 
-    def eval(self, params):
+    def __call__(self, params):
         raise NotImplementedError
 
     def __add__(self, b):
@@ -195,8 +202,8 @@ class Affine(Func):
             self.a = a
             self.b = b
 
-    def eval(self, params):
-        return self.a * self.base.eval(params) + self.b
+    def __call__(self, params):
+        return self.a * self.base(params) + self.b
 
     def grad(self, params, i):
         return self.a * self.base.grad(params, i)
@@ -223,29 +230,26 @@ class Compose(Func):
 
         elif isnull(f.hess):
             def hess(obj, params, i, j):
-                f_arg = obj.__f_arg(params)
-                h_val = Tensor(0)
-                for k, g in enumerate(obj.g_list):
-                    h_val += obj.f.grad(f_arg, k).dot_right(
+                g_val = [g(params) for g in obj.g_list]
+                h_val = sum((obj.f.grad(g_val, k).dot_right(
                              g.hess(params, i, j).drop_dim())
+                             for k, g in enumerate(obj.g_list)))
                 return h_val
             
             self.hess = MethodType(matrix_func(hess), self)
 
-    def __f_arg(self, params):
-        return tuple([g.eval(params) for g in self.g_list])
-
-    def eval(self, params):
-        return self.f.eval(self.__f_arg(params))
+    def __call__(self, params):
+        g_val = [g(params) for g in self.g_list]
+        return self.f(g_val)
 
     def grad(self, params, i):
-        f_arg = self.__f_arg(params)
-        return sum([self.f.grad(f_arg, k).\
+        g_val = [g(params) for g in self.g_list]
+        return sum([self.f.grad(g_val, k).\
                     dot_left(g.grad(params, i).drop_dim())
                     for k, g in enumerate(self.g_list)])
 
     def hess(self, params, i, j):
-        f_arg = self.__f_arg(params)
+        g_val = [g(params) for g in self.g_list]
         h_val = Tensor(0)
         dg_i = []
         dg_j = []
@@ -261,10 +265,10 @@ class Compose(Func):
 
         for k, g_k in enumerate(self.g_list):
             for l, g_l in enumerate(self.g_list):
-                f_hess = self.f.hess(f_arg, k, l)
+                f_hess = self.f.hess(g_val, k, l)
                 h_val += f_hess.dot_left(dg_i[k]).transpose().\
                                 dot_left(dg_j[l]).transpose()
-            f_grad = self.f.grad(f_arg, k)
+            f_grad = self.f.grad(g_val, k)
             g_hess = g_k.hess(params, i, j).drop_dim()
             h_val += f_grad.dot_right(g_hess)
         return h_val
