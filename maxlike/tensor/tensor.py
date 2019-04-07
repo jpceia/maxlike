@@ -11,6 +11,10 @@ from enum import Enum
 TENSOR_DTYPE = np.float64
 
 
+class InvalidOperation(Exception):
+    """Exception to indicate an invalid operation for Tensors"""
+
+
 def set_dtype(s):
     global TENSOR_DTYPE
     if isinstance(s, str):
@@ -27,6 +31,7 @@ def set_dtype(s):
 
 
 class TensorOp(Enum):
+    ID = partial(lambda x: x)
     RSUB = partial(lambda x, y: np.subtract(y, x))
     RDIV = partial(lambda x, y: np.divide(y, x))
     ADD = np.add
@@ -298,7 +303,7 @@ class GenericTensor(BaseTensor):
                     elif op_type == TensorOp.SUB:
                         new_elements.append(-other)
                     else:
-                        raise ValueError
+                        raise InvalidOperation
 
             elif op_type == TensorOp.RSUB:
                 new_elements = [-el for el in new_elements]
@@ -314,7 +319,7 @@ class GenericTensor(BaseTensor):
                 for k, el in enumerate(new_elements):
                     new_elements[k] = el.bin_op(other, op_type)
             else:
-                raise ValueError
+                raise InvalidOperation
 
             return GenericTensor(p1, p2, n, dim, new_elements)
 
@@ -332,7 +337,7 @@ class GenericTensor(BaseTensor):
                     gt = gt + self * el
                 return gt
             else:
-                raise ValueError
+                raise InvalidOperation
 
         raise ValueError
 
@@ -658,8 +663,7 @@ class Tensor(BaseTensor):
             elif op_type == TensorOp.SUB:
                 new_op = TensorOp.RSUB
             else:
-                raise ValueError("Only +, -, * for T / GT operations")
-
+                raise InvalidOperation("Only +, -, * for T / GT operations")
             return other.bin_op(self, new_op)
 
         if isinstance(other, (int, float)):
@@ -675,7 +679,7 @@ class Tensor(BaseTensor):
                 elif op_type == TensorOp.DIV:
                     raise ZeroDivisionError
                 else:
-                    raise InvalidOperationError
+                    raise InvalidOperation
 
             # special case: 1
             elif other == 1:
@@ -694,7 +698,7 @@ class Tensor(BaseTensor):
                     p1_mapping=self.p1_mapping,
                     p2_mapping=self.p2_mapping)
             else:
-                raise InvalidOperationError
+                raise InvalidOperation
 
         if isinstance(other, np.ndarray):
             idx = [None] * (self.p1 + self.p2) + [...] + [None] * self.dim
