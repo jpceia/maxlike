@@ -271,15 +271,19 @@ class GenericTensor(BaseTensor):
         # Array
         #  -> are converted to tensor
         if isinstance(other, (int, float, np.ndarray)):
-            return self.bin_op(Tensor(other), op_type)
+            p1 = self.p1
+            p2 = self.p2
+            n = self.n
+            dim = self.dim
 
-        p1 = max(self.p1, other.p1)
-        p2 = max(self.p2, other.p2)
-        n = max(self.n, other.n)
-        dim = max(self.dim, other.dim)
+        else:
+            p1 = max(self.p1, other.p1)
+            p2 = max(self.p2, other.p2)
+            n = max(self.n, other.n)
+            dim = max(self.dim, other.dim)
 
         # Tensor
-        if isinstance(other, Tensor):
+        if isinstance(other, (int, float, np.ndarray, Tensor)):
             new_elements = list(self.elements)
             if op_type in [TensorOp.ADD, TensorOp.SUB]:
                 for k, el in enumerate(new_elements):
@@ -495,7 +499,7 @@ class Tensor(BaseTensor):
 
     def transpose(self):
         val = self.values
-        if (self.p1 != 0) & (self.p2 != 0):
+        if (self.p1 > 0) & (self.p2 > 0):
             for k in range(0, self.p1):
                 val = np.moveaxis(val, self.p1, k)
         return Tensor(val, self.p2,  self.p1, self.dim,
@@ -659,11 +663,38 @@ class Tensor(BaseTensor):
             return other.bin_op(self, new_op)
 
         if isinstance(other, (int, float)):
-            return Tensor(
-                op_type.value(self.values, other),
-                p1=self.p1, p2=self.p2, dim=self.dim,
-                p1_mapping=self.p1_mapping,
-                p2_mapping=self.p2_mapping)
+
+            # special case: 0
+            if other == 0:
+                if op_type in [TensorOp.ADD, TensorOp.SUB]:
+                    return self
+                elif op_type in [TensorOp.RSUB]:
+                    return -self
+                elif op_type in [TensorOp.MUL, TensorOp.RDIV]:
+                    return Tensor(0)
+                elif op_type == TensorOp.DIV:
+                    raise ZeroDivisionError
+                else:
+                    raise InvalidOperationError
+
+            # special case: 1
+            elif other == 1:
+                if op_type in [TensorOp.MUL, TensorOp.DIV]:
+                    return self
+
+            if op_type in [TensorOp.ADD, TensorOp.SUB, TensorOp.RSUB]:
+                return Tensor(
+                    op_type.value(self.toarray(), other),
+                    p1=self.p1, p2=self.p2, dim=self.dim)
+
+            elif op_type in [TensorOp.MUL, TensorOp.DIV, TensorOp.RDIV]:
+                return Tensor(
+                    op_type.value(self.values, other),
+                    p1=self.p1, p2=self.p2, dim=self.dim,
+                    p1_mapping=self.p1_mapping,
+                    p2_mapping=self.p2_mapping)
+            else:
+                raise InvalidOperationError
 
         if isinstance(other, np.ndarray):
             idx = [None] * (self.p1 + self.p2) + [...] + [None] * self.dim
