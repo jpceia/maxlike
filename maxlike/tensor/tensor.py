@@ -4,7 +4,8 @@ from .ctensor import *
 from random import getrandbits
 from array import array
 from six import with_metaclass
-from enum import IntEnum
+from functools import partial
+from enum import Enum
 
 
 TENSOR_DTYPE = np.float64
@@ -25,31 +26,20 @@ def set_dtype(s):
         TENSOR_DTYPE = s
 
 
-class TensorOp(IntEnum):
-    ADD = 0
-    SUB = 1
-    RSUB = 2
-    MUL = 3
-    DIV = 4
-    RDIV = 5
-    NEG = 6
+class TensorOp(Enum):
+    RSUB = partial(lambda x, y: np.subtract(y, x))
+    RDIV = partial(lambda x, y: np.divide(y, x))
+    ADD = np.add
+    SUB = np.subtract
+    MUL = np.multiply
+    DIV = np.divide
+    NEG = np.negative
 
 
 class BaseTensor(object, with_metaclass(abc.ABCMeta)):
 
     __slots__ = ['p1', 'p2', 'n', 'dim', 'hash']
 
-    lambda_op = [
-        np.add,
-        np.subtract,
-        lambda x, y: np.subtract(y, x),
-        np.multiply,
-        np.divide,
-        lambda x, y: np.divide(y, x),
-        np.negative,
-    ]
-
-    @abc.abstractmethod
     def __init__(self, p1=0, p2=0, n=0, dim=0):
         assert p1 >= 0
         assert p2 >= 0
@@ -670,7 +660,7 @@ class Tensor(BaseTensor):
 
         if isinstance(other, (int, float)):
             return Tensor(
-                Tensor.lambda_op[op_type](self.values, other),
+                op_type.value(self.values, other),
                 p1=self.p1, p2=self.p2, dim=self.dim,
                 p1_mapping=self.p1_mapping,
                 p2_mapping=self.p2_mapping)
@@ -678,19 +668,19 @@ class Tensor(BaseTensor):
         if isinstance(other, np.ndarray):
             idx = [None] * (self.p1 + self.p2) + [...] + [None] * self.dim
             return Tensor(
-                Tensor.lambda_op[op_type](self.values, other[tuple(idx)]),
+                op_type.value(self.values, other[tuple(idx)]),
                 p1=self.p1, p2=self.p2, dim=self.dim,
                 p1_mapping=self.p1_mapping,
                 p2_mapping=self.p2_mapping)
 
         if other.values.ndim == 0:
             return Tensor(
-                Tensor.lambda_op[op_type](self.values, other.values),
+                op_type.value(self.values, other.values),
                 self.p1, self.p2, self.dim, self.p1_mapping, self.p2_mapping)
         
         if self.values.ndim == 0:
             return Tensor(
-                Tensor.lambda_op[op_type](self.values, other.values),
+                op_type.value(self.values, other.values),
                 other.p1, other.p2, other.dim, other.p1_mapping, other.p2_mapping)
 
         # l_idx and r_idx could be defined
@@ -722,11 +712,10 @@ class Tensor(BaseTensor):
             if (self.p1_mapping == other.p1_mapping) & \
                     (self.p2_mapping == other.p2_mapping):
                 return Tensor(
-                    Tensor.lambda_op[op_type](
-                        l_values[l_idx], r_values[r_idx]),
-                        p1=p1, p2=p2, dim=dim,
-                        p1_mapping=self.p1_mapping,
-                        p2_mapping=self.p2_mapping)
+                    op_type.value(l_values[l_idx], r_values[r_idx]),
+                    p1=p1, p2=p2, dim=dim,
+                    p1_mapping=self.p1_mapping,
+                    p2_mapping=self.p2_mapping)
 
             # there are other cases where we can do merging
             # when the shape of one of the arrays 'contains' the other
@@ -772,7 +761,7 @@ class Tensor(BaseTensor):
                 l_values = arr_take_diag(l_values, self.p1, p, other.p2_mapping)
 
         return Tensor(
-            Tensor.lambda_op[op_type](l_values[l_idx], r_values[r_idx]),
+            op_type.value(l_values[l_idx], r_values[r_idx]),
             p1=p1, p2=p2, dim=dim,
             p1_mapping=p1_mapping,
             p2_mapping=p2_mapping)
