@@ -1,3 +1,5 @@
+#cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
+import cython
 import numpy as np
 cimport numpy as np
 from array import array
@@ -76,9 +78,9 @@ cpdef np.ndarray arr_swapaxes(np.ndarray arr, char q, char p, char[:] mapping):
     return arr
 
 
-cdef np.ndarray arr_swapaxes_cross(np.ndarray arr, char p, char[:] map1, char[:] map2):
+cpdef np.ndarray arr_swapaxes_cross(np.ndarray arr, char p, char[:] map1, char[:] map2):
     cdef char k, f, l
-    cdef int N = len(map1)
+    cdef size_t N = len(map1)
     cdef int n
     cdef int[:] idx = np.ones(arr.ndim, dtype=np.int)
     for k in range(len(map2)):
