@@ -201,10 +201,9 @@ class GenericTensor(BaseTensor):
             [el.expand(xmap, newsize, dim) for el in self.elements])
 
     def flip(self, xmap, dim=False):
-        gt = GenericTensor()
-        for el in self.elements:
-            gt = gt + el.flip(xmap, dim)
-        return gt
+        return GenericTensor(
+            self.p1, self.p2, self.n, self.dim,
+            [el.flip(xmap, dim) for el in self.elements])
 
     def transpose(self):
         return GenericTensor(
