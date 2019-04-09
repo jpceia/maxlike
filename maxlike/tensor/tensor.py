@@ -260,9 +260,6 @@ class GenericTensor(BaseTensor):
 
         raise ValueError
 
-    def __len__(self):
-        return len(self.elements)
-
     def __neg__(self):
         return GenericTensor(
             self.p1, self.p2, self.n, self.dim,
@@ -338,8 +335,6 @@ class GenericTensor(BaseTensor):
 
         raise ValueError
 
-    def __getitem__(self, i):
-        return self.elements[i]
 
 
 class Tensor(BaseTensor):
