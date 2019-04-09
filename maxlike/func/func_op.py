@@ -43,7 +43,21 @@ class FuncWrap(Func):
             self.grad = null_method(self)
 
         if isnull(foo.hess):
+            def eval(obj, params):
+                foo_val, foo_grad, foo_hess = foo.eval(obj.param_map(params))
+                val = obj._expand(foo_val)
+                n = len(params)
+                grad = []
+                hess = [[Tensor(0)] * (i + 1) for i in range(n)]
+                for i in range(n):
+                    try:
+                        grad.append(obj._expand(foo_grad[obj.param_map.index(i)]))
+                    except ValueError:
+                        grad.append(Tensor(0))
+                return val, grad, hess
+
             self.hess = null_method(self)
+            self.eval = MethodType(eval, self)
 
     def _expand(self, x):
         return x.expand(self.feat_map, self.n_feat).flip(self.feat_flip).\
@@ -54,20 +68,44 @@ class FuncWrap(Func):
 
     def grad(self, params, i):
         try:
-            idx = self.param_map.index(i)
+            return self._expand(
+                self.foo.grad(self.param_map(params),
+                              self.param_map.index(i)))
         except ValueError:
             return Tensor(0)
-        else:
-            return self._expand(self.foo.grad(self.param_map(params), idx))
 
     def hess(self, params, i, j):
         try:
-            idx = self.param_map.index(i)
-            jdx = self.param_map.index(j)
+            return self._expand(
+                self.foo.hess(self.param_map(params),
+                              self.param_map.index(i),
+                              self.param_map.index(j)))
         except ValueError:
             return Tensor(0)
-        else:
-            return self._expand(self.foo.hess(self.param_map(params), idx, jdx))
+
+    def eval(self, params):
+        foo_val, foo_grad, foo_hess = self.foo.eval(self.param_map(params))
+        val = self._expand(foo_val)
+        grad, hess = [], []
+        idx_list = []
+        for i in range(len(params)):
+            try:
+                idx = self.param_map.index(i)
+                grad.append(self._expand(foo_grad[idx]))
+                hess_line = []
+                for j in range(i):
+                    jdx = idx_list[j]
+                    hess_line.append(
+                        Tensor(0) if jdx is None else
+                        self._expand(foo_hess[idx][jdx]))
+                hess_line.append(self._expand(foo_hess[idx][idx]))  # for diag
+                hess.append(hess_line)
+            except ValueError:
+                idx = None
+                grad.append(Tensor(0))
+                hess.append([Tensor(0)] * (i + 1))
+            idx_list.append(idx)
+        return val, grad, hess
 
 
 class Sum(Func):
