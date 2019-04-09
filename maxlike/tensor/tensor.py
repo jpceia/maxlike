@@ -807,14 +807,31 @@ class Tensor(BaseTensor):
             raise ValueError
         return float(self.values)
 
-    def __array__(self):
+    def __array__(self, *args, **kwargs):
         return self.values
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        if (self.p1 > 0) | (self.p2 > 0):
-            return ufunc(self.values, *inputs)
-        values = ufunc(self.values)
-        return Tensor(values, p1=0, p2=0, dim=self.dim)
+        name = ufunc.__name__
+
+        if name in ("exp", "log", "gamma"):
+            if (self.p1 > 0) | (self.p2 > 0):
+                raise InvalidOperation(
+                    "Unary ufuncs only supported for Tensor" +
+                    "for p1 == p2 == 0")
+            return Tensor(ufunc(self.values), p1=0, p2=0, dim=self.dim)
+        
+        x = inputs[0]
+        try:
+            op_type = {
+                'add': TensorOp.ADD,
+                'subtract': TensorOp.RSUB,
+                'multiply': TensorOp.MUL,
+                'true_divide': TensorOp.RDIV,
+                'divide': TensorOp.RDIV,
+            }[name]
+        except:
+            raise InvalidOperation('Invalid ufunc:', name)
+        return self.bin_op(x, op_type)
 
     def __reshape_idx(self, p1, p2, n, dim):
         idx = []
