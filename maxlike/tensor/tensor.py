@@ -165,21 +165,19 @@ class GenericTensor(BaseTensor):
         if not sum_dim:
             i1 = self.dim
 
-        shape_n = np.zeros(i1 - i0, dtype=np.int)
-        sizes = np.zeros(len(self.elements), dtype=np.int)
+        shape_n = np.ones(i1 - i0, dtype=np.int)
+        el_sizes = np.empty(len(self.elements), dtype=np.int)
         for k, el in enumerate(self.elements):
             p = el.p1 + el.p2
-            el_size = 1
-            for i, u in enumerate(el.values.shape[p + i0:p + i1]):
-                el_size *= u
-                shape_n[i] = max(shape_n[i], u)
-            sizes[k] = el_size
+            shape = el.values.shape[p + i0:p + i1]
+            shape_n = np.maximum(shape_n, shape)
+            el_sizes[k] = np.array(shape).prod()
 
         size = shape_n.prod()
 
         if sum_val:
             values = 0
-            for el, el_size in zip(self.elements, sizes):
+            for el, el_size in zip(self.elements, el_sizes):
                 idx = []
                 idx += [None] * (self.p1 - el.p1) + [slice(None)] * el.p1
                 idx += [None] * (self.p2 - el.p2) + [slice(None)] * el.p2
@@ -192,7 +190,7 @@ class GenericTensor(BaseTensor):
 
         #else:
         new_elements = [el.sum(False, sum_dim) * (size / el_size)
-                        for el, el_size in zip(self.elements, sizes)]
+                        for el, el_size in zip(self.elements, el_sizes)]
         return GenericTensor(self.p1, self.p2, self.n, 0, new_elements)
 
     def expand(self, xmap, newsize, dim=False):
