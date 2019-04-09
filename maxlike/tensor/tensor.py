@@ -149,7 +149,8 @@ class GenericTensor(BaseTensor):
         object.__setattr__(self, 'elements', tuple(elements))
 
     def toarray(self):
-        return sum([el.toarray() for el in self.elements])
+        return sum([el.toarray() if isinstance(el, Tensor) else el
+                    for el in self.elements])
 
     def sum(self, sum_val=True, sum_dim=True):
         # considers the impact of broadcasting
