@@ -95,9 +95,9 @@ class BaseTensor(object, with_metaclass(abc.ABCMeta)):
     def __hash__(self):
         return self.hash
 
-    def shape(self):
-        return "(%d|%d|%d|%d)" % \
-               (self.p1, self.p2, self.n, self.dim)
+    def __str__(self):
+        return "[{}, {}, {}, {}]".format(
+            self.p1, self.p2, self.n, self.dim)
 
     def __add__(self, other):
         return self.bin_op(other, TensorOp.ADD)
@@ -793,15 +793,6 @@ class Tensor(BaseTensor):
             p1=p1, p2=p2, dim=dim,
             p1_mapping=p1_mapping,
             p2_mapping=p2_mapping)
-
-    def __str__(self):
-        s = str(self.values)
-        s += "\nshape: "
-        s += str((self.p1, self.p2, self.n, self.dim))
-        return s
-
-    def __repr__(self):  # just displays the shape
-        return repr(self.values)
 
     def __float__(self):
         if self.values.ndim > 0:
