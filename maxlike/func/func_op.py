@@ -108,6 +108,27 @@ class FuncWrap(Func):
         return val, grad, hess
 
 
+class CollapseDim(Func):
+
+    def __init__(self, foo):
+        self.foo = foo
+
+    def __call__(self, params):
+        return self.foo(params).sum(sum_dim=True)
+
+    def grad(self, params, i):
+        return self.foo.grad(params, i).sum(sum_dim=True)
+
+    def hess(self, params, i, j):
+        return self.foo.hess(params, i, j).sum(sum_dim=True)
+
+    def eval(self):
+        val, grad, hess = self.foo.eval(params)
+        return val.sum(sum_dim=True), \
+               [d.sum(sum_dim=True) for d in grad], \
+               [[h.sum(sum_dim=True) for h in h_line] for h_line in hess]
+
+
 class Sum(Func):
 
     def __init__(self, n_feat, n_dim=0):
