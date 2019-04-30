@@ -90,7 +90,7 @@ cpdef np.ndarray arr_swapaxes_cross(np.ndarray arr, char p, char[:] map1, char[:
                 n = arr.shape[k]
                 idx[l] = n
                 idx[p + k] = n
-                val = val * np.broadcast_to(np.eye(n), idx)
+                arr = arr * np.broadcast_to(np.eye(n), idx)
                 idx[l] = 1
                 idx[p + k] = 1
                 break
