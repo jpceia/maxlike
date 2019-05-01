@@ -805,7 +805,9 @@ class Tensor(BaseTensor):
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         name = ufunc.__name__
 
-        if name in ("exp", "log", "gamma"):
+        if name in (
+            "exp", "log", "gamma",
+            "expit", "logit", "tanh", "arctan"):
             if (self.p1 > 0) | (self.p2 > 0):
                 raise InvalidOperation(
                     "Unary ufuncs only supported for Tensor" +
