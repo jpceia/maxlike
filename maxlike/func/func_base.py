@@ -214,8 +214,8 @@ class Affine(Func):
     def eval(self, params):
         base_val, base_grad, base_hess = self.base.eval(params)
         val = self.a * base_val + self.b
-        grad = self.a * grad_val
-        hess = self.a * hess_val
+        grad = [self.a * d for d in base_grad]
+        hess = [[self.a * h for h in h_line] for h_line in base_hess]
         return val, grad, hess
 
 
