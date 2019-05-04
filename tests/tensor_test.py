@@ -69,6 +69,16 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y: x * y, a, 1)
         self.check_comm(lambda x, y: x / y, a, 1)
 
+        self.check_comm(lambda x, y: x + y, a, 2)
+        self.check_comm(lambda x, y: x - y, a, 2)
+        self.check_comm(lambda x, y: x * y, a, 2)
+        self.check_comm(lambda x, y: x / y, a, 2)
+
+        self.check_comm(lambda x, y: x + y, a, b.values)
+        self.check_comm(lambda x, y: x - y, a, b.values)
+        self.check_comm(lambda x, y: x * y, a, b.values)
+        self.check_comm(lambda x, y: x / y, a, b.values)
+
         self.check_comm(lambda x, y: x + y, 0, b)
         self.check_comm(lambda x, y: x - y, 0, b)
         self.check_comm(lambda x, y: x * y, 0, b)
@@ -78,6 +88,16 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y: x - y, 1, b)
         self.check_comm(lambda x, y: x * y, 1, b)
         self.check_comm(lambda x, y: x / y, 1, b)
+
+        self.check_comm(lambda x, y: x + y, 2, b)
+        self.check_comm(lambda x, y: x - y, 2, b)
+        self.check_comm(lambda x, y: x * y, 2, b)
+        self.check_comm(lambda x, y: x / y, 2, b)
+
+        self.check_comm(lambda x, y: x + y, a.values, b)
+        self.check_comm(lambda x, y: x - y, a.values, b)
+        self.check_comm(lambda x, y: x * y, a.values, b)
+        self.check_comm(lambda x, y: x / y, a.values, b)
 
         self.check_comm(lambda x, y: x + y, a1, b)
         self.check_comm(lambda x, y: x - y, a1, b)
@@ -93,6 +113,16 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y: x * y, a1, 1)
         self.check_comm(lambda x, y: x / y, a1, 1)
 
+        self.check_comm(lambda x, y: x + y, a1, 2)
+        self.check_comm(lambda x, y: x - y, a1, 2)
+        self.check_comm(lambda x, y: x * y, a1, 2)
+        self.check_comm(lambda x, y: x / y, a1, 2)
+
+        self.check_comm(lambda x, y: x + y, a1, b.values)
+        self.check_comm(lambda x, y: x - y, a1, b.values)
+        self.check_comm(lambda x, y: x * y, a1, b.values)
+        self.check_comm(lambda x, y: x / y, a1, b.values)
+
         self.check_comm(lambda x, y: x + y, a, b1)
         self.check_comm(lambda x, y: x - y, a, b1)
         self.check_comm(lambda x, y: x * y, a, b1)
@@ -105,6 +135,14 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y: x - y, 1, b1)
         self.check_comm(lambda x, y: x * y, 1, b1)
 
+        self.check_comm(lambda x, y: x + y, 2, b1)
+        self.check_comm(lambda x, y: x - y, 2, b1)
+        self.check_comm(lambda x, y: x * y, 2, b1)
+
+        self.check_comm(lambda x, y: x + y, a.values, b1)
+        self.check_comm(lambda x, y: x - y, a.values, b1)
+        self.check_comm(lambda x, y: x * y, a.values, b1)
+
         self.check_comm(lambda x, y: x + y, a, c1)
         self.check_comm(lambda x, y: x - y, a, c1)
         self.check_comm(lambda x, y: x * y, a, c1)
@@ -116,6 +154,14 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y: x + y, 1, c1)
         self.check_comm(lambda x, y: x - y, 1, c1)
         self.check_comm(lambda x, y: x * y, 1, c1)
+
+        self.check_comm(lambda x, y: x + y, 2, c1)
+        self.check_comm(lambda x, y: x - y, 2, c1)
+        self.check_comm(lambda x, y: x * y, 2, c1)
+
+        self.check_comm(lambda x, y: x + y, a.values, c1)
+        self.check_comm(lambda x, y: x - y, a.values, c1)
+        self.check_comm(lambda x, y: x * y, a.values, c1)
 
         self.check_comm(lambda x, y: x + y, a1, b1)
         self.check_comm(lambda x, y: x - y, a1, b1)
@@ -143,6 +189,16 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y: x * y, a12, 1)
         self.check_comm(lambda x, y: x / y, a12, 1)
 
+        self.check_comm(lambda x, y: x + y, a12, 2)
+        self.check_comm(lambda x, y: x - y, a12, 2)
+        self.check_comm(lambda x, y: x * y, a12, 2)
+        self.check_comm(lambda x, y: x / y, a12, 2)
+
+        self.check_comm(lambda x, y: x + y, a12, a.values)
+        self.check_comm(lambda x, y: x - y, a12, a.values)
+        self.check_comm(lambda x, y: x * y, a12, a.values)
+        self.check_comm(lambda x, y: x / y, a12, a.values)
+
         self.check_comm(lambda x, y: x + y, a, b21)
         self.check_comm(lambda x, y: x - y, a, b21)
         self.check_comm(lambda x, y: x * y, a, b21)
@@ -154,6 +210,14 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y: x + y, 1, b21)
         self.check_comm(lambda x, y: x - y, 1, b21)
         self.check_comm(lambda x, y: x * y, 1, b21)
+
+        self.check_comm(lambda x, y: x + y, 2, b21)
+        self.check_comm(lambda x, y: x - y, 2, b21)
+        self.check_comm(lambda x, y: x * y, 2, b21)
+
+        self.check_comm(lambda x, y: x + y, a.values, b21)
+        self.check_comm(lambda x, y: x - y, a.values, b21)
+        self.check_comm(lambda x, y: x * y, a.values, b21)
 
         self.check_comm(lambda x, y: x + y, a12, a12)
         self.check_comm(lambda x, y: x - y, a12, a12)
@@ -174,6 +238,16 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y, z: (x + y) * z, a, b, 1)
         self.check_comm(lambda x, y, z: (x + y) / z, a, b, 1)
 
+        self.check_comm(lambda x, y, z: (x + y) + z, a, b, 2)
+        self.check_comm(lambda x, y, z: (x + y) - z, a, b, 2)
+        self.check_comm(lambda x, y, z: (x + y) * z, a, b, 2)
+        self.check_comm(lambda x, y, z: (x + y) / z, a, b, 2)
+
+        self.check_comm(lambda x, y, z: (x + y) + z, a, b, a.values)
+        self.check_comm(lambda x, y, z: (x + y) - z, a, b, a.values)
+        self.check_comm(lambda x, y, z: (x + y) * z, a, b, a.values)
+        self.check_comm(lambda x, y, z: (x + y) / z, a, b, a.values)
+
         self.check_comm(lambda x, y, z: (x + y) + z, a1, b2, a)
         self.check_comm(lambda x, y, z: (x + y) - z, a1, b2, a)
         self.check_comm(lambda x, y, z: (x + y) * z, a1, b2, a)
@@ -187,6 +261,16 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y, z: (x + y) - z, a1, b2, 1)
         self.check_comm(lambda x, y, z: (x + y) * z, a1, b2, 1)
         self.check_comm(lambda x, y, z: (x + y) / z, a1, b2, 1)
+
+        self.check_comm(lambda x, y, z: (x + y) + z, a1, b2, 2)
+        self.check_comm(lambda x, y, z: (x + y) - z, a1, b2, 2)
+        self.check_comm(lambda x, y, z: (x + y) * z, a1, b2, 2)
+        self.check_comm(lambda x, y, z: (x + y) / z, a1, b2, 2)
+
+        self.check_comm(lambda x, y, z: (x + y) + z, a1, b2, a.values)
+        self.check_comm(lambda x, y, z: (x + y) - z, a1, b2, a.values)
+        self.check_comm(lambda x, y, z: (x + y) * z, a1, b2, a.values)
+        self.check_comm(lambda x, y, z: (x + y) / z, a1, b2, a.values)
 
         self.check_comm(lambda x, y, z: (x + y) + z, a12, b21, a)
         self.check_comm(lambda x, y, z: (x + y) - z, a12, b21, a)
@@ -202,6 +286,16 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y, z: (x + y) * z, a12, b21, 1)
         self.check_comm(lambda x, y, z: (x + y) / z, a12, b21, 1)
 
+        self.check_comm(lambda x, y, z: (x + y) + z, a12, b21, 2)
+        self.check_comm(lambda x, y, z: (x + y) - z, a12, b21, 2)
+        self.check_comm(lambda x, y, z: (x + y) * z, a12, b21, 2)
+        self.check_comm(lambda x, y, z: (x + y) / z, a12, b21, 2)
+
+        self.check_comm(lambda x, y, z: (x + y) + z, a12, b21, a.values)
+        self.check_comm(lambda x, y, z: (x + y) - z, a12, b21, a.values)
+        self.check_comm(lambda x, y, z: (x + y) * z, a12, b21, a.values)
+        self.check_comm(lambda x, y, z: (x + y) / z, a12, b21, a.values)
+
         self.check_comm(lambda x, y, z: (x + y) + z, a, c1, b)
         self.check_comm(lambda x, y, z: (x + y) - z, a, c1, b)
         self.check_comm(lambda x, y, z: (x + y) * z, a, c1, b)
@@ -215,6 +309,16 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y, z: (x + y) - z, a, c1, 1)
         self.check_comm(lambda x, y, z: (x + y) * z, a, c1, 1)
         self.check_comm(lambda x, y, z: (x + y) / z, a, c1, 1)
+
+        self.check_comm(lambda x, y, z: (x + y) + z, a, c1, 2)
+        self.check_comm(lambda x, y, z: (x + y) - z, a, c1, 2)
+        self.check_comm(lambda x, y, z: (x + y) * z, a, c1, 2)
+        self.check_comm(lambda x, y, z: (x + y) / z, a, c1, 2)
+
+        self.check_comm(lambda x, y, z: (x + y) + z, a, c1, a.values)
+        self.check_comm(lambda x, y, z: (x + y) - z, a, c1, a.values)
+        self.check_comm(lambda x, y, z: (x + y) * z, a, c1, a.values)
+        self.check_comm(lambda x, y, z: (x + y) / z, a, c1, a.values)
 
         self.check_comm(lambda x, y, z: (x + y) + z, a, b, c1)
         self.check_comm(lambda x, y, z: (x + y) - z, a, b, c1)
@@ -237,6 +341,14 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y, z: x - (y + z), 1, b, a)
         self.check_comm(lambda x, y, z: x * (y + z), 1, b, a)
 
+        self.check_comm(lambda x, y, z: x + (y + z), 2, b, a)
+        self.check_comm(lambda x, y, z: x - (y + z), 2, b, a)
+        self.check_comm(lambda x, y, z: x * (y + z), 2, b, a)
+
+        self.check_comm(lambda x, y, z: x + (y + z), a.values, b, a)
+        self.check_comm(lambda x, y, z: x - (y + z), a.values, b, a)
+        self.check_comm(lambda x, y, z: x * (y + z), a.values, b, a)
+
         self.check_comm(lambda x, y, z: x + (y + z), a, b1, b2)
         self.check_comm(lambda x, y, z: x - (y + z), a, b1, b2)
         self.check_comm(lambda x, y, z: x * (y + z), a, b1, b2)
@@ -248,6 +360,10 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y, z: x + (y + z), 1, b1, b2)
         self.check_comm(lambda x, y, z: x - (y + z), 1, b1, b2)
         self.check_comm(lambda x, y, z: x * (y + z), 1, b1, b2)
+
+        self.check_comm(lambda x, y, z: x + (y + z), 2, b1, b2)
+        self.check_comm(lambda x, y, z: x - (y + z), 2, b1, b2)
+        self.check_comm(lambda x, y, z: x * (y + z), 2, b1, b2)
 
         self.check_comm(lambda x, y, z: x + (y + z), a1, b1, b2)
         self.check_comm(lambda x, y, z: x - (y + z), a1, b1, b2)
@@ -268,6 +384,14 @@ class Test(unittest.TestCase):
         self.check_comm(lambda x, y, z: x + (y + z), 1, a12, b21)
         self.check_comm(lambda x, y, z: x - (y + z), 1, a12, b21)
         self.check_comm(lambda x, y, z: x * (y + z), 1, a12, b21)
+
+        self.check_comm(lambda x, y, z: x + (y + z), 2, a12, b21)
+        self.check_comm(lambda x, y, z: x - (y + z), 2, a12, b21)
+        self.check_comm(lambda x, y, z: x * (y + z), 2, a12, b21)
+
+        self.check_comm(lambda x, y, z: x + (y + z), a.values, a12, b21)
+        self.check_comm(lambda x, y, z: x - (y + z), a.values, a12, b21)
+        self.check_comm(lambda x, y, z: x * (y + z), a.values, a12, b21)
 
         # checking that division by zero throws ZeroDivisionError
         for args in [
