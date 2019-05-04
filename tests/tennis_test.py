@@ -1,6 +1,5 @@
 from maxlike.func.tennis import Game, TieBreak, Set
-from maxlike.func import Collapse, X, Sum, Linear, Logistic, Tanh, ArcTan
-from maxlike.preprocessing import prepare_series
+from maxlike.func import Collapse, X, Sum, Linear, Logistic
 from scipy.special import logit
 import maxlike
 import numpy as np
