@@ -12,7 +12,7 @@ from maxlike.func import (
 
 
 maxlike.tensor.set_dtype(np.float32)
-data_folder = os.path.dirname(os.path.abspath(__file__)) + "\\data\\"
+data_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 
 class Test(unittest.TestCase):
@@ -27,7 +27,7 @@ class Test(unittest.TestCase):
         mle.model.add(Vector(np.arange(2) - .5), 2, 2)
         mle.add_constraint([0, 1], Linear([1, 1]))
 
-        g = pd.read_csv(data_folder + "data1.csv", index_col=[0, 1, 2])['g']
+        g = pd.read_csv(os.path.join(data_folder, "data1.csv"), index_col=[0, 1, 2])['g']
         kwargs, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
 
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
@@ -44,7 +44,7 @@ class Test(unittest.TestCase):
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
-        df = pd.read_csv(data_folder + "test_poisson.csv")
+        df = pd.read_csv(os.path.join(data_folder, "test_poisson.csv"))
 
         self.assertAlmostEqual(h,   0.2749716224110226,  delta=tol)
         self.assertAlmostEqual(s_h, 0.051132548678527,   delta=tol)
@@ -62,7 +62,7 @@ class Test(unittest.TestCase):
         mle.model.add(Vector(np.arange(2) - .5), 2, 2)
         mle.add_constraint([0, 1], Linear([1, 1]))
 
-        g = pd.read_csv(data_folder + "data1.csv", index_col=[0, 1, 2])['g']
+        g = pd.read_csv(os.path.join(data_folder, "data1.csv"), index_col=[0, 1, 2])['g']
         kwargs, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
 
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
@@ -83,7 +83,7 @@ class Test(unittest.TestCase):
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
-        df = pd.read_csv(data_folder + "test_poisson1.csv")
+        df = pd.read_csv(os.path.join(data_folder, "test_poisson1.csv"))
 
         self.assertAlmostEqual(h,   0.2541710859203631,  delta=tol)
         self.assertAlmostEqual(s_h, 0.04908858811901998, delta=tol)
@@ -106,7 +106,7 @@ class Test(unittest.TestCase):
         mle.model.add(f_h, 2, 2)
         mle.add_constraint([0, 1], Linear([1, 1]))
 
-        g = pd.read_csv(data_folder + "data1.csv", index_col=[0, 1, 2])['g']
+        g = pd.read_csv(os.path.join(data_folder, "data1.csv"), index_col=[0, 1, 2])['g']
         kwargs, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
 
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
@@ -126,7 +126,7 @@ class Test(unittest.TestCase):
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        df = pd.read_csv(data_folder + "test_poisson1.csv")
+        df = pd.read_csv(os.path.join(data_folder, "test_poisson1.csv"))
 
         self.assertAlmostEqual(h,   0.2541710859203631,  delta=tol)
         self.assertAlmostEqual(s_h, 0.04908858811901998, delta=tol)
@@ -163,7 +163,7 @@ class Test(unittest.TestCase):
 
         mle.model = F
 
-        g = pd.read_csv(data_folder + "data1.csv", index_col=[0, 1, 2])['g']
+        g = pd.read_csv(os.path.join(data_folder, "data1.csv"), index_col=[0, 1, 2])['g']
         kwargs, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
 
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
@@ -187,7 +187,7 @@ class Test(unittest.TestCase):
         a, b, h, h1 = mle.params
         s_a, s_b, s_h, s_h1 = mle.std_error()
 
-        df = pd.read_csv(data_folder + "test_poisson3.csv")
+        df = pd.read_csv(os.path.join(data_folder, "test_poisson3.csv"))
 
         self.assertAlmostEqual(h,    0.23613272896129883, delta=tol)
         self.assertAlmostEqual(s_h,  0.05505120713100134, delta=tol)
@@ -206,7 +206,7 @@ class Test(unittest.TestCase):
         mle.model.add(Vector(np.arange(2) - .5), 2, 2)
         mle.add_constraint([0, 1], Linear([1, 1]))
 
-        g = pd.read_csv(data_folder + "data1.csv", index_col=[0, 1, 2])['g']
+        g = pd.read_csv(os.path.join(data_folder, "data1.csv"), index_col=[0, 1, 2])['g']
         kwargs, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
 
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
@@ -223,7 +223,7 @@ class Test(unittest.TestCase):
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
-        df = pd.read_csv(data_folder + "test_poisson_broyden.csv")
+        df = pd.read_csv(os.path.join(data_folder, "test_poisson_broyden.csv"))
 
         self.assertAlmostEqual(h,   0.2749716224110226,   delta=tol)
         self.assertAlmostEqual(s_h, 0.029664036960567266, delta=tol)
@@ -241,7 +241,7 @@ class Test(unittest.TestCase):
         mle.model.add(Vector(np.arange(2) - .5), 2, 2)
         mle.add_constraint([0, 1], Linear([1, 1]))
 
-        g = pd.read_csv(data_folder + "data1.csv", index_col=[0, 1, 2])['g']
+        g = pd.read_csv(os.path.join(data_folder, "data1.csv"), index_col=[0, 1, 2])['g']
         kwargs, _ = prepare_series(g, {
             'N': np.size, 'X': np.sum, 'Z': lambda x: (x == 0).sum()})
 
@@ -259,7 +259,7 @@ class Test(unittest.TestCase):
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
-        df = pd.read_csv(data_folder + "test_zero_inflated_poisson.csv")
+        df = pd.read_csv(os.path.join(data_folder, "test_zero_inflated_poisson.csv"))
 
         self.assertAlmostEqual(h,   0.22075127261375144,  delta=tol)
         self.assertAlmostEqual(s_h, 0.0458165945789084, delta=tol)
@@ -278,7 +278,7 @@ class Test(unittest.TestCase):
         mle.add_constraint([0, 1], Linear([1, 1]))
         mle.add_regularization([0, 1], Quadratic(0, 1))
 
-        g = pd.read_csv(data_folder + "data1.csv", index_col=[0, 1, 2])['g']
+        g = pd.read_csv(os.path.join(data_folder, "data1.csv"), index_col=[0, 1, 2])['g']
         kwargs, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
 
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
@@ -295,7 +295,7 @@ class Test(unittest.TestCase):
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        df = pd.read_csv(data_folder + "test_poisson_reg.csv")
+        df = pd.read_csv(os.path.join(data_folder, "test_poisson_reg.csv"))
 
         self.assertAlmostEqual(h,   0.2754693450042746, delta=tol)
         self.assertAlmostEqual(s_h, 0.0511739425670764, delta=tol)
@@ -311,7 +311,7 @@ class Test(unittest.TestCase):
         mle.model.add(-X(), 1, 1)
         mle.model.add(Vector(np.arange(2) - .5), 2, 2)
         mle.add_constraint([0, 1], Linear([1, 1]))
-        g = pd.read_csv(data_folder + "data1.csv", index_col=[0, 1, 2])['g'] > 0
+        g = pd.read_csv(os.path.join(data_folder, "data1.csv"), index_col=[0, 1, 2])['g'] > 0
         kwargs, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean())
@@ -325,7 +325,7 @@ class Test(unittest.TestCase):
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        df = pd.read_csv(data_folder + "test_logistic.csv")
+        df = pd.read_csv(os.path.join(data_folder, "test_logistic.csv"))
 
         self.assertAlmostEqual(h,   0.4060377771971094, delta=tol)
         self.assertAlmostEqual(s_h, 0.1321279480761052, delta=tol)
@@ -343,7 +343,7 @@ class Test(unittest.TestCase):
         mle.add_constraint([0], Linear([1]))
 
         # fetch and prepare data
-        df = pd.read_csv(data_folder + "data_proba.csv", index_col=[0, 1])
+        df = pd.read_csv(os.path.join(data_folder, "data_proba.csv"), index_col=[0, 1])
         df['w'] = df['-1'] + df['1']
         kwargs, _ = prepare_dataframe(df, 'w', '1', {'X': np.sum})
         N = kwargs['N']
@@ -362,7 +362,7 @@ class Test(unittest.TestCase):
         a, h = mle.params
         s_a, s_h = mle.std_error()
 
-        df = pd.read_csv(data_folder + "test_logistic_cross.csv")
+        df = pd.read_csv(os.path.join(data_folder, "test_logistic_cross.csv"))
 
         self.assertAlmostEqual(h,   0.3059389232047434, delta=tol)
         self.assertAlmostEqual(s_h, 0.1053509333552778, delta=tol)
@@ -376,7 +376,7 @@ class Test(unittest.TestCase):
         mle.model.add(-X(), 1, 1)
         mle.model.add(Vector(np.arange(2) - .5), 2, 2)
         mle.add_constraint([0, 1], Linear([1, 1]))
-        g = pd.read_csv(data_folder + "data1.csv", index_col=[0, 1, 2])['g']
+        g = pd.read_csv(os.path.join(data_folder, "data1.csv"), index_col=[0, 1, 2])['g']
         kwargs, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean()) / 2
@@ -390,7 +390,7 @@ class Test(unittest.TestCase):
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        df = pd.read_csv(data_folder + "test_negative_binomial.csv")
+        df = pd.read_csv(os.path.join(data_folder, "test_negative_binomial.csv"))
         self.assertAlmostEqual(h,   0.25833036122242375, delta=tol)
         self.assertAlmostEqual(s_h, 0.07857005820984087, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
@@ -407,7 +407,7 @@ class Test(unittest.TestCase):
         foo.add(Vector(np.arange(2) - .5), 2, 2)
         mle.model = Compose(Poisson(n), Compose(Exp(), foo))
         mle.add_constraint([0, 1], Linear([1, 1]))
-        g = pd.read_csv(data_folder + "data1.csv", index_col=[0, 1, 2])['g']
+        g = pd.read_csv(os.path.join(data_folder, "data1.csv"), index_col=[0, 1, 2])['g']
         kwargs, _ = prepare_series(df_count(g, n).stack(), {'N': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean())
@@ -422,8 +422,7 @@ class Test(unittest.TestCase):
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        df = pd.read_csv(data_folder + "test_finite.csv")
-
+        df = pd.read_csv(os.path.join(data_folder, "test_finite.csv"))
         self.assertAlmostEqual(h,   0.2805532986558426, delta=tol)
         self.assertAlmostEqual(s_h, 0.0514227784627934, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
@@ -436,7 +435,7 @@ class Test(unittest.TestCase):
         mle = maxlike.Finite(dim=2)
 
         # fetch and prepare data
-        df = pd.read_csv(data_folder + "data_poisson_matrix.csv",
+        df = pd.read_csv(os.path.join(data_folder, "data_poisson_matrix.csv"),
                          index_col=[0, 1], header=[0, 1]).stack([0, 1])
         kwargs, _ = prepare_series(df)
         N = kwargs['N']
@@ -487,7 +486,7 @@ class Test(unittest.TestCase):
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        df = pd.read_csv(data_folder + "test_poisson_matrix.csv")
+        df = pd.read_csv(os.path.join(data_folder, "test_poisson_matrix.csv"))
 
         self.assertAlmostEqual(h,   0.27852882496320425, delta=tol)
         self.assertAlmostEqual(s_h, 0.05147213154587904, delta=tol)
@@ -501,7 +500,7 @@ class Test(unittest.TestCase):
         mle = maxlike.Finite()
 
         # fetch and prepare data
-        df1 = pd.read_csv(data_folder + "data_proba.csv", index_col=[0, 1])
+        df1 = pd.read_csv(os.path.join(data_folder, "data_proba.csv"), index_col=[0, 1])
         kwargs, _ = prepare_series(
             df1.stack(), {'N': np.sum})
 
@@ -548,7 +547,7 @@ class Test(unittest.TestCase):
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
 
-        df = pd.read_csv(data_folder + "test_kullback_leibler.csv")
+        df = pd.read_csv(os.path.join(data_folder, "test_kullback_leibler.csv"))
 
         self.assertAlmostEqual(h,   0.27655587703454143, delta=tol)
         self.assertAlmostEqual(s_h, 0.0680302933547584, delta=tol)
