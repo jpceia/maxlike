@@ -92,43 +92,64 @@ class Set(Func):
 
     def __call__(self, params):
         p, t = params
+        p = np.minimum(p, 1 - 1e-10)
+        p = np.maximum(p, 1e-10)
         q = 1 - p
-        s = [
-            p ** 6,                     # s60
-            6 * p ** 6 * q,             # s61
-            21 * p ** 6 * q ** 2,       # s62
-            56 * p ** 6 * q ** 3,       # s63
-            126 * p ** 6 * q ** 4,      # s64
-            252 * p ** 7 * q ** 5,      # s75
-            504 * p ** 6 * q ** 6 * t   # s76
-        ]
+        s = []
+        s.append(p ** 6)                    # s60
+        s.append(6 * p ** 6 * q)            # s61
+        s.append(21 * p ** 6 * q ** 2)      # s62
+        s.append(56 * p ** 6 * q ** 3)      # s63
+        s.append(126 * p ** 6 * q ** 4)     # s64
+        s.append(252 * p ** 7 * q ** 5)     # s75
+        s.append(504 * p ** 6 * q ** 6 * t) # s76
+
+        s.append(504 * q ** 6 * p ** 6 * (1 - t)) # s67
+        s.append(252 * q ** 7 * p ** 5)     # s57
+        s.append(126 * q ** 6 * p ** 4)     # s46
+        s.append(56 * q ** 6 * p ** 3)      # s36
+        s.append(21 * q ** 6 * p ** 2)      # s26
+        s.append(6 * q ** 6 * p)            # s16
+        s.append(q ** 6)                    # s06
         return Tensor(np.stack(s).swapaxes(0, -1), dim=1)
     
     def grad(self, params, i):
         p, t = params
         q = 1 - p
 
+        d = []
         if i == 0:
-            d = [
-                6 * p ** 5,
-                6 * (6 - 7 * p) * p ** 5,
-                42 * (3 - 4 * p) * q * p ** 5,
-                168 * (2 - 3 * p) * q ** 2 * p ** 5,
-                252 * (3 - 5 * p) * q ** 3 * p ** 5,
-                252 * (7 - 12 * p) * q ** 4 * p ** 6,
-                3024 * (1 - 2 * p) * q ** 5 * p ** 5 * t                
-                ]
+            d.append(6 * p ** 5)
+            d.append(6 * (6 - 7 * p) * p ** 5)
+            d.append(42 * (3 - 4 * p) * q * p ** 5)
+            d.append(168 * (2 - 3 * p) * q ** 2 * p ** 5)
+            d.append(252 * (3 - 5 * p) * q ** 3 * p ** 5)
+            d.append(252 * (7 - 12 * p) * q ** 4 * p ** 6)
+            d.append(3024 * (1 - 2 * p) * q ** 5 * p ** 5 * t)
+
+            d.append(-3024 * (1 - 2 * q) * p ** 5 * q ** 5 * (1 - t))
+            d.append(-252 * (7 - 12 * q) * p ** 4 * q ** 6)
+            d.append(-252 * (3 - 5 * q) * p ** 3 * q ** 5)
+            d.append(-168 * (2 - 3 * q) * p ** 2 * q ** 5)
+            d.append(-42 * (3 - 4 * q) * p * q ** 5)
+            d.append(-6 * (6 - 7 * q) * q ** 5)
+            d.append(-6 * q ** 5)
         elif i == 1:
             z = np.zeros_like(p)
-            d = [
-                z,
-                z,
-                z,
-                z,
-                z,
-                z,
-                504 * q ** 6 * p ** 6
-            ]
+            d.append(z)
+            d.append(z)
+            d.append(z)
+            d.append(z)
+            d.append(z)
+            d.append(z)
+            d.append(504 * q ** 6 * p ** 6)
+            d.append(-504 * p ** 6 * q ** 6)
+            d.append(z)
+            d.append(z)
+            d.append(z)
+            d.append(z)
+            d.append(z)
+            d.append(z)
         else:
             raise ValueError
 
@@ -139,22 +160,32 @@ class Set(Func):
         p, t = params
         q = 1 - p
 
+        h = []
         if i == 0 and j == 0:
-            h = [
-                30 * p ** 4,
-                36 * (5 - 7 * p) * p ** 4,
-                42 * (28 * p ** 2 - 42 * p + 15) * p ** 4,
-                336 * (5 - 6 * p) * (1 - 2 * p) * q * p ** 4,
-                756 * (15 * p ** 2 - 18 * p + 5) * q ** 2 * p ** 4,
-                504 * (66 * p ** 2 - 77 * p + 21) * q ** 3 * p ** 5,
-                3024 * (22 * p ** 2 - 22 * p + 5) * q ** 4 * p ** 4 * t,
-            ]
+            h.append(30 * p ** 4)
+            h.append(36 * (5 - 7 * p) * p ** 4)
+            h.append(42 * (28 * p ** 2 - 42 * p + 15) * p ** 4)
+            h.append(336 * (5 - 6 * p) * (1 - 2 * p) * q * p ** 4)
+            h.append(756 * (15 * p ** 2 - 18 * p + 5) * q ** 2 * p ** 4)
+            h.append(504 * (66 * p ** 2 - 77 * p + 21) * q ** 3 * p ** 5)
+            h.append(3024 * (22 * p ** 2 - 22 * p + 5) * q ** 4 * p ** 4 * t)
+
+            h.append(3024 * (22 * q ** 2 - 22 * q + 5) * p ** 4 * q ** 4 * (1 - t))
+            h.append(504 * (66 * q ** 2 - 77 * q + 21) * p ** 3 * q ** 5)
+            h.append(756 * (15 * q ** 2 - 18 * q + 5) * p ** 2 * q ** 4)
+            h.append(336 * (5 - 6 * q) * (1 - 2 * q) * p * q ** 4)
+            h.append(42 * (28 * q ** 2 - 42 * q + 15) * q ** 4)
+            h.append(36 * (5 - 7 * q) * q ** 4)
+            h.append(30 * q ** 4)
         elif i == 1 and j == 0:
             z = np.zeros_like(p)
-            h = 6 * [z] + [3024 * (1 - 2 * p) * q ** 5 * p ** 5]
+            h = 6 * [z]
+            h.append(3024 * (1 - 2 * p) * q ** 5 * p ** 5)
+            h.append(3024 * (1 - 2 * q) * p ** 5 * q ** 5)
+            h += 6 * [z]
         elif i == 1 and j == 1:
             z = np.zeros_like(p)
-            h = 7 * [z]
+            h = 14 * [z]
         else:
             raise ValueError
 
