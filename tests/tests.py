@@ -8,7 +8,7 @@ from maxlike.analytics import skellam_cdf_root
 from maxlike.preprocessing import prepare_dataframe, prepare_series, df_count
 from maxlike.func import (
     X, Vector, Linear, Quadratic, Exp, Constant, Scalar, 
-    Poisson, Sum, Product, CollapseMatrix)
+    Poisson, Sum, Product, CollapseMatrix, MarkovMatrix)
 
 
 maxlike.tensor.set_dtype(np.float32)
@@ -490,6 +490,64 @@ class Test(unittest.TestCase):
 
         self.assertAlmostEqual(h,   0.27852882496320425, delta=tol)
         self.assertAlmostEqual(s_h, 0.05147213154587904, delta=tol)
+        np.testing.assert_allclose(a, df['a'], atol=tol)
+        np.testing.assert_allclose(b, df['b'], atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
+        np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
+
+    def test_markov_matrix(self): 
+        n = 8
+        mle = maxlike.Finite(dim=2)
+
+        # fetch and prepare data
+        df = pd.read_csv(os.path.join(data_folder, "data_poisson_matrix.csv"),
+                         index_col=[0, 1], header=[0, 1]).stack([0, 1])
+        kwargs, _ = prepare_series(df)
+        N = kwargs['N']
+
+        def EX(u):
+            assert u.ndim <= 2
+            return (u * np.arange(u.shape[-1])).sum(-1) / u.sum(-1)
+
+        # guess params
+        A = EX(N.sum((1, 3)))
+        B = EX(N.sum((0, 2)))
+        C = EX(N.sum((0, 3)))
+        D = EX(N.sum((1, 2)))
+        
+        log_mean = np.log((A + B + C + D).mean()) / 2
+        a = np.log(A + B) - log_mean
+        b = log_mean - np.log(C + D)
+        h = np.log((A + C).mean()) - np.log((B + D).mean())
+
+        mle.add_param(a)
+        mle.add_param(b)
+        mle.add_param(h)
+        mle.add_constraint([0, 1], Linear([1, 1]))
+
+        # define functions
+        f1 = maxlike.func.Sum(2)
+        f1.add(X(), 0, 0)
+        f1.add(-X(), 1, 1)
+        f1.add(0.5 * Scalar(), 2, [])
+
+        f2 = maxlike.func.Sum(2)
+        f2.add(X(), 0, 1)
+        f2.add(-X(), 1, 0)
+        f2.add(-0.5 * Scalar(), 2, [])
+
+        mle.model = MarkovMatrix(steps=18, size=8) @ [Exp() @ f1, Exp() @ f2]
+
+        # calibration
+        tol = 1e-8
+        mle.fit(**kwargs, verbose=self.verbose)
+        a, b, h = mle.params
+        s_a, s_b, s_h = mle.std_error()
+
+        df = pd.read_csv(os.path.join(data_folder, "test_markov_matrix.csv"))
+
+        self.assertAlmostEqual(h,   0.28061347212745963, delta=tol)
+        self.assertAlmostEqual(s_h, 0.05049593073858663, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
