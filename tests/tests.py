@@ -7,7 +7,7 @@ from scipy.special import logit
 from maxlike.analytics import skellam_cdf_root
 from maxlike.preprocessing import prepare_dataframe, prepare_series, df_count
 from maxlike.func import (
-    X, Vector, Linear, Quadratic, Compose, Exp, Constant, Scalar, 
+    X, Vector, Linear, Quadratic, Exp, Constant, Scalar, 
     Poisson, Sum, Product, CollapseMatrix)
 
 
@@ -405,7 +405,7 @@ class Test(unittest.TestCase):
         foo.add(X(), 0, 0)
         foo.add(-X(), 1, 1)
         foo.add(Vector(np.arange(2) - .5), 2, 2)
-        mle.model = Compose(Poisson(n), Compose(Exp(), foo))
+        mle.model = Poisson(n) @ Exp() @ foo
         mle.add_constraint([0, 1], Linear([1, 1]))
         g = pd.read_csv(os.path.join(data_folder, "data1.csv"), index_col=[0, 1, 2])['g']
         kwargs, _ = prepare_series(df_count(g, n).stack(), {'N': np.sum})
