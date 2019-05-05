@@ -2,7 +2,7 @@ import numpy as np
 from scipy.special import factorial, gammaln
 from array import array
 from ..tensor import Tensor
-from .func_base import Func, grad_tensor, hess_tensor, null_func
+from .func_base import Func, grad_tensor, hess_tensor
 
 
 class Poisson(Func):
@@ -81,55 +81,3 @@ class NegativeBinomial(Func):
         return grad_tensor(
             np.exp(vec) * ((x / m) - (x + self.r) / (self.r + m)),
             params, i, True, dim=1)
-
-
-class CollapseMatrix(Func):
-
-    hess = null_func
-
-    def __init__(self, conditions=None):
-        """
-        Condition or list of conditions with the form
-        sgn(A*x + B*y + C) == s
-        """
-        if conditions is None:
-            self.conditions = [
-                (1, -1, 0, 1),
-                (1, -1, 0, 0),
-                (1, -1, 0, -1),
-            ]
-
-    def __call__(self, params):
-        """
-        CollapseMatrix function assumes that there is just one param that is
-        a Tensor with dim=2 (frame)
-        """
-        arr = np.asarray(params[0])
-        rng_x = np.arange(arr.shape[-2])
-        rng_y = np.arange(arr.shape[-1])
-        val = []
-        for x, y, c, s in self.conditions:
-            filt = np.sign(x * rng_x[:, None] +
-                           y * rng_y[None, :] + c) == s
-            val.append((arr * filt).sum((-1, -2)))
-        val = np.stack(val, -1)
-        return Tensor(val, dim=1)
-
-    def grad(self, params, i):
-        ones = np.ones(np.asarray(params[0]).shape)
-        rng_x = np.arange(ones.shape[-2])
-        rng_y = np.arange(ones.shape[-1])
-        val = []
-        for x, y, c, s in self.conditions:
-            filt = np.sign(x * rng_x[:, None] +
-                           y * rng_y[None, :] + c) == s
-            val.append(ones * filt)
-        p1 = ones.ndim
-        val = np.stack(val, -1)
-        val = val.swapaxes(0, p1 - 2)
-        val = val.swapaxes(1, p1 - 1)
-        p1_mapping = array('b', range(p1 - 2))
-        p1_mapping.append(-1)
-        p1_mapping.append(-1)
-        idx = tuple([None] * (p1 - 2) + [Ellipsis])
-        return Tensor(val[idx], p1=p1, dim=1, p1_mapping=p1_mapping)
