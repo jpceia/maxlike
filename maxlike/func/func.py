@@ -1,6 +1,7 @@
 import numpy as np
 from ..tensor import Tensor
 from .func_base import Func, grad_tensor, hess_tensor, null_func
+from scipy.special import expit
 
 
 class Linear(Func):
@@ -98,21 +99,17 @@ class Vector(Func):
 
 class Exp(Func):
 
-    @staticmethod
-    def __val(params):
-        return np.exp(np.asarray(params[0]))
-
     def __call__(self, params):
-        return Tensor(Exp.__val(params))
+        return Tensor(np.exp(params[0]))
 
     def grad(self, params, i):
-        return grad_tensor(Exp.__val(params), params, i, True)
+        return grad_tensor(np.exp(params[0]), params, i, True)
 
     def hess(self, params, i, j):
-        return hess_tensor(Exp.__val(params), params, i, j, True, True)
+        return hess_tensor(np.exp(params[0]), params, i, j, True, True)
 
     def eval(self, params):
-        f = Exp.__val(params)
+        f = np.exp(params[0])
         return Tensor(f), \
                [grad_tensor(f, params, 0, True)], \
                [[hess_tensor(f, params, 0, 0, True, True)]]
@@ -120,25 +117,21 @@ class Exp(Func):
 
 class Logistic(Func):
 
-    @staticmethod
-    def __val(params):
-        return 1 / (1 + np.exp(-params[0]))
-
     def __call__(self, params):
-        return Tensor(Logistic.__val(params))
+        return expit(params[0])
 
     def grad(self, params, i):
-        f = Logistic.__val(params)
+        f = expit(params[0])
         return grad_tensor(f * (1 - f), params, i, True)
 
     def hess(self, params, i, j):
-        f = Logistic.__val(params)
+        f = expit(params[0])
         return hess_tensor(f * (1 - f) * (1 - 2 * f),
                            params, i, j, True, True)
 
     def eval(self, params):
-        f = Logistic.__val(params)
-        return Tensor(f),\
+        f = expit(params[0])
+        return Tensor(f), \
                [grad_tensor(f * (1 - f), params, 0, True)], \
                [[hess_tensor(f * (1 - f) * (1 - 2 * f),
                              params, 0, 0, True, True)]]
