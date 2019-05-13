@@ -645,7 +645,14 @@ class Tensor(BaseTensor):
 
     def __neg__(self):
         return Tensor(
-            -self.values, p1=self.p1, p2=self.p2, dim=self.dim,
+            -self.values,
+            p1=self.p1, p2=self.p2, dim=self.dim,
+            p1_mapping=self.p1_mapping, p2_mapping=self.p2_mapping)
+
+    def __pow__(self, a):
+        return Tensor(
+            np.power(self.values, a),
+            p1=self.p1, p2=self.p2, dim=self.dim,
             p1_mapping=self.p1_mapping, p2_mapping=self.p2_mapping)
 
     def bin_op(self, other, op_type):
