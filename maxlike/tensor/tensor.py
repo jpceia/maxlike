@@ -96,7 +96,7 @@ class BaseTensor(object, with_metaclass(abc.ABCMeta)):
         return self.hash
 
     def __str__(self):
-        return "[{}, {}, {}, {}]".format(
+        return "shape: [{}, {}, {}, {}]".format(
             self.p1, self.p2, self.n, self.dim)
 
     def __add__(self, other):
@@ -337,12 +337,11 @@ class GenericTensor(BaseTensor):
         raise ValueError
 
 
-
 class Tensor(BaseTensor):
 
     __slots__ = ['values', 'p1_mapping', 'p2_mapping']
 
-    def __init__(self, values=0, p1=0, p2=0, dim=0,
+    def __init__(self, values, p1=0, p2=0, dim=0,
                  p1_mapping=None, p2_mapping=None, dtype=None):
 
         if dtype is None:
@@ -421,8 +420,8 @@ class Tensor(BaseTensor):
         assert max(xmap or [-1]) < newsize
 
         if self.values.ndim == 0:
-            if self.values == 0:
-                return Tensor()
+            if float(self.values) == 0:
+                return Tensor(0)
 
         if dim is True:
             assert len(xmap) == self.dim
@@ -663,11 +662,25 @@ class Tensor(BaseTensor):
             elif op_type == TensorOp.SUB:
                 new_op = TensorOp.RSUB
             else:
-                raise InvalidOperation("Only +, -, * for T / GT operations")
+                raise InvalidOperation
             return other.bin_op(self, new_op)
 
+        is_scalar = False
         if isinstance(other, (int, float)):
+            is_scalar = True
+        elif isinstance(other, np.ndarray):
+            if other.ndim == 0:
+                is_scalar = True
+            else:
+                other = Tensor(other)
+        elif isinstance(other, Tensor):
+            if other.values.ndim == 0:
+                is_scalar = True
+                other = other.values
+        else:
+            raise ValueError
 
+        if is_scalar:
             # special case: 0
             if other == 0:
                 if op_type in [TensorOp.ADD, TensorOp.SUB]:
@@ -700,19 +713,6 @@ class Tensor(BaseTensor):
             else:
                 raise InvalidOperation
 
-        if isinstance(other, np.ndarray):
-            idx = [None] * (self.p1 + self.p2) + [...] + [None] * self.dim
-            return Tensor(
-                op_type.value(self.values, other[tuple(idx)]),
-                p1=self.p1, p2=self.p2, dim=self.dim,
-                p1_mapping=self.p1_mapping,
-                p2_mapping=self.p2_mapping)
-
-        if other.values.ndim == 0:
-            return Tensor(
-                op_type.value(self.values, other.values),
-                self.p1, self.p2, self.dim, self.p1_mapping, self.p2_mapping)
-        
         if self.values.ndim == 0:
             return Tensor(
                 op_type.value(self.values, other.values),
@@ -820,8 +820,15 @@ class Tensor(BaseTensor):
                     "Unary ufuncs only supported for Tensor" +
                     "for p1 == p2 == 0")
             return Tensor(ufunc(self.values), p1=0, p2=0, dim=self.dim)
-        
-        x = inputs[0]
+
+        if name in ("maximum", "minimum"):
+            if (self.p1 > 0) | (self.p2 > 0):
+                raise InvalidOperation(
+                    "{} only supported for Tensor".format(name) +
+                    "for p1 == p2 == 0")
+            return Tensor(ufunc(self.values, inputs[1]),
+                          p1=0, p2=0, dim=self.dim)
+
         try:
             op_type = {
                 'add': TensorOp.ADD,
@@ -832,7 +839,7 @@ class Tensor(BaseTensor):
             }[name]
         except:
             raise InvalidOperation('Invalid ufunc:', name)
-        return self.bin_op(x, op_type)
+        return self.bin_op(inputs[0], op_type)
 
     def __reshape_idx(self, p1, p2, n, dim):
         idx = []
