@@ -10,7 +10,7 @@ from maxlike.func import (
     X, Vector, Linear, Quadratic, Exp, Constant, Scalar, 
     Poisson, Sum, Product, CollapseMatrix, MarkovMatrix)
 
-
+np.seterr(all='raise', under='ignore')
 maxlike.tensor.set_dtype(np.float32)
 data_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
