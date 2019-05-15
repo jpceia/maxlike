@@ -35,7 +35,7 @@ def grad_tensor(values, params, i=0, p1_mapping=None, dim=0):
             raise ValueError("Invalid mapping")
         
     return Tensor(np.asarray(values)[tuple(idx)], p1=p1, dim=dim,
-    	          p1_mapping=p1_mapping)
+                  p1_mapping=p1_mapping)
 
 
 def hess_tensor(values, params, i=0, j=0,
@@ -287,7 +287,10 @@ class Compose(Func):
 
         for k, g_k in enumerate(self.g_list):
             for l, g_l in enumerate(self.g_list):
-                f_hess = self.f.hess(g_val, k, l)
+                if l > k:
+                    f_hess = self.f.hess(g_val, l, k).transpose()
+                else:
+                    f_hess = self.f.hess(g_val, k, l)
                 h_val += f_hess.dot_left(dg_i[k]).transpose().\
                                 dot_left(dg_j[l]).transpose()
             f_grad = self.f.grad(g_val, k)
@@ -313,10 +316,10 @@ class Compose(Func):
                 hess_ij = Tensor(0)
                 for k, (d_k, h_k) in enumerate(zip(g_grad, g_hess)):
                     hess_ij += f_grad[k].dot_right(h_k[i][j].drop_dim())
-                    hess_ij += sum((
-                        f_hess[k][l].dot_left(d_k[i]).transpose().\
-                        dot_left(d_l[j]).transpose()
-                        for l, d_l in enumerate(g_grad)))
+                    for l, d_l in enumerate(g_grad):
+                        h = f_hess[l][k].transpose() if l > k else f_hess[k][l]
+                        hess_ij += h.dot_left(d_k[i]).transpose().\
+                                     dot_left(d_l[j]).transpose()
                 hess_line.append(hess_ij)
             hess.append(hess_line)
         return val, grad, hess
