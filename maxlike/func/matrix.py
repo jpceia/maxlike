@@ -66,7 +66,31 @@ class MarkovMatrix(Func):
         self.skew = skew
 
     def __call__(self, params):
-        return self.eval(params)[0]
+        s1 = np.asarray(params[0] / self.steps)
+        s2 = np.asarray(params[1] / self.steps)
+        assert s1.shape == s2.shape
+        assert np.all(s1 > 0)
+        assert np.all(s2 > 0)
+        assert np.all(s1 + s2 < 1)
+        M = np.zeros(s1.shape + (self.size, self.size))
+
+        M[..., 0, 0] = 1.0
+        for step in range(self.steps):
+            for idx in range(self.size):
+                x = self.size - idx - 1
+                x_ = min(x + 1, self.size - 1)
+                for jdx in range(self.size):
+                    y = self.size - jdx - 1
+                    y_ = min(y + 1, self.size - 1)
+                    f1 = self.skew[x, y]
+                    f2 = self.skew[y, x]
+                    m = M[..., x, y].copy()
+
+                    M[..., x_, y] += s1 * f1 * m
+                    M[..., x, y_] += s2 * f2 * m
+                    M[..., x, y]  -= (s1 * f1 + s2 * f2) * m
+
+        return Tensor(M, dim=2)
 
     def grad(self, params, i):
         return self.eval(params)[1][i]
