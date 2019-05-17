@@ -27,19 +27,13 @@ class Test(unittest.TestCase):
         for s in [(6, 0), (6, 1), (6, 2), (6, 3), (6, 4), (7, 5), (7, 6)]:
             df[s] = (df["score1"] == s[0]) & (df["score2"] == s[1])
 
-        for s in [(6, 7), (5, 7), (4, 6), (3, 6), (2, 6), (1, 6), (0, 6)]:
-            df[s] = (df["score1"] == s[0]) & (df["score2"] == s[1])
-
         del df["score1"]
         del df["score2"]
 
-        df = df[df.sum(1) == 1]
-
-        df = df.groupby(level=[0, 1]).sum().\
+        df = df[df.sum(1) == 1].groupby(level=[0, 1]).sum().\
            reindex(pd.MultiIndex.from_product([players, players]), fill_value=0)
 
-        N = df.values.reshape((len(players), len(players), 14))
-
+        N = df.values.reshape((len(players), len(players), 7))
         w = np.array([
             0.845968173802841,
             0.651691199193479,
@@ -50,15 +44,13 @@ class Test(unittest.TestCase):
             0.5044100735840071,
         ])
 
-        w = np.concatenate([w, 1 - w])
-
         N_ = N.sum(-1)
         X_ = (w * N).sum(-1)
         X_ = X_ + (N_ - X_).transpose()
         N_ = N_ + N_.transpose()
         a_guess = -logit(X_.sum(0) / N_.sum(0))
 
-        mle = maxlike.Finite()
+        mle = maxlike.NormalizedFinite()
         F = Sum(2)
         F.add(X(), 0, 0)
         F.add(-X(), 0, 1)

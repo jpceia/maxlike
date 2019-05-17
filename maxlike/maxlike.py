@@ -154,6 +154,42 @@ class Finite(MaxLike):
         return H
 
 
+class NormalizedFinite(MaxLike):
+    """
+    Class to model an probabilistic regression under an arbitrary
+    Discrete Finite Distribution
+
+    Can be used to minimize the Kullback-Leibler divergence, replacing
+    frequencies by probabilities.
+    """
+
+    def __init__(self, dim=1, normalize=True):
+        self.dim = dim
+        MaxLike.__init__(self)
+
+    def like(self, params, y):
+        """
+        evaluation of:
+            sum_{k, u} N_{k, u} * log p(x=u|k)
+        where:
+            p(x=u|k) normalized probability function, conditional to k
+        """
+        return (self.N * np.log(y)).sum()
+
+    def grad_like(self, params, y, der):
+        return [(self.N * d / y).sum() for d in der]
+
+    def hess_like(self, params, y, der, hess):
+        H = []
+        for i in range(len(params)):
+            hess_line = []
+            for j in range(i + 1):
+                h = (hess[i][j] - der[i] * der[j].transpose() / y) / y
+                hess_line.append((self.N * h).sum())
+            H.append(hess_line)
+        return H
+
+
 class NegativeBinomial(MaxLike):
     """
     Class to model an probabilistic regression under an arbitrary
