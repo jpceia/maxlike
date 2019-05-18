@@ -255,6 +255,66 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
         #np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
+    def test_markov_kullback_leibler(self):
+        n = 8
+        mle = maxlike.Finite()
+
+        # fetch and prepare data
+        df1 = pd.read_csv(
+            os.path.join(self.data_folder, "data_proba.csv"),
+            index_col=[0, 1])
+        
+        kwargs, _ = prepare_series(df1.stack(), {'N': np.sum})
+
+        N = kwargs['N']
+
+        # guess params
+        h = (skellam_cdf_root(*(N.sum((0, 1)) / N.sum())[[0, 2]]) *
+             np.array([-1, 1])).sum()
+
+        S = N.sum(0) + np.flip(N.sum(1), 1)
+        S /= S.sum(1)[:, None]
+
+        s = pd.DataFrame(S[:, [0, 2]]).apply(lambda row:
+            pd.Series(skellam_cdf_root(*row), index=['a', 'b']), 1)
+        s = np.log(s).sub(np.log(s.mean()), 1)
+
+        mle.add_param(s['a'].values)
+        mle.add_param(-s['b'].values)
+        mle.add_param(h)
+        mle.add_constraint([0, 1], Linear([1, 1]))
+
+        # define functions
+        f1 = maxlike.func.Sum(2)
+        f1.add(X(), 0, 0)
+        f1.add(-X(), 1, 1)
+        f1.add(0.5 * Scalar(), 2, [])
+
+        f2 = maxlike.func.Sum(2)
+        f2.add(X(), 0, 1)
+        f2.add(-X(), 1, 0)
+        f2.add(-0.5 * Scalar(), 2, [])
+
+        mle.model = CollapseMatrix() @ \
+                    MarkovMatrix(steps=18, size=n) @ \
+                    [Exp() @ f2, Exp() @ f1]
+
+        tol = 1e-8
+        mle.fit(**kwargs, verbose=self.verbose)
+        a, b, h = mle.params
+        s_a, s_b, s_h = mle.std_error()
+        r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
+
+        df = pd.read_csv(
+            os.path.join(self.data_folder, "test_markov_kullback_leibler.csv"))
+        self.assertAlmostEqual(h,   0.2791943644185061,  delta=tol)
+        self.assertAlmostEqual(s_h, 0.06866272277318519, delta=tol)
+        np.testing.assert_allclose(a, df['a'], atol=tol)
+        np.testing.assert_allclose(b, df['b'], atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
+        np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
+        np.testing.assert_allclose(r, df['r_ab'], atol=tol)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=1)
