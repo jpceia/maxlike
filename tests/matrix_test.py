@@ -11,12 +11,14 @@ from maxlike.func import (X, Linear, Exp, Scalar,
 
 
 maxlike.tensor.set_dtype(np.float32)
-data_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "matrix")
 
 
 class Test(unittest.TestCase):
 
-    verbose = 0
+    verbose = False
+    data_folder = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "data", "matrix")
 
     def test_logistic_cross(self):
         mle = maxlike.Logistic()
@@ -27,7 +29,9 @@ class Test(unittest.TestCase):
         mle.add_constraint([0], Linear([1]))
 
         # fetch and prepare data
-        df = pd.read_csv(os.path.join(data_folder, "data_proba.csv"), index_col=[0, 1])
+        df = pd.read_csv(
+            os.path.join(self.data_folder, "data_proba.csv"),
+            index_col=[0, 1])
         df['w'] = df['-1'] + df['1']
         kwargs, _ = prepare_dataframe(df, 'w', '1', {'X': np.sum})
         N = kwargs['N']
@@ -46,20 +50,21 @@ class Test(unittest.TestCase):
         a, h = mle.params
         s_a, s_h = mle.std_error()
 
-        df = pd.read_csv(os.path.join(data_folder, "test_logistic_cross.csv"))
-
+        df = pd.read_csv(
+            os.path.join(self.data_folder, "test_logistic_cross.csv"))
         self.assertAlmostEqual(h,   0.3059389232047434, delta=tol)
         self.assertAlmostEqual(s_h, 0.1053509333552778, delta=tol)
-        np.testing.assert_allclose(a, df['a'], atol=tol)
+        np.testing.assert_allclose(a,   df['a'],   atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
 
-    def test_poisson_matrix(self): 
+    def test_poisson_matrix(self):
         n = 8
         mle = maxlike.Finite(dim=2)
 
         # fetch and prepare data
-        df = pd.read_csv(os.path.join(data_folder, "data_poisson_matrix.csv"),
-                         index_col=[0, 1], header=[0, 1]).stack([0, 1])
+        df = pd.read_csv(
+            os.path.join(self.data_folder, "data_poisson_matrix.csv"),
+            index_col=[0, 1], header=[0, 1]).stack([0, 1])
         kwargs, _ = prepare_series(df)
         N = kwargs['N']
 
@@ -108,8 +113,10 @@ class Test(unittest.TestCase):
         mle.fit(**kwargs, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
+        r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
-        df = pd.read_csv(os.path.join(data_folder, "test_poisson_matrix.csv"))
+        df = pd.read_csv(
+            os.path.join(self.data_folder, "test_poisson_matrix.csv"))
 
         self.assertAlmostEqual(h,   0.27852882496320425, delta=tol)
         self.assertAlmostEqual(s_h, 0.05147213154587904, delta=tol)
@@ -117,14 +124,17 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
+        #np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
     def test_markov_matrix(self): 
         n = 8
         mle = maxlike.Finite(dim=2)
 
         # fetch and prepare data
-        df = pd.read_csv(os.path.join(data_folder, "data_poisson_matrix.csv"),
-                         index_col=[0, 1], header=[0, 1]).stack([0, 1])
+        df = pd.read_csv(
+            os.path.join(self.data_folder, "data_poisson_matrix.csv"),
+            index_col=[0, 1], header=[0, 1]).stack([0, 1])
+
         kwargs, _ = prepare_series(df)
         N = kwargs['N']
 
@@ -167,24 +177,28 @@ class Test(unittest.TestCase):
         mle.fit(**kwargs, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
+        r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
-        df = pd.read_csv(os.path.join(data_folder, "test_markov_matrix.csv"))
-
+        df = pd.read_csv(
+            os.path.join(self.data_folder, "test_markov_matrix.csv"))
         self.assertAlmostEqual(h,   0.28061347212745963, delta=tol)
         self.assertAlmostEqual(s_h, 0.05049593073858663, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
+        #np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
     def test_kullback_leibler(self):
         n = 8
         mle = maxlike.Finite()
 
         # fetch and prepare data
-        df1 = pd.read_csv(os.path.join(data_folder, "data_proba.csv"), index_col=[0, 1])
-        kwargs, _ = prepare_series(
-            df1.stack(), {'N': np.sum})
+        df1 = pd.read_csv(
+            os.path.join(self.data_folder, "data_proba.csv"),
+            index_col=[0, 1])
+
+        kwargs, _ = prepare_series(df1.stack(), {'N': np.sum})
 
         N = kwargs['N']
 
@@ -228,15 +242,18 @@ class Test(unittest.TestCase):
         mle.fit(**kwargs, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
+        r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
-        df = pd.read_csv(os.path.join(data_folder, "test_kullback_leibler.csv"))
-
+        df = pd.read_csv(
+            os.path.join(self.data_folder, "test_kullback_leibler.csv"))
+        
         self.assertAlmostEqual(h,   0.27655587703454143, delta=tol)
         self.assertAlmostEqual(s_h, 0.0680302933547584,  delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
+        #np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
 
 if __name__ == '__main__':
