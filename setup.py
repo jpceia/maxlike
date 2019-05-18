@@ -4,7 +4,7 @@ from setuptools import setup
 from Cython.Build import cythonize
 
 
-__version__ = '2.3.3'
+__version__ = '2.3.4'
 __package__ = 'maxlike'
 
 
@@ -28,5 +28,11 @@ setup(
     long_description_content_type="text/markdown",
     install_requires=required,
     include_dirs = [np.get_include()],
-    ext_modules=cythonize("maxlike/tensor/ctensor.pyx")
+    ext_modules=cythonize("maxlike/tensor/ctensor.pyx"),
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7'
+        ]
 )
