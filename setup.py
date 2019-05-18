@@ -4,14 +4,15 @@ from setuptools import setup
 from Cython.Build import cythonize
 
 
-__version__ = '2.3.4'
+__version__ = '2.3.5'
 __package__ = 'maxlike'
 
+here = os.path.dirname(os.path.abspath(__file__))
 
-with open("requirements.txt") as f:
+with open(os.path.join(here, "requirements.txt")) as f:
     required = f.read().splitlines()
 
-with open("README.md") as f:
+with open(os.path.join(here, "README.md")) as f:
     __doc__ = f.read()
 
 
@@ -20,6 +21,7 @@ setup(
     version=__version__,
     author='joao ceia',
     author_email='joao.p.ceia@gmail.com',
+    download_url='https://github.com/jpceia/maxlike/archive/v{}.tar.gz'.format(__version__),
     packages=['maxlike', 'maxlike.tensor', 'maxlike.func', 'maxlike.analytics'],
     url='https://github.com/jpceia/maxlike',
     license='',
