@@ -25,7 +25,7 @@ cpdef np.ndarray arr_take_diag(np.ndarray arr, char q, char p, char[:] mapping):
 cpdef np.ndarray arr_expand_diag(np.ndarray arr, char q, char p, char[:] mapping):
     cdef char k, f
     cdef int n
-    cdef int[:] idx = np.ones(arr.ndim, dtype=np.int)
+    cdef int[:] idx = np.ones(arr.ndim, dtype=np.int32)
     for k in range(len(mapping)):
         f = mapping[k]
         if f < 0:
@@ -42,7 +42,7 @@ cpdef np.ndarray arr_expand_diag(np.ndarray arr, char q, char p, char[:] mapping
 cpdef np.ndarray arr_expand_cross_diag(np.ndarray arr, char p, char[:] map1, char[:] map2):
     cdef char i, j
     cdef int n
-    cdef int[:] idx = np.ones(arr.ndim, dtype=np.int)
+    cdef int[:] idx = np.ones(arr.ndim, dtype=np.int32)
     for k in range(len(map2)):
         i = map1[k]
         j = map2[k]
@@ -82,7 +82,7 @@ cpdef np.ndarray arr_swapaxes_cross(np.ndarray arr, char p, char[:] map1, char[:
     cdef char k, f, l
     cdef size_t N = len(map1)
     cdef int n
-    cdef int[:] idx = np.ones(arr.ndim, dtype=np.int)
+    cdef int[:] idx = np.ones(arr.ndim, dtype=np.int32)
     for k in range(len(map2)):
         f = map2[k]
         for l in range(N):
