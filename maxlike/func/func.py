@@ -6,7 +6,10 @@ from .func_base import Func, grad_tensor, hess_tensor, null_func
 class Linear(Func):
 
     def __init__(self, weight_list=None):
-        assert isinstance(weight_list, (list, tuple))
+        if isinstance(weight_list, (int, float)):
+            weight_list = [weight_list]
+        else:
+            assert isinstance(weight_list, (list, tuple))
         self.weights = weight_list
 
     def __call__(self, params):
