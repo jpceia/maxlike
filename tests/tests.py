@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import maxlike
 from scipy.special import logit
-from maxlike.analytics import skellam_cdf_root
+from maxlike.skellam import skellam_cdf_root
 from maxlike.preprocessing import prepare_dataframe, prepare_series, df_count
 from maxlike.func import (
     X, Vector, Linear, Quadratic, Exp, Constant, Scalar, 

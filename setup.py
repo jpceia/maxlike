@@ -21,7 +21,7 @@ setup(
     version=__version__,
     author='joao ceia',
     author_email='joao.p.ceia@gmail.com',
-    packages=['maxlike', 'maxlike.tensor', 'maxlike.func', 'maxlike.analytics'],
+    packages=['maxlike', 'maxlike.tensor', 'maxlike.func'],
     url='https://github.com/jpceia/maxlike',
     license='nolicense',
     description="Python package to model count data",
