@@ -21,49 +21,12 @@ def poisson_vector(a, size=10):
     return exp(-a) * np.array([curve, dcurve])
 
 
-def nd_poisson_vector(a, size=10):
-    rng = np.arange(size)
-    curve = (a[..., None] ** rng) / factorial(rng)
-    dcurve = np.insert(curve[..., :-1] - curve[..., 1:], 0, -1, -1)  # arr, pos, value, axis
-    return np.exp(-a)[..., None] * np.stack([curve, dcurve])
-
-
-def nd_poisson_hess(a, size=10):
-    rng = np.arange(size)
-    curve = (a[..., None] ** rng) / factorial(rng)
-    dcurve = np.insert(curve[..., :-1] - curve[..., 1:], 0, -1, -1)
-    ddcurve = np.insert(-1, curve[..., :-2] - 2 * curve[..., 1:-1] + curve[..., 2:], 0, -1, -1)
-    return exp(-a)[..., None] * np.stack([curve, dcurve, ddcurve])
-
-
 def skellam_frame(a, b, size=10):
     Poi_a, dPoi_a = poisson_vector(a, size)
     Poi_b, dPoi_b = poisson_vector(b, size)
     sk_frame = [Poi_a[:, None] * Poi_b[None, :]]
     sk_frame += [dPoi_a[:, None] * Poi_b[None, :]]
     sk_frame += [Poi_a[:, None] * dPoi_b[None, :]]
-    return sk_frame
-
-
-def nd_skellam_frame(a, b, size=10):
-    # assert a.shape == b.shape
-    Poi_a, dPoi_a = nd_poisson_vector(a, size)
-    Poi_b, dPoi_b = nd_poisson_vector(b, size)
-    sk_frame = [Poi_a[..., None] * Poi_b[..., None, :]]
-    sk_frame += [dPoi_a[..., None] * Poi_b[..., None, :]]
-    sk_frame += [Poi_a[..., None] * dPoi_b[..., None, :]]
-    return sk_frame
-
-
-def nd_skellam_hess(a, b, size=10):
-    Poi_a, dPoi_a, ddPoi_a = nd_poisson_hess(a, size)
-    Poi_b, dPoi_b, ddPoi_b = nd_poisson_hess(b, size)
-    sk_frame = [Poi_a[..., None] * Poi_b[..., None, :]]
-    sk_frame += [dPoi_a[..., None] * Poi_b[..., None, :]]
-    sk_frame += [Poi_a[..., None] * dPoi_b[..., None, :]]
-    sk_frame += [ddPoi_a[..., None] * Poi_b[..., None, :]]
-    sk_frame += [dPoi_a[..., None] * dPoi_b[..., None, :]]
-    sk_frame += [Poi_a[..., None] * ddPoi_b[..., None, :]]
     return sk_frame
 
 
@@ -208,7 +171,7 @@ def skellam_cdf_root(target1, target2, n=0, tol=1e-8):
     return a, b
 
 
-def skellam_triangle_root(b, target, tol=1e-8):
+def conditional_skellam_cdf_root(b, target, tol=1e-8):
     """
     finds the root of
         g(a) = P(X_a < Y_b) + 0.5 * P(X_a == Y_b) - target
