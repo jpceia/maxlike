@@ -250,8 +250,7 @@ class Compose(Func):
 
         if isnull(f.grad):
             self.grad = null_method(self)
-            if isnull(f.hess):
-                self.hess = null_method(self)
+            self.hess = null_method(self)
 
         elif isnull(f.hess):
             def hess(obj, params, i, j):
