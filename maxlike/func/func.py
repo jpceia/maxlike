@@ -105,14 +105,16 @@ class Exp(Func):
         return Tensor(np.exp(params[0]))
 
     def grad(self, params, i):
-        return grad_tensor(np.exp(params[0]), params, i, True)
+        f = Tensor(np.exp(params[0]))
+        return grad_tensor(f, params, i, True, dim=f.dim)
 
     def hess(self, params, i, j):
-        return hess_tensor(np.exp(params[0]), params, i, j, True, True)
+        f = Tensor(np.exp(params[0]))
+        return hess_tensor(f, params, i, j, True, True, dim=f.dim)
 
     def eval(self, params):
-        f = np.exp(params[0])
-        return Tensor(f), \
-               [grad_tensor(f, params, 0, True)], \
-               [[hess_tensor(f, params, 0, 0, True, True)]]
+        val = Tensor(np.exp(params[0]))
+        grad = grad_tensor(val, params, 0, True, dim=val.dim)
+        hess = hess_tensor(val, params, 0, 0, True, True, dim=val.dim)
+        return val, [grad], [[hess]]
 
