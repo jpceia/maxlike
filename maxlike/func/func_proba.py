@@ -2,6 +2,7 @@ import numpy as np
 from scipy.special import factorial, gammaln
 from array import array
 from ..tensor import Tensor
+from .func import Exp
 from .func_base import Func, grad_tensor, hess_tensor
 
 
@@ -15,30 +16,30 @@ class Poisson(Func):
         self.size = size
 
     def __call__(self, params):
-        a = np.asarray(params[0])
-        rng = np.arange(self.size)
-        vec = (a[..., None] ** rng) / factorial(rng)
+        a = np.asarray(params[0])[..., None]
+        x = np.arange(self.size)
+        vec = (a ** x) / factorial(x)
         return Tensor(vec, dim=1)
 
     def grad(self, params, i):
-        a = np.asarray(params[0])
-        rng = np.arange(self.size)
-        vec = ((a[..., None] ** rng) / factorial(rng))
+        a = np.asarray(params[0])[..., None]
+        x = np.arange(self.size)
+        vec = ((a ** x) / factorial(x))
         vec = np.insert(vec[..., :-1], 0, 0, -1)
         return grad_tensor(vec, params, i, True, dim=1)
 
     def hess(self, params, i, j):
-        a = np.asarray(params[0])
-        rng = np.arange(self.size)
-        vec = ((a[..., None] ** rng) / factorial(rng))
+        a = np.asarray(params[0])[..., None]
+        x = np.arange(self.size)
+        vec = ((a ** x) / factorial(x))
         vec = np.insert(vec[..., :-1], 0, 0, -1)
         vec = np.insert(vec[..., :-1], 0, 0, -1)
         return hess_tensor(vec, params, i, j, True, True, dim=1)
 
     def eval(self, params):
-        a = np.asarray(params[0])
-        rng = np.arange(self.size)
-        vec = (a[..., None] ** rng) / factorial(rng)
+        a = np.asarray(params[0])[..., None]
+        x = np.arange(self.size)
+        vec = (a ** x) / factorial(x)
         val = Tensor(vec, dim=1)
         vec = np.insert(vec[..., :-1], 0, 0, -1)
         grad = grad_tensor(vec, params, 0, True, dim=1)
