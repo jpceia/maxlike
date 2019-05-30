@@ -70,7 +70,7 @@ def hess_tensor(values, params, i=0, j=0,
                   p1_mapping=p1_mapping, p2_mapping=p2_mapping)
 
 
-def call_func(f):
+def call_wrap(f):
     #@lru_cache(None)
     @wraps(f)
     def wrapper(obj, params=None):
@@ -86,7 +86,7 @@ def call_func(f):
     return wrapper
 
 
-def vector_func(g):
+def vector_wrap(g):
     #@lru_cache(None)
     @wraps(g)
     def wrapper(obj, params=None, i=None):
@@ -104,7 +104,7 @@ def vector_func(g):
     return wrapper
 
 
-def matrix_func(h):
+def matrix_wrap(h):
     @wraps(h)
     def wrapper(obj, params=None, i=None, j=None):
         if isinstance(params, tuple):
@@ -123,6 +123,21 @@ def matrix_func(h):
     return wrapper
 
 
+def eval_wrap(e):
+    @wraps(e)
+    def wrapper(obj, params=None):
+        if isinstance(params, tuple):
+            pass
+        elif isinstance(params, list):
+            params = tuple(params)
+        elif params is None:
+            params = ()
+        else:
+            params = (params, )
+        return e(obj, params)
+    return wrapper
+
+
 def not_implemented_foo(obj, *args, **kwargs):
     raise NotImplementedError
 
@@ -130,13 +145,13 @@ def not_implemented_foo(obj, *args, **kwargs):
 class FuncMeta(type):
 
     def __new__(cls, name, bases, attrs, **kwargs):
-        call = call_func(attrs['__call__'])
+        call = call_wrap(attrs['__call__'])
         if 'grad' in attrs:
-            grad = vector_func(attrs['grad'])
+            grad = vector_wrap(attrs['grad'])
         else:
             grad = not_implemented_foo
         if 'hess' in attrs:
-            hess = matrix_func(attrs['hess'])
+            hess = matrix_wrap(attrs['hess'])
         else:
             hess = not_implemented_foo
         if 'eval' not in attrs:
@@ -144,7 +159,9 @@ class FuncMeta(type):
                 return attrs['__call__'](obj, params), \
                        attrs['grad'](obj, params), \
                        attrs['hess'](obj, params)
-            attrs['eval'] = eval_func
+            attrs['eval'] = eval_wrap(eval_func)
+        else:
+            attrs['eval'] = eval_wrap(attrs['eval'])
         attrs['__call__'] = call
         attrs['grad'] = grad
         attrs['hess'] = hess
@@ -257,7 +274,7 @@ class Compose(Func):
                          for j in range(i + 1)] for i in range(n)]
                 return val, grad, hess
             
-            self.hess = MethodType(matrix_func(hess), self)
+            self.hess = MethodType(matrix_wrap(hess), self)
             self.eval = MethodType(eval, self)
 
     def __call__(self, params):
