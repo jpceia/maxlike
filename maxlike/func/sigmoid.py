@@ -7,7 +7,7 @@ from scipy.special import expit
 class Logistic(Func):
 
     def __call__(self, params):
-        return expit(params[0])
+        return Tensor(expit(params[0]))
 
     def grad(self, params, i):
         f = expit(params[0])
