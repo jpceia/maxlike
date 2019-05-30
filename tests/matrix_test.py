@@ -6,8 +6,10 @@ import maxlike
 from scipy.special import logit
 from maxlike.skellam import skellam_cdf_root
 from maxlike.preprocessing import prepare_dataframe, prepare_series
-from maxlike.func import (X, Linear, Exp, Scalar, 
-    Poisson, Sum, Product, CollapseMatrix, MarkovMatrix)
+from maxlike.func import (
+    X, Linear, Exp, Scalar, Sum, Product,
+    Poisson, NegativeBinomial,
+    CollapseMatrix, MarkovMatrix)
 
 
 maxlike.tensor.set_dtype(np.float32)
@@ -26,7 +28,7 @@ class Test(unittest.TestCase):
         mle.model.add(X(), 0, 0)
         mle.model.add(-X(), 0, 1)
         mle.model.add(-Scalar(), 1, [])
-        mle.add_constraint([0], Linear([1]))
+        mle.add_constraint([0], Linear(1))
 
         # fetch and prepare data
         df = pd.read_csv(
