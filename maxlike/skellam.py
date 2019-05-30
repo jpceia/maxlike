@@ -4,17 +4,6 @@ from scipy.special import ndtri, factorial
 from scipy.stats.mvn import mvnun
 
 
-def vectorize(n_in, n_out):
-    def wrap(foo):
-        return np.frompyfunc(foo, n_in, n_out)
-    return wrap
-
-
-@vectorize(3, 1)
-def gauss_bivar(x, y, rho):
-    return mvnun(-999 * np.ones((2)), (x, y), (0, 0), np.array([[1, rho], [rho, 1]]))[0]
-
-
 def poisson_vector(a, size=10):
     curve = np.vectorize(lambda u: a**u / factorial(u))(np.arange(size))
     dcurve = np.append(-1, curve[:-1] - curve[1:])
