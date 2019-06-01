@@ -118,3 +118,16 @@ class Exp(Func):
         hess = hess_tensor(val, params, 0, 0, True, True, dim=val.dim)
         return val, [grad], [[hess]]
 
+
+class Log(Func):
+
+    def __call__(self, params):
+        return Tensor(np.log(params[0]))
+
+    def grad(self, params, i):
+        f = Tensor(1 / params[0])
+        return grad_tensor(f, params, i, True, dim=f.dim)
+
+    def hess(self, params, i, j):
+        f = Tensor(-1 / np.square(params[0]))
+        return hess_tensor(f, params, i, j, True, True, dim=f.dim)
