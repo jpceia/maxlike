@@ -124,21 +124,53 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
 
     def akaine_information_criterion(self):
         """
-        Akaike information criterion
+        Akaike information criterion (AIC)
+
+        Given a set of candidate models for the data,
+        the preferred model is the one with the minimum AIC value.
+
+        Simple version:
+            AIC_0 = 2 * k - 2 ln L
+                  = 2 * k - 2 * l * n
+
+        Improved version:
+            AIC = AIC_0 + 2 k * (k + 1) / (n - (k + 1))
+                = 2 * n * (k / (n - k - 1) - l)
+
+        This function returns:
+            2 * k / (n - k - 1) - 2 * l
+
+
+        k : degrees of freedom
+        n : sample size
+        l : mean log likelihood  (1/n) * log L
+
         """
-        # {free parameters}
         k = sum(map(np.ma.count, self.params)) - len(self.constraint)
-        return 2 * k * (1 + (k - 1) / (self.N.sum() - k - 1)) - \
-            2 * self.g(self.params)
+        n = self.N.sum(sum_val=True, sum_dim=True).values
+        l = self.g(self.params)
+        return 2 * k / (n - k - 1) - 2 * l
 
     def bayesian_information_criterion(self):
         """
-        Bayesian information criterion
-        """
+        Bayesian information criterion (BIC)
+        The model with the lowest BIC is preferred.
 
-        # {free parameters}
+        BIC = ln(n) * k - 2 * ln L
+
+        This function returns:
+            k * ln(n) / n - 2 * l
+
+
+        k : degrees of freedom
+        n : sample size
+        l : mean log likelihood  (1/n) * log L
+        
+        """
         k = sum(map(np.ma.count, self.params)) - len(self.constraint)
-        return k * np.log(self.N.sum()) - 2 * self.g(self.params)
+        n = self.N.sum(sum_val=True, sum_dim=True).values
+        l = self.g(self.params)
+        return k * np.log(n) / n - 2 * l
 
     def _reshape_array(self, flat_array, val=np.nan):
         """

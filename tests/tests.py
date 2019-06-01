@@ -53,6 +53,11 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
         np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
+        aic = mle.akaine_information_criterion()
+        bic = mle.bayesian_information_criterion()
+        self.assertAlmostEqual(aic, 3.426092977152975, delta=tol)
+        self.assertAlmostEqual(bic, 3.5908172972062053, delta=tol)
+
     def test_poisson1(self):
         mle = maxlike.Poisson()
         mle.model = Sum(3)
@@ -91,6 +96,11 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(s_b[~b.mask], df.loc[~b.mask, 's_b'], atol=tol)
         np.testing.assert_allclose(r[~(a.mask|b.mask)],
                                    df.loc[~(a.mask|b.mask), 'r_ab'], atol=tol)
+
+        aic = mle.akaine_information_criterion()
+        bic = mle.bayesian_information_criterion()
+        self.assertAlmostEqual(aic, 3.6169962347811286, delta=tol)
+        self.assertAlmostEqual(bic, 3.7735927665934845, delta=tol)
 
     def test_poisson2(self):
         mle = maxlike.Poisson()
@@ -183,6 +193,7 @@ class Test(unittest.TestCase):
         mle.fit(**kwargs, verbose=self.verbose)
         a, b, h, h1 = mle.params
         s_a, s_b, s_h, s_h1 = mle.std_error()
+        r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
         df = pd.read_csv(os.path.join(data_folder, "test_poisson3.csv"))
         self.assertAlmostEqual(h,    0.23613272896129883, delta=tol)
@@ -193,6 +204,12 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
+        #np.testing.assert_allclose(r, df['r_ab'], atol=tol)
+
+        aic = mle.akaine_information_criterion()
+        bic = mle.bayesian_information_criterion()
+        self.assertAlmostEqual(aic, 3.4249495039938265, delta=tol)
+        self.assertAlmostEqual(bic, 3.5937332896625294, delta=tol)
 
     def test_poisson_broyden(self):
         mle = maxlike.Poisson()
