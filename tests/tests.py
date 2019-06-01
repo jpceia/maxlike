@@ -280,6 +280,11 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
         np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
+        aic = mle.akaine_information_criterion(1)
+        bic = mle.bayesian_information_criterion(1)
+        self.assertAlmostEqual(aic, 3.488466836070853, delta=tol)
+        self.assertAlmostEqual(bic, 3.6572506217395557, delta=tol)
+
     def test_poisson_reg(self):
         mle = maxlike.Poisson()
         mle.model = Sum(3)

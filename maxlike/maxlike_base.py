@@ -122,7 +122,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
 
         self.reg.append((param_map, h))
 
-    def akaine_information_criterion(self):
+    def akaine_information_criterion(self, nb_extra_params=0):
         """
         Akaike information criterion (AIC)
 
@@ -146,12 +146,14 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         l : mean log likelihood  (1/n) * log L
 
         """
-        k = sum(map(np.ma.count, self.params)) - len(self.constraint)
+        k = sum(map(np.ma.count, self.params))
+        k += nb_extra_params
+        k -= len(self.constraint)
         n = self.N.sum(sum_val=True, sum_dim=True).values
         l = self.g(self.params)
         return 2 * k / (n - k - 1) - 2 * l
 
-    def bayesian_information_criterion(self):
+    def bayesian_information_criterion(self, nb_extra_params=0):
         """
         Bayesian information criterion (BIC)
         The model with the lowest BIC is preferred.
@@ -167,7 +169,9 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         l : mean log likelihood  (1/n) * log L
         
         """
-        k = sum(map(np.ma.count, self.params)) - len(self.constraint)
+        k = sum(map(np.ma.count, self.params))
+        k += nb_extra_params
+        k -= len(self.constraint)
         n = self.N.sum(sum_val=True, sum_dim=True).values
         l = self.g(self.params)
         return k * np.log(n) / n - 2 * l
