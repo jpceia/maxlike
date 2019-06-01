@@ -1,7 +1,8 @@
 import numpy as np
 import unittest
 from maxlike.func import (
-    Exp, Logistic, MarkovMatrix, Scalar, Sum, Product, X)
+    Exp, Logistic, Scalar, Sum, Product, X,
+    MarkovMatrix, Poisson, LogNegativeBinomial)
 
 
 class Test(unittest.TestCase):
@@ -69,6 +70,9 @@ class Test(unittest.TestCase):
         foo.add(X(), 1, 1)
         self.check_comm(foo, 2)
 
+    def test_poisson(self):
+        self.check_comm(Poisson())
+
     def test_markov_matrix(self):
         self.check_comm(
             MarkovMatrix(size=5),
@@ -77,6 +81,9 @@ class Test(unittest.TestCase):
                 [np.ones(3),
                  np.arange(3) + 1]]
             )
+
+    def test_log_negative_binomial(self):
+        self.check_comm(LogNegativeBinomial() @ Exp())
 
 
 if __name__ == "__main__":
