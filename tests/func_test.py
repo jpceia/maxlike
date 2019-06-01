@@ -39,8 +39,23 @@ class Test(unittest.TestCase):
     def test_logistic(self):
         self.check_comm(Logistic())
 
-    def test_affine(self):
-        self.check_comm(2 * X() + 1)
+    def test_add(self):
+        self.check_comm(X() + 1)
+
+    def test_radd(self):
+        self.check_comm(1 + X())
+
+    def test_sub(self):
+        self.check_comm(X() - 1)
+
+    def test_rsub(self):
+        self.check_comm(1 - X())
+
+    def test_mul(self):
+        self.check_comm(X() * 2)
+
+    def test_rmul(self):
+        self.check_comm(2 * X())
 
     def test_sum(self):
         foo = Sum(2)
