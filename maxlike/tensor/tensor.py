@@ -666,7 +666,7 @@ class Tensor(BaseTensor):
             return other.bin_op(self, new_op)
 
         is_scalar = False
-        if isinstance(other, (int, float)):
+        if np.isscalar(other):
             is_scalar = True
         elif isinstance(other, np.ndarray):
             if other.ndim == 0:
