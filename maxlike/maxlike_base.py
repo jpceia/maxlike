@@ -140,9 +140,6 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         k = sum(map(np.ma.count, self.params)) - len(self.constraint)
         return k * np.log(self.N.sum()) - 2 * self.g(self.params)
 
-    def _sum_feat(self):
-        return tuple(-np.arange(self.N.ndim) - 1)
-
     def _reshape_array(self, flat_array, val=np.nan):
         """
         Reshapes as array in order to have the same format as self.params
