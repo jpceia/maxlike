@@ -8,8 +8,6 @@ def Sigmoid(name):
     name = name.lower()
     if name == "logistic":
         return Logistic()
-    if name == "tanh":
-        return Affine(Tanh(), 0.5, 0.5)
     if name == "arctan":
         return Affine(ArcTan(), 1 / np.pi, 0.5)
     raise ValueError
@@ -34,28 +32,6 @@ class Logistic(Func):
         return Tensor(f), \
                [grad_tensor(f * (1 - f), params, 0, True)], \
                [[hess_tensor(f * (1 - f) * (1 - 2 * f),
-                             params, 0, 0, True, True)]]
-
-
-class Tanh(Func):
-
-    def __call__(self, params):
-        return Tensor(np.tanh(params[0]))
-
-    def grad(self, params, i):
-        f = np.tanh(params[0])
-        return grad_tensor(1 - f * f, params, i, True)
-
-    def hess(self, params, i, j):
-        f = np.tanh(params[0])
-        return hess_tensor(-2 * f * (1 - f * f),
-                           params, i, j, True, True)
-
-    def eval(self, params):
-        f = np.tanh(params[0])
-        return Tensor(f), \
-               [grad_tensor(1 - f * f, params, 0, True)], \
-               [[hess_tensor(-2 * f * (1 - f * f),
                              params, 0, 0, True, True)]]
 
 
