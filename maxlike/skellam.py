@@ -1,7 +1,7 @@
 import numpy as np
 from math import exp
 from scipy.special import ndtri, factorial
-from scipy.stats.mvn import mvnun
+from .maxlike_base import ConvergenceError
 
 
 def poisson_vector(a, size=10):
@@ -72,7 +72,7 @@ def poisson_cdf_root(target, n=2, tol=1e-8):
     """
     # if not (isinstance(target, float) and target < 1 or target > 0):
     if target >= 1 or target <= 0:
-        return np.NaN
+        return ValueError
     phi = ndtri(target)
     min_a = 1e-3
     a = max(((phi * phi + 4 * n + 2) ** .5 - phi) ** 2 / 4, min_a)
@@ -98,7 +98,7 @@ def poisson_cdf_root(target, n=2, tol=1e-8):
                 scale_factor *= .5
         count += 1
         if count > max_steps:
-            return np.NaN
+            return ConvergenceError
     return a
 
 
@@ -124,7 +124,7 @@ def skellam_cdf_root(target1, target2, n=0, tol=1e-8):
     # if not (isinstance(target1, float) and isinstance(target2, float) and
     #        target1 > 0 and target2 > 0 and target1 + target2 < 1):
     if target1 + target2 >= 1 or min(target1, target2) <= 0:
-        return [np.NaN, np.NaN]
+        raise ValueError
     phi_d = ndtri(target1)
     phi_u = ndtri(1 - target2)
     sum_ab = 1 / (phi_u - phi_d) ** 2
@@ -156,7 +156,7 @@ def skellam_cdf_root(target1, target2, n=0, tol=1e-8):
                 new_e = np.linalg.norm(new_s - target)
         count += 1
         if count > max_steps:
-            return [np.NaN, np.NaN]
+            raise ConvergenceError
     return a, b
 
 
@@ -168,7 +168,7 @@ def conditional_skellam_cdf_root(b, target, tol=1e-8):
     TODO: smart guess
     """
     if target <= 0 or target >= 1:
-        return np.NaN
+        raise ValueError
     a = b
     e = 1
     count = 0
@@ -204,5 +204,5 @@ def conditional_skellam_cdf_root(b, target, tol=1e-8):
                 new_s = frame[xy < 0].sum() + 0.5 * frame[xy == 0].sum()
                 new_e = abs(target - new_s)
         if count > max_steps:
-            return np.NaN
+            raise ConvergenceError
     return a
