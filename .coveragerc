@@ -1,6 +1,7 @@
 [report]
 exclude_lines =
-	pragma: no cover
-	raise ValueError
-	raise InvalidOperation
-	raise NotImplementedError 
+  pragma: no cover
+  raise ValueError
+  raise ConvergenceError
+  raise InvalidOperation
+  raise NotImplementedError 
