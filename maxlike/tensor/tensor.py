@@ -58,39 +58,58 @@ class BaseTensor(object, with_metaclass(abc.ABCMeta)):
 
     @abc.abstractmethod
     def toarray(self):
-        pass
+        """
+        Converts a (Base)Tensor to a numpy ndarray
+        """
 
     @abc.abstractmethod
     def sum(self, sum_val=True, sum_dim=True):
-        pass
+        """
+        Collapses the value/dim part of the (Base)Tensor
+        """
 
     @abc.abstractmethod
     def expand(self, xmap, newsize, dim=False):
-        pass
+        """
+        Expands the value/dim part of the (Base)Tensor
+        to specified number of dimensions
+        """
 
     @abc.abstractmethod
     def flip(self, xmap, dim=False):
-        pass
+        """
+        Flips a (Base)Tensor for specified dimensions on the value/dim space
+        """
 
     @abc.abstractmethod
     def transpose(self):
-        pass
+        """
+        Transposes the 'p1' and 'p2' spaces
+        """
 
     @abc.abstractmethod
     def drop_dim(self):
-        pass
+        """
+        Converts the 'dim' extra-dimensional space to a 'value' space
+        """
 
     @abc.abstractmethod
     def dot(self, other):
-        pass
+        """
+        Dot product between (Base)Tensors
+        """
 
     @abc.abstractmethod
     def __neg__(self):
-        pass
+        """
+        Applies the negation to (Base)Tensor values
+        """
 
     @abc.abstractmethod
     def bin_op(self, op_type):
-        pass
+        """
+        Binary operations between (Base)Tensors
+        """
 
     def __hash__(self):
         return self.hash

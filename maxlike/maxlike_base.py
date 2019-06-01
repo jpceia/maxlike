@@ -44,21 +44,18 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         """
         Likelihood function.
         """
-        pass
 
     @abc.abstractmethod
     def grad_like(self, params, **kwargs):
         """
         Calculates the gradient of the log-likelihood function.
         """
-        pass
 
     @abc.abstractmethod
     def hess_like(self, params, **kwargs):
         """
         Calculates the hessian of the log-likelihood function.
         """
-        pass
 
     def reset_params(self):
         self.params = ()
