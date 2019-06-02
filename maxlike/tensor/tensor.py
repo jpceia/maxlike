@@ -15,7 +15,7 @@ class InvalidOperation(Exception):
     """Exception to indicate an invalid operation for Tensors"""
 
 
-def set_dtype(s):
+def set_dtype(s): # pragma: no cover
     global TENSOR_DTYPE
     if isinstance(s, str):
         s = s.lower()
@@ -832,7 +832,7 @@ class Tensor(BaseTensor):
         name = ufunc.__name__
 
         if name in (
-            "exp", "log", "gamma",
+            "exp", "log", "gamma", #"square",
             "expit", "logit", "tanh", "arctan"):
             if (self.p1 > 0) | (self.p2 > 0):
                 raise InvalidOperation(
