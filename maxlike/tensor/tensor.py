@@ -363,6 +363,11 @@ class Tensor(BaseTensor):
     def __init__(self, values, p1=0, p2=0, dim=0,
                  p1_mapping=None, p2_mapping=None, dtype=None):
 
+        if isinstance(values, Tensor):
+            assert values.p1 == 0
+            assert values.p2 == 0
+            dim = values.dim
+
         if dtype is None:
             dtype = TENSOR_DTYPE
 
