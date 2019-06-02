@@ -8,7 +8,7 @@ from maxlike.skellam import skellam_cdf_root
 from maxlike.preprocessing import prepare_dataframe, prepare_series, df_count
 from maxlike.func import (
     X, Vector, Linear, Quadratic, Exp, Constant, Scalar, 
-    Poisson, Sum, Product, CollapseMatrix, MarkovMatrix)
+    Poisson, NegativeBinomial, Sum, Product, CollapseMatrix, MarkovMatrix)
 
 np.seterr(all='raise', under='ignore')
 maxlike.tensor.set_dtype(np.float32)
@@ -408,6 +408,40 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
+
+    def test_finite_negative_binomial(self):
+        n = 8
+        mle = maxlike.Finite()
+        foo = Sum(3)
+        foo.add(X(), 0, 0)
+        foo.add(-X(), 1, 1)
+        foo.add(Vector(np.arange(2) - .5), 2, 2)
+        mle.model = NegativeBinomial(n, 1) @ Exp() @ foo
+        mle.add_constraint([0, 1], Linear([1, 1]))
+        g = pd.read_csv(os.path.join(data_folder, "data1.csv"), index_col=[0, 1, 2])['g']
+        kwargs, _ = prepare_series(df_count(g, n).stack(), {'N': np.sum})
+        h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
+        log_mean = np.log(g.mean())
+        a = np.log(g.groupby(level='t1').mean()) - log_mean
+        b = log_mean - np.log(g.groupby(level='t2').mean())
+        mle.add_param(a)
+        mle.add_param(b)
+        mle.add_param(h)
+
+        tol = 1e-8
+        mle.fit(**kwargs, tol=tol, verbose=self.verbose)
+        a, b, h = mle.params
+        s_a, s_b, s_h = mle.std_error()
+        r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
+
+        df = pd.read_csv(os.path.join(data_folder, "test_finite_negative_binomial.csv"))
+        self.assertAlmostEqual(h,   0.32819346226217844, delta=tol)
+        self.assertAlmostEqual(s_h, 0.09379697849393093, delta=tol)
+        np.testing.assert_allclose(a, df['a'], atol=tol)
+        np.testing.assert_allclose(b, df['b'], atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
+        np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
+        np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
 
 if __name__ == '__main__':

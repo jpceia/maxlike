@@ -108,5 +108,5 @@ class LogNegativeBinomial(Func):
         return val, [grad], [[hess]]
 
 
-def NegativeBinomial(**kwargs):
-    return Exp() @ LogNegativeBinomial(**kwargs)
+def NegativeBinomial(*args, **kwargs):
+    return Exp() @ LogNegativeBinomial(*args, **kwargs)
