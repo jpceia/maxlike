@@ -2,10 +2,8 @@ import os
 import numpy as np
 from setuptools import setup
 from Cython.Build import cythonize
+import maxlike
 
-
-__version__ = '2.3.6'
-__package__ = 'maxlike'
 
 here = os.path.dirname(os.path.abspath(__file__))
 
@@ -17,8 +15,8 @@ with open(os.path.join(here, "README.md")) as f:
 
 
 setup(
-    name=__package__,
-    version=__version__,
+    name=maxlike.__package__,
+    version=maxlike.__version__,
     author='joao ceia',
     author_email='joao.p.ceia@gmail.com',
     packages=['maxlike', 'maxlike.tensor', 'maxlike.func'],

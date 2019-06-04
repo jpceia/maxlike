@@ -8,3 +8,6 @@ from .maxlike import (Poisson, Logistic,
                       Finite, NormalizedFinite,
                       ZeroInflatedPoisson,
                       NegativeBinomial)
+
+__version__ = '2.3.6'
+__package__ = 'maxlike'
