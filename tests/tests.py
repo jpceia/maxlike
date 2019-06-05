@@ -428,7 +428,7 @@ class Test(unittest.TestCase):
         mle.add_param(b)
         mle.add_param(h)
 
-        tol = 1e-6
+        tol = 1e-8
         mle.fit(**kwargs, tol=tol, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
