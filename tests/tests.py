@@ -7,7 +7,7 @@ from scipy.special import logit
 from maxlike.skellam import skellam_cdf_root
 from maxlike.preprocessing import prepare_dataframe, prepare_series, df_count
 from maxlike.func import (
-    X, Vector, Linear, Quadratic, Exp, Constant, Scalar, 
+    X, Vector, Linear, Quadratic, Exp, Log, Constant, Scalar, 
     Poisson, NegativeBinomial, Sum, Product, CollapseMatrix, MarkovMatrix)
 
 np.seterr(all='raise', under='ignore')
@@ -38,7 +38,7 @@ class Test(unittest.TestCase):
         mle.add_param(b.values)
         mle.add_param(h)
 
-        tol=1e-8
+        tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
@@ -81,7 +81,7 @@ class Test(unittest.TestCase):
         mle.add_param(b.values, np.arange(b.size) == b_fix)
         mle.add_param(h, False)
 
-        tol=1e-8
+        tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
@@ -230,7 +230,7 @@ class Test(unittest.TestCase):
         mle.add_param(b.values)
         mle.add_param(h)
 
-        tol=1e-8
+        tol = 1e-8
         mle.fit(**kwargs, method="broyden", verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
@@ -318,6 +318,56 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
+
+    def test_poisson_sum(self):
+        mle = maxlike.Poisson()
+        mle.model = Sum(3)
+
+        f1 = Sum(2)
+        f1.add(X(), 0, 0)
+        f1.add(-X(), 1, 1)
+        f1.add(Scalar(), 2, None)
+
+        f2 = Sum(2)
+        f2.add(X(), 0, 0)
+        f2.add(-X(), 1, 1)
+        f2.add(-Scalar(), 2, None)  
+
+        F = Sum(2)
+        F.add(Exp() @ f1, [0, 1, 2], [0, 1])
+        F.add(Exp() @ f2, [0, 1, 2], [1, 0])
+
+        mle.model = Log() @ F
+        mle.add_constraint([0, 1], Linear([1, 1]))
+
+        df = pd.read_csv(os.path.join(data_folder, "data2.csv"), index_col=[0, 1])
+        kwargs, _ = prepare_series(df.sum(1), {'N': np.size, 'X': np.sum})
+
+        h = np.log(df.g1.mean()) - np.log(df.g2.mean())
+        log_mean = np.log(df.mean().mean()) / 2
+        a = df.groupby('t1').g1.mean() + df.groupby('t2').g2.mean()
+        b = df.groupby('t1').g2.mean() + df.groupby('t2').g1.mean()
+        a = np.log(a / 2) - log_mean
+        b = log_mean - np.log(b / 2)
+
+        mle.add_param(a.values)
+        mle.add_param(b.values)
+        mle.add_param(h)
+
+        tol = 1e-8
+        mle.fit(**kwargs, verbose=self.verbose)
+        a, b, h = mle.params
+        s_a, s_b, s_h = mle.std_error()
+        r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
+
+        df = pd.read_csv(os.path.join(data_folder, "test_poisson_sum.csv"))
+        self.assertAlmostEqual(h,   0.2670540641562699, delta=tol)
+        self.assertAlmostEqual(s_h, 0.14801233426552277, delta=tol)
+        np.testing.assert_allclose(a, df['a'], atol=tol)
+        np.testing.assert_allclose(b, df['b'], atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
+        np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
+        np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
     def test_logistic(self):
         mle = maxlike.Logistic()
