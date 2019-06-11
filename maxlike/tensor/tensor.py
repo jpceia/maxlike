@@ -15,7 +15,7 @@ class InvalidOperation(Exception):
     """Exception to indicate an invalid operation for Tensors"""
 
 
-def set_dtype(s): # pragma: no cover
+def set_dtype(s):  # pragma: no cover
     global TENSOR_DTYPE
     if isinstance(s, str):
         s = s.lower()
@@ -208,7 +208,7 @@ class GenericTensor(BaseTensor):
             dim = 0 if sum_dim is True else self.dim
             return Tensor(values, p1=self.p1, p2=self.p2, dim=dim)
 
-        #else:
+        # else:
         new_elements = [el.sum(False, sum_dim) * (size / el_size)
                         for el, el_size in zip(self.elements, el_sizes)]
         return GenericTensor(self.p1, self.p2, self.n, 0, new_elements)
@@ -566,7 +566,7 @@ class Tensor(BaseTensor):
 
         elif other.values == 0:
             return 0
-        
+
         raise ValueError
 
     def dot_left(self, other):
@@ -575,7 +575,7 @@ class Tensor(BaseTensor):
 
         P1 -  N E (other)
         N  P2 M E (self)
-        
+
         product
         P1 N -  - E
         -  N P2 M E
@@ -657,7 +657,7 @@ class Tensor(BaseTensor):
         if not self.p1_mapping:
             val = arr_swapaxes(val, 0, p, other.p1_mapping)
             val = arr_swapaxes_cross(val, other.p1,
-                  other.p1_mapping, other.p2_mapping)
+                                     other.p1_mapping, other.p2_mapping)
 
         p1_mapping = compose_mappings(self.p1_mapping, other.p1_mapping)
         p2_mapping = compose_mappings(self.p1_mapping, other.p2_mapping)
@@ -781,7 +781,7 @@ class Tensor(BaseTensor):
 
             if op_type == TensorOp.ADD:
                 elements = [self, other]
-            elif op_type ==  TensorOp.SUB:
+            elif op_type == TensorOp.SUB:
                 elements = [self, -other]
             elif op_type == TensorOp.RSUB:
                 elements = [-self, other]
@@ -811,7 +811,7 @@ class Tensor(BaseTensor):
             p2_mapping = self.p2_mapping
             l_values = arr_expand_cross_diag(
                 l_values, p, self.p2_mapping, other.p2_mapping)
-            if not other.p2_mapping and other.p2: 
+            if not other.p2_mapping and other.p2:
                 r_values = arr_take_diag(r_values, other.p1, other.p1 + other.p2,
                                          self.p2_mapping)
         else:
@@ -837,7 +837,7 @@ class Tensor(BaseTensor):
         name = ufunc.__name__
 
         if name in (
-            "exp", "log", "gamma", #"square",
+            "exp", "log", "gamma", "square",
             "expit", "logit", "tanh", "arctan"):
             if (self.p1 > 0) | (self.p2 > 0):
                 raise InvalidOperation(
