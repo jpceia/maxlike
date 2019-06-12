@@ -9,9 +9,6 @@ import unittest
 np.seterr(all='raise')
 
 
-maxlike.tensor.set_dtype(np.float64)
-
-
 class Test(unittest.TestCase):
     
     verbose = False

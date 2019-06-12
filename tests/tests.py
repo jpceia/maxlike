@@ -11,7 +11,6 @@ from maxlike.func import (
     Poisson, NegativeBinomial, Sum, Product, CollapseMatrix, MarkovMatrix)
 
 np.seterr(all='raise', under='ignore')
-maxlike.tensor.set_dtype(np.float32)
 data_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 
@@ -55,8 +54,8 @@ class Test(unittest.TestCase):
 
         aic = mle.akaine_information_criterion()
         bic = mle.bayesian_information_criterion()
-        self.assertAlmostEqual(aic, 3.426092977152975, delta=tol)
-        self.assertAlmostEqual(bic, 3.5908172972062053, delta=tol)
+        self.assertAlmostEqual(aic, 3.426092788838951, delta=tol)
+        self.assertAlmostEqual(bic, 3.590817107890838, delta=tol)
 
     def test_poisson1(self):
         mle = maxlike.Poisson()
@@ -88,8 +87,8 @@ class Test(unittest.TestCase):
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
         df = pd.read_csv(os.path.join(data_folder, "test_poisson1.csv"))
-        self.assertAlmostEqual(h,   0.2541710859203631,  delta=tol)
-        self.assertAlmostEqual(s_h, 0.04908858811901998, delta=tol)
+        self.assertAlmostEqual(h,   0.2541711117084739,  delta=tol)
+        self.assertAlmostEqual(s_h, 0.04908832460966403, delta=tol)
         np.testing.assert_allclose(a[~a.mask], df.loc[~a.mask, 'a'], atol=tol)
         np.testing.assert_allclose(b[~b.mask], df.loc[~b.mask, 'b'], atol=tol)
         np.testing.assert_allclose(s_a[~a.mask], df.loc[~a.mask, 's_a'], atol=tol)
@@ -99,8 +98,8 @@ class Test(unittest.TestCase):
 
         aic = mle.akaine_information_criterion()
         bic = mle.bayesian_information_criterion()
-        self.assertAlmostEqual(aic, 3.6169962347811286, delta=tol)
-        self.assertAlmostEqual(bic, 3.7735927665934845, delta=tol)
+        self.assertAlmostEqual(aic, 3.6169964234833927, delta=tol)
+        self.assertAlmostEqual(bic, 3.773592954344472, delta=tol)
 
     def test_poisson2(self):
         mle = maxlike.Poisson()
@@ -135,10 +134,10 @@ class Test(unittest.TestCase):
         s_a, s_b, s_h = mle.std_error()
 
         df = pd.read_csv(os.path.join(data_folder, "test_poisson1.csv"))
-        self.assertAlmostEqual(h,   0.2541710859203631,  delta=tol)
-        self.assertAlmostEqual(s_h, 0.04908858811901998, delta=tol)
+        self.assertAlmostEqual(h,   0.2541711117084739,  delta=tol)
+        self.assertAlmostEqual(s_h, 0.04908832460966403, delta=tol)
         np.testing.assert_allclose(a[~a.mask], df.loc[~a.mask, 'a'], atol=tol)
-        np.testing.assert_allclose(b[~b.mask], df.loc[~b.mask, 'b'],     atol=tol)
+        np.testing.assert_allclose(b[~b.mask], df.loc[~b.mask, 'b'], atol=tol)
         np.testing.assert_allclose(s_a[~a.mask], df.loc[~a.mask, 's_a'], atol=tol)
         np.testing.assert_allclose(s_b[~b.mask], df.loc[~b.mask, 's_b'], atol=tol)
 
@@ -204,12 +203,12 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
-        #np.testing.assert_allclose(r, df['r_ab'], atol=tol)
+        np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
         aic = mle.akaine_information_criterion()
         bic = mle.bayesian_information_criterion()
-        self.assertAlmostEqual(aic, 3.4249495039938265, delta=tol)
-        self.assertAlmostEqual(bic, 3.5937332896625294, delta=tol)
+        self.assertAlmostEqual(aic, 3.4249498108457352, delta=tol)
+        self.assertAlmostEqual(bic, 3.5937335954880614, delta=tol)
 
     def test_poisson_broyden(self):
         mle = maxlike.Poisson()
@@ -282,8 +281,8 @@ class Test(unittest.TestCase):
 
         aic = mle.akaine_information_criterion(1)
         bic = mle.bayesian_information_criterion(1)
-        self.assertAlmostEqual(aic, 3.488466836070853, delta=tol)
-        self.assertAlmostEqual(bic, 3.6572506217395557, delta=tol)
+        self.assertAlmostEqual(aic, 3.488466590286007, delta=tol)
+        self.assertAlmostEqual(bic, 3.657250374928333, delta=tol)
 
     def test_poisson_reg(self):
         mle = maxlike.Poisson()
@@ -310,14 +309,16 @@ class Test(unittest.TestCase):
         mle.fit(**kwargs, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
+        r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
         df = pd.read_csv(os.path.join(data_folder, "test_poisson_reg.csv"))
         self.assertAlmostEqual(h,   0.2754693450042746, delta=tol)
-        self.assertAlmostEqual(s_h, 0.0511739425670764, delta=tol)
+        self.assertAlmostEqual(s_h, 0.05117380388073695, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
+        np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
     def test_poisson_sum(self):
         mle = maxlike.Poisson()
@@ -361,8 +362,8 @@ class Test(unittest.TestCase):
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
         df = pd.read_csv(os.path.join(data_folder, "test_poisson_sum.csv"))
-        self.assertAlmostEqual(h,   0.2670540641562699, delta=tol)
-        self.assertAlmostEqual(s_h, 0.14801233426552277, delta=tol)
+        self.assertAlmostEqual(h,   0.2664172829846478, delta=tol)
+        self.assertAlmostEqual(s_h, 0.18420797658168903, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
@@ -389,14 +390,16 @@ class Test(unittest.TestCase):
         mle.fit(**kwargs, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
+        r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
         df = pd.read_csv(os.path.join(data_folder, "test_logistic.csv"))
-        self.assertAlmostEqual(h,   0.4060377771971094, delta=tol)
+        self.assertAlmostEqual(h,   0.4060378612453205, delta=tol)
         self.assertAlmostEqual(s_h, 0.1321279480761052, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
+        np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
     def test_negative_binomial(self):
         mle = maxlike.NegativeBinomial()
@@ -418,6 +421,7 @@ class Test(unittest.TestCase):
         mle.fit(tol=tol, **kwargs)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
+        r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
         df = pd.read_csv(os.path.join(data_folder, "test_negative_binomial.csv"))
         self.assertAlmostEqual(h,   0.25833036122242375, delta=tol)
@@ -426,6 +430,7 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
+        np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
     def test_finite(self):
         n = 8
@@ -450,6 +455,7 @@ class Test(unittest.TestCase):
         mle.fit(**kwargs, tol=tol, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
+        r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
         df = pd.read_csv(os.path.join(data_folder, "test_finite.csv"))
         self.assertAlmostEqual(h,   0.2805532986558426, delta=tol)
@@ -458,6 +464,7 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
+        np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
     def test_finite_negative_binomial(self):
         n = 8

@@ -12,9 +12,6 @@ from maxlike.func import (
     CollapseMatrix, MarkovMatrix)
 
 
-maxlike.tensor.set_dtype(np.float32)
-
-
 class Test(unittest.TestCase):
 
     verbose = False
@@ -54,7 +51,7 @@ class Test(unittest.TestCase):
 
         df = pd.read_csv(
             os.path.join(self.data_folder, "test_logistic_cross.csv"))
-        self.assertAlmostEqual(h,   0.3059389232047434, delta=tol)
+        self.assertAlmostEqual(h,   0.30593893749482887, delta=tol)
         self.assertAlmostEqual(s_h, 0.1053509333552778, delta=tol)
         np.testing.assert_allclose(a,   df['a'],   atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
@@ -126,7 +123,7 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
-        #np.testing.assert_allclose(r, df['r_ab'], atol=tol)
+        np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
     def test_markov_matrix(self): 
         n = 8
@@ -183,13 +180,13 @@ class Test(unittest.TestCase):
 
         df = pd.read_csv(
             os.path.join(self.data_folder, "test_markov_matrix.csv"))
-        self.assertAlmostEqual(h,   0.28061347212745963, delta=tol)
+        self.assertAlmostEqual(h,   0.2806134582870986, delta=tol)
         self.assertAlmostEqual(s_h, 0.05049593073858663, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
-        #np.testing.assert_allclose(r, df['r_ab'], atol=tol)
+        np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
     def test_kullback_leibler(self):
         n = 8
@@ -249,13 +246,13 @@ class Test(unittest.TestCase):
         df = pd.read_csv(
             os.path.join(self.data_folder, "test_kullback_leibler.csv"))
         
-        self.assertAlmostEqual(h,   0.27655587703454143, delta=tol)
-        self.assertAlmostEqual(s_h, 0.0680302933547584,  delta=tol)
+        self.assertAlmostEqual(h,   0.276555903327557, delta=tol)
+        self.assertAlmostEqual(s_h, 0.0680302933547584, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
-        #np.testing.assert_allclose(r, df['r_ab'], atol=tol)
+        np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
     def test_markov_kullback_leibler(self):
         n = 8
@@ -309,7 +306,7 @@ class Test(unittest.TestCase):
 
         df = pd.read_csv(
             os.path.join(self.data_folder, "test_markov_kullback_leibler.csv"))
-        self.assertAlmostEqual(h,   0.2791943644185061,  delta=tol)
+        self.assertAlmostEqual(h,   0.2791943644185061, delta=tol)
         self.assertAlmostEqual(s_h, 0.06866272277318519, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
