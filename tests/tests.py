@@ -134,6 +134,7 @@ class Test(unittest.TestCase):
         mle.fit(**kwargs, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
+        r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
         df = pd.read_csv(os.path.join(data_folder, "test_poisson1.csv"))
         self.assertAlmostEqual(h,   0.2541711117084739,  delta=tol)
@@ -142,6 +143,8 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(b[~b.mask], df.loc[~b.mask, 'b'], atol=tol)
         np.testing.assert_allclose(s_a[~a.mask], df.loc[~a.mask, 's_a'], atol=tol)
         np.testing.assert_allclose(s_b[~b.mask], df.loc[~b.mask, 's_b'], atol=tol)
+        np.testing.assert_allclose(r[~(a.mask|b.mask)],
+                                   df.loc[~(a.mask|b.mask), 'r_ab'], atol=tol)
 
     def test_poisson3(self):
         mle = maxlike.Poisson()
@@ -385,9 +388,11 @@ class Test(unittest.TestCase):
         log_mean = np.log(g.mean())
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean().map(np.log)
-        mle.add_param(a)
-        mle.add_param(b)
+
+        mle.add_param(a.values)
+        mle.add_param(b.values)
         mle.add_param(h)
+
         tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
         a, b, h = mle.params
@@ -416,8 +421,9 @@ class Test(unittest.TestCase):
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean().map(np.log)
-        mle.add_param(a)
-        mle.add_param(b)
+
+        mle.add_param(a.values)
+        mle.add_param(b.values)
         mle.add_param(h)
         tol = 1e-8
         mle.fit(tol=tol, **kwargs)
@@ -449,8 +455,9 @@ class Test(unittest.TestCase):
         log_mean = np.log(g.mean())
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean().map(np.log)
-        mle.add_param(a)
-        mle.add_param(b)
+
+        mle.add_param(a.values)
+        mle.add_param(b.values)
         mle.add_param(h)
 
         tol = 1e-8
@@ -483,21 +490,20 @@ class Test(unittest.TestCase):
         log_mean = np.log(g.mean())
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean().map(np.log)
-        mle.add_param(a)
-        mle.add_param(b)
+
+        mle.add_param(a.values)
+        mle.add_param(b.values)
         mle.add_param(h)
 
-        tol = 1e-7
-        # increased the tolerance to accommodate a lower precision
-        # of the gammaln function (from scipy package)
+        tol = 1e-8
         mle.fit(**kwargs, tol=tol, verbose=self.verbose)
         a, b, h = mle.params
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
         df = pd.read_csv(os.path.join(data_folder, "test_finite_negative_binomial.csv"))
-        self.assertAlmostEqual(h,   0.3281934786911926, delta=tol)
-        self.assertAlmostEqual(s_h, 0.09379697849393093, delta=tol)
+        self.assertAlmostEqual(h,   0.32819348893641703, delta=tol)
+        self.assertAlmostEqual(s_h, 0.09379697910018236, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
