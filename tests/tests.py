@@ -8,7 +8,8 @@ from maxlike.skellam import skellam_cdf_root
 from maxlike.preprocessing import prepare_dataframe, prepare_series, df_count
 from maxlike.func import (
     X, Vector, Linear, Quadratic, Exp, Log, Constant, Scalar, 
-    Poisson, NegativeBinomial, Sum, Product, CollapseMatrix, MarkovMatrix)
+    Poisson, NegativeBinomial, Sum, Product)
+
 
 np.seterr(all='raise', under='ignore')
 data_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
