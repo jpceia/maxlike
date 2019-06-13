@@ -2,6 +2,7 @@ import os
 import unittest
 import pandas as pd
 import numpy as np
+import sys; sys.path.insert(0, "..")
 import maxlike
 from scipy.special import logit
 from maxlike.skellam import skellam_cdf_root
@@ -33,7 +34,7 @@ class Test(unittest.TestCase):
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
-        b = log_mean - g.groupby(level='t2').mean()
+        b = log_mean - g.groupby(level='t2').mean().map(np.log)
         mle.add_param(a.values)
         mle.add_param(b.values)
         mle.add_param(h)
@@ -46,7 +47,7 @@ class Test(unittest.TestCase):
 
         df = pd.read_csv(os.path.join(data_folder, "test_poisson.csv"))
         self.assertAlmostEqual(h,   0.2749716224110226, delta=tol)
-        self.assertAlmostEqual(s_h, 0.051132548678527,  delta=tol)
+        self.assertAlmostEqual(s_h, 0.05113269003880641, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
@@ -72,7 +73,7 @@ class Test(unittest.TestCase):
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
-        b = log_mean - g.groupby(level='t2').mean()
+        b = log_mean - g.groupby(level='t2').mean().map(np.log)
         a_fix = 2
         b_fix = 3
         a[a_fix] = 1
@@ -120,7 +121,7 @@ class Test(unittest.TestCase):
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
-        b = log_mean - g.groupby(level='t2').mean()
+        b = log_mean - g.groupby(level='t2').mean().map(np.log)
         a_fix = 2
         b_fix = 3
         a[a_fix] = 1
@@ -177,7 +178,7 @@ class Test(unittest.TestCase):
         h1 = 0
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
-        b = log_mean - g.groupby(level='t2').mean()
+        b = log_mean - g.groupby(level='t2').mean().map(np.log)
 
         a_fix = 2
         b_fix = 3
@@ -197,9 +198,9 @@ class Test(unittest.TestCase):
 
         df = pd.read_csv(os.path.join(data_folder, "test_poisson3.csv"))
         self.assertAlmostEqual(h,    0.23613272896129883, delta=tol)
-        self.assertAlmostEqual(s_h,  0.05505120713100134, delta=tol)
+        self.assertAlmostEqual(s_h,  0.055051545352072025, delta=tol)
         self.assertAlmostEqual(h1,   0.13188676189444215, delta=tol)
-        self.assertAlmostEqual(s_h1, 0.07186638797269668, delta=tol)
+        self.assertAlmostEqual(s_h1, 0.07187480574001189, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
@@ -225,7 +226,7 @@ class Test(unittest.TestCase):
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
-        b = log_mean - g.groupby(level='t2').mean()
+        b = log_mean - g.groupby(level='t2').mean().map(np.log)
         mle.add_param(a.values)
         mle.add_param(b.values)
         mle.add_param(h)
@@ -238,7 +239,7 @@ class Test(unittest.TestCase):
 
         df = pd.read_csv(os.path.join(data_folder, "test_poisson_broyden.csv"))
         self.assertAlmostEqual(h,   0.2749716224110226,   delta=tol)
-        self.assertAlmostEqual(s_h, 0.029664036960567266, delta=tol)
+        self.assertAlmostEqual(s_h, 0.05078620072307027, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
@@ -260,7 +261,7 @@ class Test(unittest.TestCase):
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
-        b = log_mean - g.groupby(level='t2').mean()
+        b = log_mean - g.groupby(level='t2').mean().map(np.log)
         mle.add_param(a.values)
         mle.add_param(b.values)
         mle.add_param(h)
@@ -273,7 +274,7 @@ class Test(unittest.TestCase):
 
         df = pd.read_csv(os.path.join(data_folder, "test_zero_inflated_poisson.csv"))
         self.assertAlmostEqual(h,   0.22075127261375144, delta=tol)
-        self.assertAlmostEqual(s_h, 0.0458165945789084,  delta=tol)
+        self.assertAlmostEqual(s_h, 0.04581653463450008, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
@@ -300,7 +301,7 @@ class Test(unittest.TestCase):
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
-        b = log_mean - g.groupby(level='t2').mean()
+        b = log_mean - g.groupby(level='t2').mean().map(np.log)
 
         mle.add_param(a.values)
         mle.add_param(b.values)
@@ -314,7 +315,7 @@ class Test(unittest.TestCase):
 
         df = pd.read_csv(os.path.join(data_folder, "test_poisson_reg.csv"))
         self.assertAlmostEqual(h,   0.2754693450042746, delta=tol)
-        self.assertAlmostEqual(s_h, 0.05117380388073695, delta=tol)
+        self.assertAlmostEqual(s_h, 0.051173934224090695, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
@@ -382,8 +383,8 @@ class Test(unittest.TestCase):
         kwargs, _ = prepare_series(g, {'N': np.size, 'X': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean())
-        a = np.log(g.groupby(level='t1').mean()) - log_mean
-        b = log_mean - np.log(g.groupby(level='t2').mean())
+        a = g.groupby(level='t1').mean().map(np.log) - log_mean
+        b = log_mean - g.groupby(level='t2').mean().map(np.log)
         mle.add_param(a)
         mle.add_param(b)
         mle.add_param(h)
@@ -414,7 +415,7 @@ class Test(unittest.TestCase):
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
-        b = log_mean - g.groupby(level='t2').mean()
+        b = log_mean - g.groupby(level='t2').mean().map(np.log)
         mle.add_param(a)
         mle.add_param(b)
         mle.add_param(h)
@@ -426,7 +427,7 @@ class Test(unittest.TestCase):
 
         df = pd.read_csv(os.path.join(data_folder, "test_negative_binomial.csv"))
         self.assertAlmostEqual(h,   0.25833036122242375, delta=tol)
-        self.assertAlmostEqual(s_h, 0.07857005820984087, delta=tol)
+        self.assertAlmostEqual(s_h, 0.07857084780413058, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
@@ -446,8 +447,8 @@ class Test(unittest.TestCase):
         kwargs, _ = prepare_series(df_count(g, n).stack(), {'N': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean())
-        a = np.log(g.groupby(level='t1').mean()) - log_mean
-        b = log_mean - np.log(g.groupby(level='t2').mean())
+        a = g.groupby(level='t1').mean().map(np.log) - log_mean
+        b = log_mean - g.groupby(level='t2').mean().map(np.log)
         mle.add_param(a)
         mle.add_param(b)
         mle.add_param(h)
@@ -480,8 +481,8 @@ class Test(unittest.TestCase):
         kwargs, _ = prepare_series(df_count(g, n).stack(), {'N': np.sum})
         h = g.groupby(level='h').mean().map(np.log).reset_index().prod(1).sum()
         log_mean = np.log(g.mean())
-        a = np.log(g.groupby(level='t1').mean()) - log_mean
-        b = log_mean - np.log(g.groupby(level='t2').mean())
+        a = g.groupby(level='t1').mean().map(np.log) - log_mean
+        b = log_mean - g.groupby(level='t2').mean().map(np.log)
         mle.add_param(a)
         mle.add_param(b)
         mle.add_param(h)
