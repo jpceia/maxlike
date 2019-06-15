@@ -9,7 +9,7 @@ from maxlike.preprocessing import prepare_dataframe, prepare_series
 from maxlike.func import (
     X, Linear, Exp, Scalar, Sum, Product,
     Poisson, NegativeBinomial,
-    CollapseMatrix, MarkovMatrix)
+    CollapseMatrix, MarkovVector, MarkovMatrix)
 
 
 class Test(unittest.TestCase):
@@ -248,6 +248,77 @@ class Test(unittest.TestCase):
         
         self.assertAlmostEqual(h,   0.276555903327557, delta=tol)
         self.assertAlmostEqual(s_h, 0.0680302933547584, delta=tol)
+        np.testing.assert_allclose(a, df['a'], atol=tol)
+        np.testing.assert_allclose(b, df['b'], atol=tol)
+        np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
+        np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
+        np.testing.assert_allclose(r, df['r_ab'], atol=tol)
+
+    def test_markov_vector(self):
+        n = 8
+        mle = maxlike.Finite(dim=1)
+
+        # fetch and prepare data
+        df = pd.read_csv(
+            os.path.join("data/matrix", "data_poisson_matrix.csv"),
+            index_col=[0, 1], header=[0, 1]).stack([0, 1])
+
+        kwargs, _ = prepare_series(df)
+        N = kwargs['N']
+
+        def EX(u):
+            assert u.ndim <= 2
+            return (u * np.arange(u.shape[-1])).sum(-1) / u.sum(-1)
+
+        # guess params
+        A = EX(N.sum((1, 3)))
+        B = EX(N.sum((0, 2)))
+        C = EX(N.sum((0, 3)))
+        D = EX(N.sum((1, 2)))
+        
+        log_mean = np.log((A + B + C + D).mean()) / 2
+        a = np.log(A + B) - log_mean
+        b = log_mean - np.log(C + D)
+        h = np.log((A + C).mean()) - np.log((B + D).mean())
+
+        mle.add_param(a)
+        mle.add_param(b)
+        mle.add_param(h)
+        mle.add_constraint([0, 1], Linear([1, 1]))
+
+        # define functions
+        f1 = maxlike.func.Sum(2)
+        f1.add(X(), 0, 0)
+        f1.add(-X(), 1, 1)
+        f1.add(0.5 * Scalar(), 2, None)
+
+        f2 = maxlike.func.Sum(2)
+        f2.add(X(), 0, 1)
+        f2.add(-X(), 1, 0)
+        f2.add(-0.5 * Scalar(), 2, None)
+
+        mle.model = MarkovVector(steps=18, size=n) @ [Exp() @ f1, Exp() @ f2]
+        
+        df = pd.read_csv(
+            os.path.join("data/matrix", "data_poisson_matrix.csv"),
+            index_col=[0, 1], header=[0, 1]).stack([0, 1])
+        df = df.reset_index()
+        df['d'] = df['g1'].astype(int) - df['g2'].astype(int)
+        df = df.groupby(['t1', 't2', 'd']).sum()[0]
+        kwargs, _ = prepare_series(df, {'N': np.sum})
+
+        tol = 1e-8
+        mle.fit(**kwargs, verbose=0, tol=tol)
+
+        a, b, h = mle.params
+        s_a, s_b, s_h = mle.std_error()
+        r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
+
+        df = pd.read_csv(
+            os.path.join(self.data_folder, "test_markov_vector.csv"))
+        
+        self.assertAlmostEqual(h,   0.3237922149456103, delta=tol)
+        self.assertAlmostEqual(s_h, 0.05713304434379314, delta=tol)
         np.testing.assert_allclose(a, df['a'], atol=tol)
         np.testing.assert_allclose(b, df['b'], atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'], atol=tol)
