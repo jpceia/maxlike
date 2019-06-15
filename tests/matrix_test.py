@@ -299,9 +299,6 @@ class Test(unittest.TestCase):
 
         mle.model = MarkovVector(steps=18, size=n) @ [Exp() @ f1, Exp() @ f2]
         
-        df = pd.read_csv(
-            os.path.join("data/matrix", "data_poisson_matrix.csv"),
-            index_col=[0, 1], header=[0, 1]).stack([0, 1])
         df = df.reset_index()
         df['d'] = df['g1'].astype(int) - df['g2'].astype(int)
         df = df.groupby(['t1', 't2', 'd']).sum()[0]
