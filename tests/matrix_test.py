@@ -16,8 +16,7 @@ class Test(unittest.TestCase):
 
     verbose = False
     data_folder = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "data", "matrix")
+        os.path.dirname(os.path.abspath(__file__)), "data")
 
     def test_logistic_cross(self):
         mle = maxlike.Logistic()
@@ -61,29 +60,18 @@ class Test(unittest.TestCase):
         mle = maxlike.Finite(dim=2)
 
         # fetch and prepare data
-        df = pd.read_csv(
-            os.path.join(self.data_folder, "data_poisson_matrix.csv"),
-            index_col=[0, 1], header=[0, 1]).stack([0, 1])
-        kwargs, _ = prepare_series(df)
-        N = kwargs['N']
+        df = pd.read_csv(os.path.join(self.data_folder, "data2.csv"))
+        df[['g1', 'g2']] = np.minimum(df[['g1', 'g2']], n - 1)
 
-        def EX(u):
-            assert u.ndim <= 2
-            return (u * np.arange(u.shape[-1])).sum(-1) / u.sum(-1)
+        h = np.log(df.g1.mean()) - np.log(df.g2.mean())
+        log_mean = np.log(df.mean().mean()) / 2
+        a = df.groupby('t1').g1.mean() + df.groupby('t2').g2.mean()
+        b = df.groupby('t1').g2.mean() + df.groupby('t2').g1.mean()
+        a = np.log(a) - log_mean
+        b = log_mean - np.log(b)
 
-        # guess params
-        A = EX(N.sum((1, 3)))
-        B = EX(N.sum((0, 2)))
-        C = EX(N.sum((0, 3)))
-        D = EX(N.sum((1, 2)))
-        
-        log_mean = np.log((A + B + C + D).mean()) / 2
-        a = np.log(A + B) - log_mean
-        b = log_mean - np.log(C + D)
-        h = np.log((A + C).mean()) - np.log((B + D).mean())
-
-        mle.add_param(a)
-        mle.add_param(b)
+        mle.add_param(a.values)
+        mle.add_param(b.values)
         mle.add_param(h)
         mle.add_constraint([0, 1], Linear([1, 1]))
 
@@ -106,6 +94,12 @@ class Test(unittest.TestCase):
         F.add(F2, [0, 1, 2], [1, 0], 1)
 
         mle.model = F
+
+        df['dummy'] = 1
+        df = df.set_index(['t1', 't2', 'g1', 'g2'])['dummy']
+        axis = {'g1': np.arange(n), 'g2': np.arange(n)}
+        kwargs, _ = prepare_series(df, add_axis=axis)
+        N = kwargs['N']
 
         # calibration
         tol = 1e-8
@@ -130,30 +124,18 @@ class Test(unittest.TestCase):
         mle = maxlike.Finite(dim=2)
 
         # fetch and prepare data
-        df = pd.read_csv(
-            os.path.join(self.data_folder, "data_poisson_matrix.csv"),
-            index_col=[0, 1], header=[0, 1]).stack([0, 1])
+        df = pd.read_csv(os.path.join(self.data_folder, "data2.csv"))
+        df[['g1', 'g2']] = np.minimum(df[['g1', 'g2']], n - 1)
 
-        kwargs, _ = prepare_series(df)
-        N = kwargs['N']
+        h = np.log(df.g1.mean()) - np.log(df.g2.mean())
+        log_mean = np.log(df.mean().mean()) / 2
+        a = df.groupby('t1').g1.mean() + df.groupby('t2').g2.mean()
+        b = df.groupby('t1').g2.mean() + df.groupby('t2').g1.mean()
+        a = np.log(a) - log_mean
+        b = log_mean - np.log(b)
 
-        def EX(u):
-            assert u.ndim <= 2
-            return (u * np.arange(u.shape[-1])).sum(-1) / u.sum(-1)
-
-        # guess params
-        A = EX(N.sum((1, 3)))
-        B = EX(N.sum((0, 2)))
-        C = EX(N.sum((0, 3)))
-        D = EX(N.sum((1, 2)))
-        
-        log_mean = np.log((A + B + C + D).mean()) / 2
-        a = np.log(A + B) - log_mean
-        b = log_mean - np.log(C + D)
-        h = np.log((A + C).mean()) - np.log((B + D).mean())
-
-        mle.add_param(a)
-        mle.add_param(b)
+        mle.add_param(a.values)
+        mle.add_param(b.values)
         mle.add_param(h)
         mle.add_constraint([0, 1], Linear([1, 1]))
 
@@ -170,6 +152,12 @@ class Test(unittest.TestCase):
 
         mle.model = MarkovMatrix(steps=18, size=n) @ \
                     [Exp() @ f1, Exp() @ f2]
+
+        df['dummy'] = 1
+        df = df.set_index(['t1', 't2', 'g1', 'g2'])['dummy']
+        axis = {'g1': np.arange(n), 'g2': np.arange(n)}
+        kwargs, _ = prepare_series(df, add_axis=axis)
+        N = kwargs['N']
 
         # calibration
         tol = 1e-8
@@ -259,30 +247,17 @@ class Test(unittest.TestCase):
         mle = maxlike.Finite(dim=1)
 
         # fetch and prepare data
-        df = pd.read_csv(
-            os.path.join(self.data_folder, "data_poisson_matrix.csv"),
-            index_col=[0, 1], header=[0, 1]).stack([0, 1])
+        df = pd.read_csv(os.path.join(self.data_folder, "data2.csv"))
 
-        kwargs, _ = prepare_series(df)
-        N = kwargs['N']
+        h = np.log(df.g1.mean()) - np.log(df.g2.mean())
+        log_mean = np.log(df.mean().mean()) / 2
+        a = df.groupby('t1').g1.mean() + df.groupby('t2').g2.mean()
+        b = df.groupby('t1').g2.mean() + df.groupby('t2').g1.mean()
+        a = np.log(a) - log_mean
+        b = log_mean - np.log(b)
 
-        def EX(u):
-            assert u.ndim <= 2
-            return (u * np.arange(u.shape[-1])).sum(-1) / u.sum(-1)
-
-        # guess params
-        A = EX(N.sum((1, 3)))
-        B = EX(N.sum((0, 2)))
-        C = EX(N.sum((0, 3)))
-        D = EX(N.sum((1, 2)))
-        
-        log_mean = np.log((A + B + C + D).mean()) / 2
-        a = np.log(A + B) - log_mean
-        b = log_mean - np.log(C + D)
-        h = np.log((A + C).mean()) - np.log((B + D).mean())
-
-        mle.add_param(a)
-        mle.add_param(b)
+        mle.add_param(a.values)
+        mle.add_param(b.values)
         mle.add_param(h)
         mle.add_constraint([0, 1], Linear([1, 1]))
 
@@ -298,11 +273,11 @@ class Test(unittest.TestCase):
         f2.add(-0.5 * Scalar(), 2, None)
 
         mle.model = MarkovVector(steps=18, size=n) @ [Exp() @ f1, Exp() @ f2]
-        
-        df = df.reset_index()
-        df['d'] = df['g1'].astype(int) - df['g2'].astype(int)
-        df = df.groupby(['t1', 't2', 'd']).sum()[0]
-        kwargs, _ = prepare_series(df, {'N': np.sum})
+
+        df['d'] = np.clip(df['g1'] - df['g2'], 1 - n, n - 1)
+        df = df.set_index(['t1', 't2', 'd'])
+        axis = {'d': np.arange(2 * n - 1) - n + 1}
+        kwargs, _ = prepare_series(df['g1'], {'N': np.size}, add_axis=axis)
 
         tol = 1e-8
         mle.fit(**kwargs, verbose=0, tol=tol)
