@@ -40,19 +40,19 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         self.converged = False
 
     @abc.abstractmethod
-    def like(self, params, **kwargs):
+    def like(self, params, y):
         """
         Likelihood function.
         """
 
     @abc.abstractmethod
-    def grad_like(self, params, **kwargs):
+    def grad_like(self, params, y, der):
         """
         Calculates the gradient of the log-likelihood function.
         """
 
     @abc.abstractmethod
-    def hess_like(self, params, **kwargs):
+    def hess_like(self, params, y, der, hess):
         """
         Calculates the hessian of the log-likelihood function.
         """
@@ -60,7 +60,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
     def reset_params(self):
         self.params = ()
 
-    def g(self, params, y=None, **kwargs):
+    def g(self, params, y=None):
         """
         Objective function, to maximize.
         """
