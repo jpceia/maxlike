@@ -543,28 +543,29 @@ class Tensor(BaseTensor):
 
             if self.x_dim > 0:
                 return self.dot_right(other)
-            elif self.y_dim > 0:
-                return self.transpose().dot_right(other.transpose()).transpose()
-            else:
-                raise ValueError
 
-        elif other.x_dim > 0:
+            if self.y_dim > 0:
+                return self.transpose().dot_right(other.transpose()).transpose()
+            
+            raise ValueError
+
+        if other.x_dim > 0:
             return self.dot_left(other)
 
         # from here other.x_dim == 0
 
-        elif other.y_dim > 0:
+        if other.y_dim > 0:
             return self.transpose().dot_left(other.transpose()).transpose()
 
         # from here other.y_dim == 0
 
-        elif other.n == self.x_dim:
+        if other.n == self.x_dim:
             return self.dot_left(other)
 
-        elif (other.n > 0) & (other.n == self.y_dim):
+        if (other.n > 0) & (other.n == self.y_dim):
             return self.transpose().dot_left(other)
 
-        elif other.values == 0:
+        if (other.values.ndim == 0) and (other.values == 0):
             return 0
 
         raise ValueError
