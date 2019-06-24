@@ -19,6 +19,7 @@ class Test(unittest.TestCase):
         n = 3
         self.a = Tensor(np.arange(1, n * n + 1).reshape((n, n)))
         self.b = Tensor(np.arange(n * n + 1, 2 * n * n + 1).reshape((n, n)))
+        self.c = Tensor(np.arange(n * n + 1, 3 * n * n + 1).reshape((n, n, 2)))
         self.a1 = Tensor(self.a.values[None, :, :], 1, 0, 0, array('b', [0]))
         self.b1 = Tensor(self.b.values[None, :, :], 1, 0, 0, array('b', [0]))
         self.b2 = Tensor(self.b.values[None, :, :], 1, 0, 0, array('b', [1]))
@@ -409,23 +410,28 @@ class Test(unittest.TestCase):
                 pass
 
     def test_sum(self):
-        a = self.a
-        b = self.b
-        a1 = self.a1
-        b1 = self.b1
-        b2 = self.b2
-        c1 = self.c1
-        a12 = self.a12
-        b21 = self.b21
-
         tensor_sum = lambda x: x.sum() if isinstance(x, BaseTensor) \
                                        else x.sum((-1, -2)).transpose()
-        self.check_comm(tensor_sum, a)
-        self.check_comm(tensor_sum, a1)
-        self.check_comm(tensor_sum, c1)
-        self.check_comm(tensor_sum, a12)
-        self.check_comm(tensor_sum, a1 + b2)
-        self.check_comm(tensor_sum, a12 + b21)
+        self.check_comm(tensor_sum, self.a)
+        self.check_comm(tensor_sum, self.a1)
+        self.check_comm(tensor_sum, self.c1)
+        self.check_comm(tensor_sum, self.a12)
+        self.check_comm(tensor_sum, self.a1 + self.b1)
+        self.check_comm(tensor_sum, self.a12 + self.b21)
+
+        tensor_sum = lambda x: x.sum(sum_val=False) \
+                               if isinstance(x, BaseTensor) else x
+        self.check_comm(tensor_sum, self.a)
+        self.check_comm(tensor_sum, self.c)
+        self.check_comm(tensor_sum, self.a1)
+        self.check_comm(tensor_sum, self.c1)
+        self.check_comm(tensor_sum, self.a12)
+        self.check_comm(tensor_sum, self.a1 + self.b1)
+        self.check_comm(tensor_sum, self.a12 + self.b21)
+
+        tensor_sum = lambda x: x.sum(sum_val=False, sum_dim=True) \
+                               if isinstance(x, BaseTensor) else x
+        self.check_comm(tensor_sum, self.c)
 
 
 if __name__ == "__main__":
