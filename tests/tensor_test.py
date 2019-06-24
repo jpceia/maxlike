@@ -15,6 +15,14 @@ class Test(unittest.TestCase):
         msg = "\nM1=\n{}\n\nM2=\n{}\n"
         self.assertTrue(np.allclose(m1, m2), msg.format(m1, m2))
 
+    def check_comm2(self, foo1, foo2, *t_args):
+        m1 = foo1(*t_args).toarray()
+        arr_args = [t.toarray() if isinstance(t, BaseTensor)
+                    else t for t in t_args]
+        m2 = foo2(*arr_args)
+        msg = "\nM1=\n{}\n\nM2=\n{}\n"
+        self.assertTrue(np.allclose(m1, m2), msg.format(m1, m2))
+
     def setUp(self):
         n = 3
         self.a = Tensor(np.arange(1, n * n + 1).reshape((n, n)))
@@ -410,28 +418,42 @@ class Test(unittest.TestCase):
                 pass
 
     def test_sum(self):
-        tensor_sum = lambda x: x.sum() if isinstance(x, BaseTensor) \
-                                       else x.sum((-1, -2)).transpose()
-        self.check_comm(tensor_sum, self.a)
-        self.check_comm(tensor_sum, self.a1)
-        self.check_comm(tensor_sum, self.c1)
-        self.check_comm(tensor_sum, self.a12)
-        self.check_comm(tensor_sum, self.a1 + self.b1)
-        self.check_comm(tensor_sum, self.a12 + self.b21)
+        sum_tensor = lambda x: x.sum()
+        sum_array = lambda x: x.sum((-1, -2)).transpose()
+        check = lambda x: self.check_comm2(sum_tensor, sum_array, x)
 
-        tensor_sum = lambda x: x.sum(sum_val=False) \
-                               if isinstance(x, BaseTensor) else x
-        self.check_comm(tensor_sum, self.a)
-        self.check_comm(tensor_sum, self.c)
-        self.check_comm(tensor_sum, self.a1)
-        self.check_comm(tensor_sum, self.c1)
-        self.check_comm(tensor_sum, self.a12)
-        self.check_comm(tensor_sum, self.a1 + self.b1)
-        self.check_comm(tensor_sum, self.a12 + self.b21)
+        check(self.a)
+        check(self.a1)
+        check(self.c1)
+        check(self.a12)
+        check(self.a1 + self.b1)
+        check(self.a12 + self.b21)
 
-        tensor_sum = lambda x: x.sum(sum_val=False, sum_dim=True) \
-                               if isinstance(x, BaseTensor) else x
-        self.check_comm(tensor_sum, self.c)
+        sum_tensor = lambda x: x.sum(sum_val=False)
+        sum_array = lambda x: x
+        check = lambda x: self.check_comm2(sum_tensor, sum_array, x)
+
+        check(self.a)
+        check(self.c)
+        check(self.a1)
+        check(self.c1)
+        check(self.a12)
+        check(self.a1 + self.b1)
+        check(self.a12 + self.b21)
+
+        sum_tensor = lambda x: x.sum(sum_val=False, sum_dim=False)
+        sum_array = lambda x: x
+        check = lambda x: self.check_comm2(sum_tensor, sum_array, x)
+
+        check(self.c)
+
+    def test_flip(self):
+        flip_tensor = lambda x: x.flip([0, 1])
+        flip_array = lambda x: np.flip(x, [-1, -2])
+        check = lambda x: self.check_comm2(flip_tensor, flip_array, x)
+
+        check(self.a)
+        check(self.c1)
 
 
 if __name__ == "__main__":
