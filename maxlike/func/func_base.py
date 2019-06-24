@@ -1,5 +1,4 @@
 import numpy as np
-import inspect
 from six import with_metaclass
 from types import MethodType
 from array import array

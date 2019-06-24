@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.special import factorial, gammaln
-from array import array
 from ..tensor import Tensor
 from .func import Exp
 from .func_base import Func, grad_tensor, hess_tensor

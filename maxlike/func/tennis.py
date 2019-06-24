@@ -1,4 +1,4 @@
-from .func_base import Func, grad_tensor, hess_tensor, null_func
+from .func_base import Func, grad_tensor, hess_tensor
 from ..tensor import Tensor
 import numpy as np
 

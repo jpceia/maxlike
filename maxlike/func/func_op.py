@@ -1,9 +1,7 @@
 from ..tensor import Tensor
 from .func_base import Func, Affine, null_method, isnull
-from .func import X, Constant, Scalar, Vector
 from six.moves import reduce
 from types import MethodType
-from array import array
 
 
 class IndexMap(list):
@@ -260,7 +258,7 @@ class Product(Func):
             return reduce(lambda x, y: x * y,
                           (el for i, el in enumerate(arr)
                            if i not in except_idx))
-        except TypeError as err:
+        except TypeError:
             return 1.0
 
     def __call__(self, params):
