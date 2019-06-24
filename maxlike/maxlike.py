@@ -163,7 +163,7 @@ class NormalizedFinite(MaxLike):
     frequencies by probabilities.
     """
 
-    def __init__(self, dim=1, normalize=True):
+    def __init__(self, dim=1):
         self.dim = dim
         MaxLike.__init__(self)
 
