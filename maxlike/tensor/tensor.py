@@ -43,15 +43,15 @@ class TensorOp(Enum):
 
 class BaseTensor(object, with_metaclass(abc.ABCMeta)):
 
-    __slots__ = ['p1', 'p2', 'n', 'dim', 'hash']
+    __slots__ = ['x_dim', 'y_dim', 'n', 'dim', 'hash']
 
-    def __init__(self, p1=0, p2=0, n=0, dim=0):
-        assert p1 >= 0
-        assert p2 >= 0
+    def __init__(self, x_dim=0, y_dim=0, n=0, dim=0):
+        assert x_dim >= 0
+        assert y_dim >= 0
         assert n >= 0
         assert dim >= 0
-        object.__setattr__(self, 'p1', p1)
-        object.__setattr__(self, 'p2', p2)
+        object.__setattr__(self, 'x_dim', x_dim)
+        object.__setattr__(self, 'y_dim', y_dim)
         object.__setattr__(self, 'n', n)
         object.__setattr__(self, 'dim', dim)
         object.__setattr__(self, 'hash', getrandbits(128))
@@ -84,7 +84,7 @@ class BaseTensor(object, with_metaclass(abc.ABCMeta)):
     @abc.abstractmethod
     def transpose(self):
         """
-        Transposes the 'p1' and 'p2' spaces
+        Transposes the 'x_dim' and 'y_dim' spaces
         """
 
     @abc.abstractmethod
@@ -116,7 +116,7 @@ class BaseTensor(object, with_metaclass(abc.ABCMeta)):
 
     def __str__(self):
         return "shape: [{}, {}, {}, {}]".format(
-            self.p1, self.p2, self.n, self.dim)
+            self.x_dim, self.y_dim, self.n, self.dim)
 
     def __add__(self, other):
         return self.bin_op(other, TensorOp.ADD)
@@ -159,8 +159,8 @@ class GenericTensor(BaseTensor):
 
     __slots__ = ['elements']
 
-    def __init__(self, p1=0, p2=0, n=0, dim=0, elements=None):
-        super(GenericTensor, self).__init__(p1, p2, n, dim)
+    def __init__(self, x_dim=0, y_dim=0, n=0, dim=0, elements=None):
+        super(GenericTensor, self).__init__(x_dim, y_dim, n, dim)
         # all of the elements need to have the same shape
         if elements is None:
             elements = ()
@@ -188,7 +188,7 @@ class GenericTensor(BaseTensor):
         shape_n = np.ones(i1 - i0, dtype=np.int)
         el_sizes = np.empty(len(self.elements), dtype=np.int)
         for k, el in enumerate(self.elements):
-            p = el.p1 + el.p2
+            p = el.x_dim + el.y_dim
             shape = el.values.shape[p + i0:p + i1]
             shape_n = np.maximum(shape_n, shape)
             el_sizes[k] = np.array(shape).prod()
@@ -199,40 +199,40 @@ class GenericTensor(BaseTensor):
             values = 0
             for el, el_size in zip(self.elements, el_sizes):
                 idx = []
-                idx += [None] * (self.p1 - el.p1) + [slice(None)] * el.p1
-                idx += [None] * (self.p2 - el.p2) + [slice(None)] * el.p2
+                idx += [None] * (self.x_dim - el.x_dim) + [slice(None)] * el.x_dim
+                idx += [None] * (self.y_dim - el.y_dim) + [slice(None)] * el.y_dim
                 idx += [...]
                 values = values + el.sum(sum_val, sum_dim).\
                     values[tuple(idx)] * (size / el_size)
 
             dim = 0 if sum_dim is True else self.dim
-            return Tensor(values, p1=self.p1, p2=self.p2, dim=dim)
+            return Tensor(values, x_dim=self.x_dim, y_dim=self.y_dim, dim=dim)
 
         # else:
         new_elements = [el.sum(False, sum_dim) * (size / el_size)
                         for el, el_size in zip(self.elements, el_sizes)]
-        return GenericTensor(self.p1, self.p2, self.n, 0, new_elements)
+        return GenericTensor(self.x_dim, self.y_dim, self.n, 0, new_elements)
 
     def expand(self, xmap, newsize, dim=False):
         new_n = self.n if dim else newsize
         new_dim = newsize if dim else self.dim
         return GenericTensor(
-            self.p1, self.p2, new_n, new_dim,
+            self.x_dim, self.y_dim, new_n, new_dim,
             [el.expand(xmap, newsize, dim) for el in self.elements])
 
     def flip(self, xmap, dim=False):
         return GenericTensor(
-            self.p1, self.p2, self.n, self.dim,
+            self.x_dim, self.y_dim, self.n, self.dim,
             [el.flip(xmap, dim) for el in self.elements])
 
     def transpose(self):
         return GenericTensor(
-            self.p2, self.p1, self.n, self.dim,
+            self.y_dim, self.x_dim, self.n, self.dim,
             [el.transpose() for el in self.elements])
 
     def drop_dim(self):
         return GenericTensor(
-            self.p1, self.p2, self.n + self.dim, 0,
+            self.x_dim, self.y_dim, self.n + self.dim, 0,
             [el.drop_dim() for el in self.elements])
 
     def dot(self, other):
@@ -282,7 +282,7 @@ class GenericTensor(BaseTensor):
 
     def __neg__(self):
         return GenericTensor(
-            self.p1, self.p2, self.n, self.dim,
+            self.x_dim, self.y_dim, self.n, self.dim,
             [-el for el in self.elements])
 
     def bin_op(self, other, op_type):
@@ -290,14 +290,14 @@ class GenericTensor(BaseTensor):
         # Array
         #  -> are converted to tensor
         if isinstance(other, (int, float, np.ndarray)):
-            p1 = self.p1
-            p2 = self.p2
+            x_dim = self.x_dim
+            y_dim = self.y_dim
             n = self.n
             dim = self.dim
 
         else:
-            p1 = max(self.p1, other.p1)
-            p2 = max(self.p2, other.p2)
+            x_dim = max(self.x_dim, other.x_dim)
+            y_dim = max(self.y_dim, other.y_dim)
             n = max(self.n, other.n)
             dim = max(self.dim, other.dim)
 
@@ -335,18 +335,18 @@ class GenericTensor(BaseTensor):
             else:
                 raise InvalidOperation
 
-            return GenericTensor(p1, p2, n, dim, new_elements)
+            return GenericTensor(x_dim, y_dim, n, dim, new_elements)
 
         # GenericTensor
         if isinstance(other, GenericTensor):
             if op_type in [TensorOp.ADD, TensorOp.SUB]:
-                gt = GenericTensor(self.p1, self.p2, self.n, self.dim,
+                gt = GenericTensor(self.x_dim, self.y_dim, self.n, self.dim,
                                    self.elements)
                 for el in other.elements:
                     gt = gt.bin_op(el, op_type)
                 return gt
             elif op_type == TensorOp.MUL:
-                gt = GenericTensor(p1, p2, n, dim)
+                gt = GenericTensor(x_dim, y_dim, n, dim)
                 for el in other.elements:
                     gt = gt + self * el
                 return gt
@@ -358,14 +358,14 @@ class GenericTensor(BaseTensor):
 
 class Tensor(BaseTensor):
 
-    __slots__ = ['values', 'p1_mapping', 'p2_mapping']
+    __slots__ = ['values', 'x_map', 'y_map']
 
-    def __init__(self, values, p1=0, p2=0, dim=0,
-                 p1_mapping=None, p2_mapping=None, dtype=None):
+    def __init__(self, values, x_dim=0, y_dim=0, dim=0,
+                 x_map=None, y_map=None, dtype=None):
 
         if isinstance(values, Tensor):
-            assert values.p1 == 0
-            assert values.p2 == 0
+            assert values.x_dim == 0
+            assert values.y_dim == 0
             dim = values.dim
 
         if dtype is None:
@@ -375,50 +375,50 @@ class Tensor(BaseTensor):
         self.values.flags["WRITEABLE"] = False
 
         super(Tensor, self).__init__(
-            p1, p2, self.values.ndim - p1 - p2 - dim, dim)
+            x_dim, y_dim, self.values.ndim - x_dim - y_dim - dim, dim)
 
-        if p1_mapping:
-            if not isinstance(p1_mapping, array):
+        if x_map:
+            if not isinstance(x_map, array):
                 raise ValueError("Invalid mapping")
         else:
-            p1_mapping = array('b')
+            x_map = array('b')
 
-        if p2_mapping:
-            if not isinstance(p2_mapping, array):
+        if y_map:
+            if not isinstance(y_map, array):
                 raise ValueError("Invalid mapping")
         else:
-            p2_mapping = array('b')
+            y_map = array('b')
 
-        object.__setattr__(self, 'p1_mapping', p1_mapping)
-        object.__setattr__(self, 'p2_mapping', p2_mapping)
+        object.__setattr__(self, 'x_map', x_map)
+        object.__setattr__(self, 'y_map', y_map)
 
     def toarray(self):
         arr = self.values
-        p = self.p1 + self.p2
-        arr = arr_expand_diag(arr,       0, p, self.p1_mapping)
-        arr = arr_expand_diag(arr, self.p1, p, self.p2_mapping)
+        p = self.x_dim + self.y_dim
+        arr = arr_expand_diag(arr,       0, p, self.x_map)
+        arr = arr_expand_diag(arr, self.x_dim, p, self.y_map)
         return arr
 
     def sum(self, sum_val=True, sum_dim=True):
         val = self.values
-        p = self.p1 + self.p2
+        p = self.x_dim + self.y_dim
         cross_map = {}
 
         if not sum_val:
             if sum_dim:
                 val = val.sum(tuple(p + self.n + np.arange(self.dim)))
-            return Tensor(val, self.p1, self.p2, 0,
-                          self.p1_mapping, self.p2_mapping)
+            return Tensor(val, self.x_dim, self.y_dim, 0,
+                          self.x_map, self.y_map)
 
-        val = arr_swapaxes(val, 0, p, self.p1_mapping)
-        for k, f in enumerate(self.p2_mapping):
+        val = arr_swapaxes(val, 0, p, self.x_map)
+        for k, f in enumerate(self.y_map):
             if f < 0:
                 continue
-            if f in self.p1_mapping:
-                l = self.p1_mapping.index(f)
+            if f in self.x_map:
+                l = self.x_map.index(f)
                 cross_map[l] = k
             else:
-                val = val.swapaxes(self.p1 + k, p + f)
+                val = val.swapaxes(self.x_dim + k, p + f)
 
         if sum_dim is True:
             idx = tuple(p + np.arange(self.n + self.dim))
@@ -432,10 +432,10 @@ class Tensor(BaseTensor):
         for k, f in cross_map.items():
             idx = [None] * val.ndim
             idx[k] = slice(None)
-            idx[self.p1 + f] = slice(None)
-            val = val * np.eye(val.shape[self.p1 + f])[tuple(idx)]
+            idx[self.x_dim + f] = slice(None)
+            val = val * np.eye(val.shape[self.x_dim + f])[tuple(idx)]
 
-        return Tensor(val, self.p1, self.p2, dim)
+        return Tensor(val, self.x_dim, self.y_dim, dim)
 
     def expand(self, xmap, newsize, dim=False):
         """
@@ -449,40 +449,40 @@ class Tensor(BaseTensor):
 
         if dim is True:
             assert len(xmap) == self.dim
-            idx = [slice(None)] * (self.p1 + self.p2 + self.n)
+            idx = [slice(None)] * (self.x_dim + self.y_dim + self.n)
             idx += [slice(None) if k in xmap else None
                     for k in range(newsize)]
             rng = np.arange(self.values.ndim)
-            pn = self.p1 + self.p2 + self.n
+            pn = self.x_dim + self.y_dim + self.n
             rng[pn:] = rng[pn:][np.argsort(xmap)]
             return Tensor(
                 self.values.transpose(rng)[tuple(idx)],
-                p1=self.p1,
-                p2=self.p2,
+                x_dim=self.x_dim,
+                y_dim=self.y_dim,
                 dim=newsize,
-                p1_mapping=self.p1_mapping,
-                p2_mapping=self.p2_mapping)
+                x_map=self.x_map,
+                y_map=self.y_map)
 
         else:
             assert len(xmap) == self.n
-            idx = [slice(None)] * (self.p1 + self.p2)
+            idx = [slice(None)] * (self.x_dim + self.y_dim)
             idx += [slice(None) if k in xmap else None
                     for k in range(newsize)]
             idx += [slice(None)] * self.dim
-            p = self.p1 + self.p2
+            p = self.x_dim + self.y_dim
             pn = p + self.n
             rng = np.arange(self.values.ndim)
             rng[p:pn] = rng[p:pn][np.argsort(xmap)]
             xmap = array('b', xmap)
-            p1_mapping = compose_mappings(xmap, self.p1_mapping)
-            p2_mapping = compose_mappings(xmap, self.p2_mapping)
+            x_map = compose_mappings(xmap, self.x_map)
+            y_map = compose_mappings(xmap, self.y_map)
             return Tensor(
                 self.values.transpose(rng)[tuple(idx)],
-                p1=self.p1,
-                p2=self.p2,
+                x_dim=self.x_dim,
+                y_dim=self.y_dim,
                 dim=self.dim,
-                p1_mapping=p1_mapping,
-                p2_mapping=p2_mapping)
+                x_map=x_map,
+                y_map=y_map)
 
     def flip(self, xmap, dim=False):
         if xmap is None or xmap == []:
@@ -492,7 +492,7 @@ class Tensor(BaseTensor):
             xmap = [xmap]
 
         val = self.values
-        p = self.p1 + self.p2
+        p = self.x_dim + self.y_dim
 
         if dim is True:
             # assert max(xmap) < self.dim
@@ -501,8 +501,8 @@ class Tensor(BaseTensor):
         else:
             # assert max(xmap) < self.n
             mappings = array('b')
-            mappings += self.p1_mapping
-            mappings += self.p2_mapping
+            mappings += self.x_map
+            mappings += self.y_map
             for k in xmap:
                 if k in mappings:
                     raise NotImplementedError
@@ -512,24 +512,24 @@ class Tensor(BaseTensor):
 
         return Tensor(
             val,
-            p1=self.p1,
-            p2=self.p2,
+            x_dim=self.x_dim,
+            y_dim=self.y_dim,
             dim=self.dim,
-            p1_mapping=self.p1_mapping,
-            p2_mapping=self.p2_mapping)
+            x_map=self.x_map,
+            y_map=self.y_map)
 
     def transpose(self):
         val = self.values
-        if (self.p1 > 0) & (self.p2 > 0):
-            for k in range(0, self.p1):
-                val = np.moveaxis(val, self.p1, k)
-        return Tensor(val, self.p2,  self.p1, self.dim,
-                      self.p2_mapping, self.p1_mapping)
+        if (self.x_dim > 0) & (self.y_dim > 0):
+            for k in range(0, self.x_dim):
+                val = np.moveaxis(val, self.x_dim, k)
+        return Tensor(val, self.y_dim,  self.x_dim, self.dim,
+                      self.y_map, self.x_map)
 
     def drop_dim(self):
         return Tensor(
-            self.values, p1=self.p1, p2=self.p2, dim=0,
-            p1_mapping=self.p1_mapping, p2_mapping=self.p2_mapping)
+            self.values, x_dim=self.x_dim, y_dim=self.y_dim, dim=0,
+            x_map=self.x_map, y_map=self.y_map)
 
     def dot(self, other):
 
@@ -539,29 +539,29 @@ class Tensor(BaseTensor):
 
         assert (self.dim == 0) | (other.dim == 0) | (self.dim == other.dim)
 
-        if (other.p1 > 0) & (other.p2 > 0):
+        if (other.x_dim > 0) & (other.y_dim > 0):
 
-            if self.p1 > 0:
+            if self.x_dim > 0:
                 return self.dot_right(other)
-            elif self.p2 > 0:
+            elif self.y_dim > 0:
                 return self.transpose().dot_right(other.transpose()).transpose()
             else:
                 raise ValueError
 
-        elif other.p1 > 0:
+        elif other.x_dim > 0:
             return self.dot_left(other)
 
-        # from here other.p1 == 0
+        # from here other.x_dim == 0
 
-        elif other.p2 > 0:
+        elif other.y_dim > 0:
             return self.transpose().dot_left(other.transpose()).transpose()
 
-        # from here other.p2 == 0
+        # from here other.y_dim == 0
 
-        elif other.n == self.p1:
+        elif other.n == self.x_dim:
             return self.dot_left(other)
 
-        elif (other.n > 0) & (other.n == self.p2):
+        elif (other.n > 0) & (other.n == self.y_dim):
             return self.transpose().dot_left(other)
 
         elif other.values == 0:
@@ -583,35 +583,34 @@ class Tensor(BaseTensor):
         """
         dim = max(self.dim, other.dim)
 
-        if (self.p1 != other.n) & (self.p2 == other.n):
+        if (self.x_dim != other.n) & (self.y_dim == other.n):
             return self.transpose().dot_left(other)
 
         if isinstance(other, GenericTensor):
             return GenericTensor(
-                other.p1, self.p2, self.n, dim,
+                other.x_dim, self.y_dim, self.n, dim,
                 [self.dot_left(el) for el in other.elements])
 
-        p = self.p1 + self.p2
+        p = self.x_dim + self.y_dim
 
-        l_idx = [slice(None)] * (other.p1 + other.n) + \
-                [None] * (self.p2 + self.n) + [slice(None)] * other.dim + \
+        l_idx = [slice(None)] * (other.x_dim + other.n) + \
+                [None] * (self.y_dim + self.n) + [slice(None)] * other.dim + \
                 [None] * (dim - other.dim)
-        r_idx = [None] * other.p1 + [...] + [None] * (dim - self.dim)
+        r_idx = [None] * other.x_dim + [...] + [None] * (dim - self.dim)
 
         val = self.values
-        val = arr_swapaxes(val, 0, p, self.p1_mapping)
+        val = arr_swapaxes(val, 0, p, self.x_map)
         val = np.multiply(other.values[tuple(l_idx)], val[tuple(r_idx)])
-        val = arr_swapaxes(val, other.p1, other.p1 + p, self.p1_mapping)
-        if self.p1_mapping:
-            p1_mapping = compose_mappings(self.p1_mapping, other.p1_mapping)
+        val = arr_swapaxes(val, other.x_dim, other.x_dim + p, self.x_map)
+        if self.x_map:
+            x_map = compose_mappings(self.x_map, other.x_map)
         else:
-            p1_mapping = array('b')
-            val = arr_swapaxes(val, 0, other.p1, other.p1_mapping)
+            x_map = array('b')
+            val = arr_swapaxes(val, 0, other.x_dim, other.x_map)
 
-        val = val.sum(tuple(other.p1 + np.arange(other.n)))
-        return Tensor(val, p1=other.p1, p2=self.p2, dim=dim,
-                      p1_mapping=p1_mapping,
-                      p2_mapping=self.p2_mapping)
+        val = val.sum(tuple(other.x_dim + np.arange(other.n)))
+        return Tensor(val, x_dim=other.x_dim, y_dim=self.y_dim, dim=dim,
+                      x_map=x_map, y_map=self.y_map)
 
     def dot_right(self, other):
         """
@@ -634,49 +633,49 @@ class Tensor(BaseTensor):
 
         dim = max(self.dim, other.dim)
 
-        assert self.p2 == 0
-        assert self.p1 == other.n
+        assert self.y_dim == 0
+        assert self.x_dim == other.n
 
         if isinstance(other, GenericTensor):
             return GenericTensor(
-                other.p1, other.p2, self.n, dim,
+                other.x_dim, other.y_dim, self.n, dim,
                 [self.dot_right(el) for el in other.elements])
 
-        p = other.p1 + other.p2
+        p = other.x_dim + other.y_dim
 
         # to do, broadcast on dim
         l_idx = [slice(None)] * (p + other.n) + [None] * self.n + \
                 [slice(None)] * other.dim + [None] * (dim - other.dim)
-        r_idx = [None] * p + [slice(None)] * (self.p1 + self.n) + \
+        r_idx = [None] * p + [slice(None)] * (self.x_dim + self.n) + \
                 [None] * (dim - self.dim)
 
         val = self.values
-        val = arr_swapaxes(val, 0, self.p1, self.p1_mapping)
+        val = arr_swapaxes(val, 0, self.x_dim, self.x_map)
         val = other.values[tuple(l_idx)] * val[tuple(r_idx)]
-        val = arr_swapaxes(val, p, p + self.p1, self.p1_mapping)
-        if not self.p1_mapping:
-            val = arr_swapaxes(val, 0, p, other.p1_mapping)
-            val = arr_swapaxes_cross(val, other.p1,
-                                     other.p1_mapping, other.p2_mapping)
+        val = arr_swapaxes(val, p, p + self.x_dim, self.x_map)
+        if not self.x_map:
+            val = arr_swapaxes(val, 0, p, other.x_map)
+            val = arr_swapaxes_cross(val, other.x_dim,
+                                     other.x_map, other.y_map)
 
-        p1_mapping = compose_mappings(self.p1_mapping, other.p1_mapping)
-        p2_mapping = compose_mappings(self.p1_mapping, other.p2_mapping)
+        x_map = compose_mappings(self.x_map, other.x_map)
+        y_map = compose_mappings(self.x_map, other.y_map)
         val = val.sum(tuple(p + np.arange(other.n)))
-        return Tensor(val, p1=other.p1, p2=other.p2, dim=dim,
-                      p1_mapping=p1_mapping,
-                      p2_mapping=p2_mapping)
+        return Tensor(val,
+                      x_dim=other.x_dim, y_dim=other.y_dim, dim=dim,
+                      x_map=x_map, y_map=y_map)
 
     def __neg__(self):
         return Tensor(
             -self.values,
-            p1=self.p1, p2=self.p2, dim=self.dim,
-            p1_mapping=self.p1_mapping, p2_mapping=self.p2_mapping)
+            x_dim=self.x_dim, y_dim=self.y_dim, dim=self.dim,
+            x_map=self.x_map, y_map=self.y_map)
 
     def __pow__(self, a):
         return Tensor(
             np.power(self.values, a),
-            p1=self.p1, p2=self.p2, dim=self.dim,
-            p1_mapping=self.p1_mapping, p2_mapping=self.p2_mapping)
+            x_dim=self.x_dim, y_dim=self.y_dim, dim=self.dim,
+            x_map=self.x_map, y_map=self.y_map)
 
     def bin_op(self, other, op_type):
 
@@ -726,21 +725,20 @@ class Tensor(BaseTensor):
             if op_type in [TensorOp.ADD, TensorOp.SUB, TensorOp.RSUB]:
                 return Tensor(
                     op_type.value(self.toarray(), other),
-                    p1=self.p1, p2=self.p2, dim=self.dim)
+                    x_dim=self.x_dim, y_dim=self.y_dim, dim=self.dim)
 
             elif op_type in [TensorOp.MUL, TensorOp.DIV, TensorOp.RDIV]:
                 return Tensor(
                     op_type.value(self.values, other),
-                    p1=self.p1, p2=self.p2, dim=self.dim,
-                    p1_mapping=self.p1_mapping,
-                    p2_mapping=self.p2_mapping)
+                    x_dim=self.x_dim, y_dim=self.y_dim, dim=self.dim,
+                    x_map=self.x_map, y_map=self.y_map)
             else:
                 raise InvalidOperation
 
         if self.values.ndim == 0:
             return Tensor(
                 op_type.value(self.values, other.values),
-                other.p1, other.p2, other.dim, other.p1_mapping, other.p2_mapping)
+                other.x_dim, other.y_dim, other.dim, other.x_map, other.y_map)
 
         # l_idx and r_idx could be defined
         assert (self.n == 0) | (other.n == 0) | (self.n == other.n)
@@ -750,31 +748,30 @@ class Tensor(BaseTensor):
         assert (self.dim == 0) | (other.dim == 0) | (self.dim == other.dim)
         dim = max(self.dim, other.dim)
 
-        # set p1
-        assert (self.p1 == 0) | (other.p1 == 0) | (self.p1 == other.p1)
-        p1 = max(self.p1, other.p1)
+        # set x_dim
+        assert (self.x_dim == 0) | (other.x_dim == 0) | (self.x_dim == other.x_dim)
+        x_dim = max(self.x_dim, other.x_dim)
 
-        # set p2
-        assert (self.p2 == 0) | (other.p2 == 0) | (self.p2 == other.p2)
-        p2 = max(self.p2, other.p2)
+        # set y_dim
+        assert (self.y_dim == 0) | (other.y_dim == 0) | (self.y_dim == other.y_dim)
+        y_dim = max(self.y_dim, other.y_dim)
 
         l_values = self.values
         r_values = other.values
 
-        l_idx = self.__reshape_idx(p1, p2, n, dim)
-        r_idx = other.__reshape_idx(p1, p2, n, dim)
+        l_idx = self.__reshape_idx(x_dim, y_dim, n, dim)
+        r_idx = other.__reshape_idx(x_dim, y_dim, n, dim)
 
         # --------------------------------------------------------------------
         # Addition and Subtraction
         # --------------------------------------------------------------------
         if op_type in [TensorOp.ADD, TensorOp.SUB, TensorOp.RSUB]:
-            if (self.p1_mapping == other.p1_mapping) & \
-                    (self.p2_mapping == other.p2_mapping):
+            if (self.x_map == other.x_map) & \
+                    (self.y_map == other.y_map):
                 return Tensor(
                     op_type.value(l_values[l_idx], r_values[r_idx]),
-                    p1=p1, p2=p2, dim=dim,
-                    p1_mapping=self.p1_mapping,
-                    p2_mapping=self.p2_mapping)
+                    x_dim=x_dim, y_dim=y_dim, dim=dim,
+                    x_map=self.x_map, y_map=self.y_map)
 
             # there are other cases where we can do merging
             # when the shape of one of the arrays 'contains' the other
@@ -788,42 +785,41 @@ class Tensor(BaseTensor):
             else:
                 raise ValueError
 
-            return GenericTensor(p1, p2, n, dim, elements)
+            return GenericTensor(x_dim, y_dim, n, dim, elements)
 
         # --------------------------------------------------------------------
         # Multiplication and Division
         # --------------------------------------------------------------------
-        p = self.p1 + self.p2
+        p = self.x_dim + self.y_dim
 
-        if self.p1_mapping:
-            p1_mapping = self.p1_mapping
+        if self.x_map:
+            x_map = self.x_map
             l_values = arr_expand_cross_diag(
-                l_values, p, self.p1_mapping, other.p1_mapping)
-            if not other.p1_mapping and other.p1:
-                r_values = arr_take_diag(r_values, 0, other.p1 + other.p2,
-                                         self.p1_mapping)
+                l_values, p, self.x_map, other.x_map)
+            if not other.x_map and other.x_dim:
+                r_values = arr_take_diag(r_values, 0, other.x_dim + other.y_dim,
+                                         self.x_map)
         else:
-            p1_mapping = other.p1_mapping
-            if p1_mapping and self.p1:
-                l_values = arr_take_diag(l_values, 0, p, other.p1_mapping)
+            x_map = other.x_map
+            if x_map and self.x_dim:
+                l_values = arr_take_diag(l_values, 0, p, other.x_map)
 
-        if self.p2_mapping:
-            p2_mapping = self.p2_mapping
+        if self.y_map:
+            y_map = self.y_map
             l_values = arr_expand_cross_diag(
-                l_values, p, self.p2_mapping, other.p2_mapping)
-            if not other.p2_mapping and other.p2:
-                r_values = arr_take_diag(r_values, other.p1, other.p1 + other.p2,
-                                         self.p2_mapping)
+                l_values, p, self.y_map, other.y_map)
+            if not other.y_map and other.y_dim:
+                r_values = arr_take_diag(r_values, other.x_dim, other.x_dim + other.y_dim,
+                                         self.y_map)
         else:
-            p2_mapping = other.p2_mapping
-            if self.p2:
-                l_values = arr_take_diag(l_values, self.p1, p, other.p2_mapping)
+            y_map = other.y_map
+            if self.y_dim:
+                l_values = arr_take_diag(l_values, self.x_dim, p, other.y_map)
 
         return Tensor(
             op_type.value(l_values[l_idx], r_values[r_idx]),
-            p1=p1, p2=p2, dim=dim,
-            p1_mapping=p1_mapping,
-            p2_mapping=p2_mapping)
+            x_dim=x_dim, y_dim=y_dim, dim=dim,
+            x_map=x_map, y_map=y_map)
 
     def __float__(self):
         if self.values.ndim > 0:
@@ -839,19 +835,19 @@ class Tensor(BaseTensor):
         if name in (
             "exp", "log", "gamma", "square",
             "expit", "logit", "tanh", "arctan"):
-            if (self.p1 > 0) | (self.p2 > 0):
+            if (self.x_dim > 0) | (self.y_dim > 0):
                 raise InvalidOperation(
                     "Unary ufuncs only supported for Tensor" +
-                    "for p1 == p2 == 0")
-            return Tensor(ufunc(self.values), p1=0, p2=0, dim=self.dim)
+                    "for x_dim == y_dim == 0")
+            return Tensor(ufunc(self.values), x_dim=0, y_dim=0, dim=self.dim)
 
         if name in ("maximum", "minimum"):
-            if (self.p1 > 0) | (self.p2 > 0):
+            if (self.x_dim > 0) | (self.y_dim > 0):
                 raise InvalidOperation(
                     "{} only supported for Tensor".format(name) +
-                    "for p1 == p2 == 0")
+                    "for x_dim == y_dim == 0")
             return Tensor(ufunc(self.values, inputs[1]),
-                          p1=0, p2=0, dim=self.dim)
+                          x_dim=0, y_dim=0, dim=self.dim)
 
         try:
             op_type = {
@@ -865,18 +861,18 @@ class Tensor(BaseTensor):
             raise InvalidOperation('Invalid ufunc:', name)
         return self.bin_op(inputs[0], op_type)
 
-    def __reshape_idx(self, p1, p2, n, dim):
+    def __reshape_idx(self, x_dim, y_dim, n, dim):
         idx = []
-        if self.p1 > 0:
-            # assert self.p1 == p1
-            idx += [slice(None)] * p1
-        elif self.p1 == 0:
-            idx += [None] * p1
-        if self.p2 > 0:
-            # assert self.p2 == p2
-            idx += [slice(None)] * p2
-        elif self.p2 == 0:
-            idx += [None] * p2
+        if self.x_dim > 0:
+            # assert self.x_dim == x_dim
+            idx += [slice(None)] * x_dim
+        elif self.x_dim == 0:
+            idx += [None] * x_dim
+        if self.y_dim > 0:
+            # assert self.y_dim == y_dim
+            idx += [slice(None)] * y_dim
+        elif self.y_dim == 0:
+            idx += [None] * y_dim
         if self.n > 0:
             # assert self.n == n
             idx += [slice(None)] * n

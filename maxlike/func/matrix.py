@@ -45,15 +45,15 @@ class CollapseMatrix(Func):
             filt = np.sign(x * rng_x[:, None] +
                            y * rng_y[None, :] + c) == s
             val.append(ones * filt)
-        p1 = ones.ndim
+        x_dim = ones.ndim
         val = np.stack(val, -1)
-        val = val.swapaxes(0, p1 - 2)
-        val = val.swapaxes(1, p1 - 1)
-        p1_mapping = array('b', range(p1 - 2))
-        p1_mapping.append(-1)
-        p1_mapping.append(-1)
-        idx = tuple([None] * (p1 - 2) + [Ellipsis])
-        return Tensor(val[idx], p1=p1, dim=1, p1_mapping=p1_mapping)
+        val = val.swapaxes(0, x_dim - 2)
+        val = val.swapaxes(1, x_dim - 1)
+        x_map = array('b', range(x_dim - 2))
+        x_map.append(-1)
+        x_map.append(-1)
+        idx = tuple([None] * (x_dim - 2) + [Ellipsis])
+        return Tensor(val[idx], x_dim=x_dim, dim=1, x_map=x_map)
 
 
 class MarkovMatrix(Func):

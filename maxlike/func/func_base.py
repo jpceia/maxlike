@@ -19,55 +19,55 @@ def isnull(foo):
 null_func.null = True  # dummy attribute
 
 
-def grad_tensor(values, params, i=0, p1_mapping=None, dim=0):
+def grad_tensor(values, params, i=0, x_map=None, dim=0):
 
-    p1 = np.asarray(params[i]).ndim
-    if p1_mapping is None:
+    x_dim = np.asarray(params[i]).ndim
+    if x_map is None:
         idx = [...]
-        p1_mapping = array('b')
+        x_map = array('b')
     else:
-        idx = [None] * p1 + [...]
-        if p1_mapping is True:
-            p1_mapping = array('b', range(p1))
-        elif isinstance(p1_mapping, (list, tuple)):
-            p1_mapping = array('b', p1_mapping)
+        idx = [None] * x_dim + [...]
+        if x_map is True:
+            x_map = array('b', range(x_dim))
+        elif isinstance(x_map, (list, tuple)):
+            x_map = array('b', x_map)
         else:
             raise ValueError("Invalid mapping")
         
-    return Tensor(np.asarray(values)[tuple(idx)], p1=p1, dim=dim,
-                  p1_mapping=p1_mapping)
+    return Tensor(np.asarray(values)[tuple(idx)], x_dim=x_dim, dim=dim,
+                  x_map=x_map)
 
 
 def hess_tensor(values, params, i=0, j=0,
-                p1_mapping=None, p2_mapping=None, dim=0):
-    p1 = np.asarray(params[i]).ndim
-    p2 = np.asarray(params[j]).ndim
-    idx  = [slice(None) if p1_mapping is None else None] * p1
-    idx += [slice(None) if p2_mapping is None else None] * p2
+                x_map=None, y_map=None, dim=0):
+    x_dim = np.asarray(params[i]).ndim
+    y_dim = np.asarray(params[j]).ndim
+    idx  = [slice(None) if x_map is None else None] * x_dim
+    idx += [slice(None) if y_map is None else None] * y_dim
     idx += [...]
 
-    if p1_mapping is None:
-        p1_mapping = array('b')
+    if x_map is None:
+        x_map = array('b')
     else:
-        if p1_mapping is True:
-            p1_mapping = array('b', range(p1))
-        elif isinstance(p1_mapping, (list, tuple)):
-            p1_mapping = array('b', p1_mapping)
+        if x_map is True:
+            x_map = array('b', range(x_dim))
+        elif isinstance(x_map, (list, tuple)):
+            x_map = array('b', x_map)
         else:
             raise ValueError("Invalid mapping")
 
-    if p2_mapping is None:
-        p2_mapping = array('b')
+    if y_map is None:
+        y_map = array('b')
     else:
-        if p2_mapping is True:
-            p2_mapping = array('b', range(p2))
-        elif isinstance(p2_mapping, (list, tuple)):
-            p2_mapping = array('b', p2_mapping)
+        if y_map is True:
+            y_map = array('b', range(y_dim))
+        elif isinstance(y_map, (list, tuple)):
+            y_map = array('b', y_map)
         else:
             raise ValueError("Invalid mapping")
 
-    return Tensor(np.asarray(values)[tuple(idx)], p1=p1, p2=p2, dim=dim,
-                  p1_mapping=p1_mapping, p2_mapping=p2_mapping)
+    return Tensor(np.asarray(values)[tuple(idx)], x_dim=x_dim, y_dim=y_dim, dim=dim,
+                  x_map=x_map, y_map=y_map)
 
 
 def call_wrap(f):
