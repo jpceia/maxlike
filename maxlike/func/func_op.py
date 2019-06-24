@@ -3,14 +3,18 @@ from .func_base import Func, Affine, null_method, isnull
 from .func import X, Constant, Scalar, Vector
 from six.moves import reduce
 from types import MethodType
+from array import array
 
 
 class IndexMap(list):
+
     def __init__(self, indexes):
-        if isinstance(indexes, int):
-            indexes = [indexes]
         # assert min(indexes) >= 0
-        self.extend(indexes)
+        try:
+            self.extend(indexes)
+        except TypeError:
+            assert isinstance(indexes, int)
+            self.append(indexes)
 
     def __call__(self, params):
         return tuple([params[k] for k in self])
