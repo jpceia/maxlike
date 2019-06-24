@@ -69,14 +69,14 @@ class BaseTensor(object, with_metaclass(abc.ABCMeta)):
         """
 
     @abc.abstractmethod
-    def expand(self, xmap, newsize, dim=False):
+    def expand(self, where, newsize, dim=False):
         """
         Expands the value/dim part of the (Base)Tensor
         to specified number of dimensions
         """
 
     @abc.abstractmethod
-    def flip(self, xmap, dim=False):
+    def flip(self, where, dim=False):
         """
         Flips a (Base)Tensor for specified dimensions on the value/dim space
         """
@@ -213,17 +213,17 @@ class GenericTensor(BaseTensor):
                         for el, el_size in zip(self.elements, el_sizes)]
         return GenericTensor(self.x_dim, self.y_dim, self.n, 0, new_elements)
 
-    def expand(self, xmap, newsize, dim=False):
+    def expand(self, where, newsize, dim=False):
         new_n = self.n if dim else newsize
         new_dim = newsize if dim else self.dim
         return GenericTensor(
             self.x_dim, self.y_dim, new_n, new_dim,
-            [el.expand(xmap, newsize, dim) for el in self.elements])
+            [el.expand(where, newsize, dim) for el in self.elements])
 
-    def flip(self, xmap, dim=False):
+    def flip(self, where, dim=False):
         return GenericTensor(
             self.x_dim, self.y_dim, self.n, self.dim,
-            [el.flip(xmap, dim) for el in self.elements])
+            [el.flip(where, dim) for el in self.elements])
 
     def transpose(self):
         return GenericTensor(
@@ -437,24 +437,24 @@ class Tensor(BaseTensor):
 
         return Tensor(val, self.x_dim, self.y_dim, dim)
 
-    def expand(self, xmap, newsize, dim=False):
+    def expand(self, where, newsize, dim=False):
         """
         Applied either to N or to Dim, accordingly with the 'dim' flag
         """
-        assert max(xmap or [-1]) < newsize
+        assert max(where or [-1]) < newsize
 
         if self.values.ndim == 0:
             if float(self.values) == 0:
                 return Tensor(0)
 
         if dim is True:
-            assert len(xmap) == self.dim
+            assert len(where) == self.dim
             idx = [slice(None)] * (self.x_dim + self.y_dim + self.n)
-            idx += [slice(None) if k in xmap else None
+            idx += [slice(None) if k in where else None
                     for k in range(newsize)]
             rng = np.arange(self.values.ndim)
             pn = self.x_dim + self.y_dim + self.n
-            rng[pn:] = rng[pn:][np.argsort(xmap)]
+            rng[pn:] = rng[pn:][np.argsort(where)]
             return Tensor(
                 self.values.transpose(rng)[tuple(idx)],
                 x_dim=self.x_dim,
@@ -464,18 +464,18 @@ class Tensor(BaseTensor):
                 y_map=self.y_map)
 
         else:
-            assert len(xmap) == self.n
+            assert len(where) == self.n
             idx = [slice(None)] * (self.x_dim + self.y_dim)
-            idx += [slice(None) if k in xmap else None
+            idx += [slice(None) if k in where else None
                     for k in range(newsize)]
             idx += [slice(None)] * self.dim
             p = self.x_dim + self.y_dim
             pn = p + self.n
             rng = np.arange(self.values.ndim)
-            rng[p:pn] = rng[p:pn][np.argsort(xmap)]
-            xmap = array('b', xmap)
-            x_map = compose_mappings(xmap, self.x_map)
-            y_map = compose_mappings(xmap, self.y_map)
+            rng[p:pn] = rng[p:pn][np.argsort(where)]
+            where = array('b', where)
+            x_map = compose_mappings(where, self.x_map)
+            y_map = compose_mappings(where, self.y_map)
             return Tensor(
                 self.values.transpose(rng)[tuple(idx)],
                 x_dim=self.x_dim,
@@ -484,30 +484,30 @@ class Tensor(BaseTensor):
                 x_map=x_map,
                 y_map=y_map)
 
-    def flip(self, xmap, dim=False):
-        if xmap is None or xmap == []:
+    def flip(self, where, dim=False):
+        if where is None or where == []:
             return self
 
-        if isinstance(xmap, int):
-            xmap = [xmap]
+        if isinstance(where, int):
+            where = [where]
 
         val = self.values
         p = self.x_dim + self.y_dim
 
         if dim is True:
-            # assert max(xmap) < self.dim
+            # assert max(where) < self.dim
             p += self.n
 
         else:
-            # assert max(xmap) < self.n
+            # assert max(where) < self.n
             mappings = array('b')
             mappings += self.x_map
             mappings += self.y_map
-            for k in xmap:
+            for k in where:
                 if k in mappings:
                     raise NotImplementedError
 
-        for k in xmap:
+        for k in where:
             val = np.flip(val, p + k)
 
         return Tensor(
