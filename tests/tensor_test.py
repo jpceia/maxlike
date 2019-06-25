@@ -27,7 +27,7 @@ class Test(unittest.TestCase):
         n = 3
         self.a = Tensor(np.arange(1, n * n + 1).reshape((n, n)))
         self.b = Tensor(np.arange(n * n + 1, 2 * n * n + 1).reshape((n, n)))
-        self.c = Tensor(np.arange(n * n + 1, 3 * n * n + 1).reshape((n, n, 2)))
+        self.c = Tensor(np.arange(n * n + 1, 3 * n * n + 1).reshape((n, n, 2)), dim=1)
         self.a1 = Tensor(self.a.values[None, :, :], 1, 0, 0, array('b', [0]))
         self.b1 = Tensor(self.b.values[None, :, :], 1, 0, 0, array('b', [0]))
         self.b2 = Tensor(self.b.values[None, :, :], 1, 0, 0, array('b', [1]))
@@ -434,18 +434,23 @@ class Test(unittest.TestCase):
         check = lambda x: self.check_comm2(sum_tensor, sum_array, x)
 
         check(self.a)
-        check(self.c)
         check(self.a1)
         check(self.c1)
         check(self.a12)
         check(self.a1 + self.b1)
         check(self.a12 + self.b21)
 
-        sum_tensor = lambda x: x.sum(sum_val=False, sum_dim=False)
-        sum_array = lambda x: x
-        check = lambda x: self.check_comm2(sum_tensor, sum_array, x)
+        self.check_comm2(
+            lambda x: x.sum(sum_val=True, sum_dim=True),
+            lambda x: x.sum(), self.c)
 
-        check(self.c)
+        self.check_comm2(
+            lambda x: x.sum(sum_val=False, sum_dim=False),
+            lambda x: x, self.c)
+
+        self.check_comm2(
+            lambda x: x.sum(sum_val=False, sum_dim=True),
+            lambda x: x.sum(-1), self.c)
 
     def test_flip(self):
         flip_tensor = lambda x: x.flip([0, 1])
@@ -454,6 +459,10 @@ class Test(unittest.TestCase):
 
         check(self.a)
         check(self.c1)
+
+        flip_tensor = lambda x: x.flip(0, dim=True)
+        flip_array = lambda x: np.flip(x, -1)
+        self.check_comm2(flip_tensor, flip_array, self.c)
 
 
 if __name__ == "__main__":
