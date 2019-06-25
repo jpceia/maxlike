@@ -40,6 +40,7 @@ class Test(unittest.TestCase):
     def test_bin_op(self):
         a = self.a
         b = self.b
+        c = self.c
         a1 = self.a1
         b1 = self.b1
         b2 = self.b2
@@ -463,6 +464,49 @@ class Test(unittest.TestCase):
         flip_tensor = lambda x: x.flip(0, dim=True)
         flip_array = lambda x: np.flip(x, -1)
         self.check_comm2(flip_tensor, flip_array, self.c)
+
+    def test_dot_left(self):
+
+        def array_dot_left(left, right):
+            assert isinstance(left, BaseTensor)
+            assert isinstance(right, BaseTensor)
+            assert right.y_dim == 0
+            assert right.n == left.x_dim
+            dim = max(right.dim, left.dim)
+            r_idx = [slice(None)] * (right.x_dim + right.n) + \
+                    [None] * (left.y_dim + left.n) + \
+                    [slice(None)] * right.dim + \
+                    [None] * (dim - right.dim)
+            l_idx = [None] * right.x_dim + [...] + \
+                    [None] * (dim - left.dim)
+            val = np.multiply(
+                left.toarray()[tuple(l_idx)],
+                right.toarray()[tuple(r_idx)])
+            val = val.sum(tuple(right.x_dim + np.arange(right.n)))
+            return val
+
+        n = 3
+        msg = "\nM1=\n{}\n\nM2=\n{}\n"
+        d = Tensor(np.arange(2, n + 2)[None, :], 1, 0, 0, array('b', [0]))
+
+        m1 = d.dot(d).toarray()
+        m2 = array_dot_left(d, d)
+        self.assertTrue(np.allclose(m1, m2), msg.format(m1, m2))
+
+        h = self.c1
+        m1 = h.dot(d).toarray()
+        m2 = array_dot_left(h, d)
+        self.assertTrue(np.allclose(m1, m2), msg.format(m1, m2))
+
+        h = self.a12
+        m1 = h.dot(d).toarray()
+        m2 = array_dot_left(h, d)
+        self.assertTrue(np.allclose(m1, m2), msg.format(m1, m2))
+
+        h = self.a12 + self.b21
+        m1 = h.dot(d).toarray()
+        m2 = array_dot_left(h, d)
+        self.assertTrue(np.allclose(m1, m2), msg.format(m1, m2))
 
 
 if __name__ == "__main__":
