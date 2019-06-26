@@ -509,5 +509,39 @@ class Test(unittest.TestCase):
         self.assertTrue(np.allclose(m1, m2), msg.format(m1, m2))
 
 
+    def test_dot_right(self):
+
+        def array_dot_right(left, right):
+            assert isinstance(left, BaseTensor)
+            assert isinstance(right, BaseTensor)
+            assert left.y_dim == 0
+            assert left.x_dim == right.n
+            dim = max(right.dim, left.dim)
+            p = right.x_dim + right.y_dim
+            r_idx = [slice(None)] * (p + right.n) + [None] * left.n + \
+                    [slice(None)] * right.dim + [None] * (dim - right.dim)
+            l_idx = [None] * p + [slice(None)] * (left.x_dim + left.n) + \
+                    [None] * (dim - left.dim)
+            val = np.multiply(
+                left.toarray()[tuple(l_idx)],
+                right.toarray()[tuple(r_idx)])
+            val = val.sum(tuple(p + np.arange(right.n)))
+            return val
+
+        n = 3
+        msg = "\nM1=\n{}\n\nM2=\n{}\n"
+        d = Tensor(np.arange(1, n ** 2 + 1).reshape((n, n))[None, None, :, :], 2, 0, 0, array('b', [0, 1]))
+
+        h = self.a12
+        m1 = d.dot(h).toarray()
+        m2 = array_dot_right(d, h)
+        self.assertTrue(np.allclose(m1, m2), msg.format(m1, m2))
+
+        h = self.a12 + self.b21
+        m1 = d.dot(h).toarray()
+        m2 = array_dot_right(d, h)
+        self.assertTrue(np.allclose(m1, m2), msg.format(m1, m2))
+
+
 if __name__ == "__main__":
     unittest.main()
