@@ -86,9 +86,6 @@ class Test(unittest.TestCase):
         foo = Affine(X(), 1, 2)  # X.hess = null
         self.check_comm_run(foo)
 
-        foo = Affine(Exp() @ X(), 1, 2)
-        self.check_comm_run(foo)
-
         foo = Affine(Affine(X(), 2, 1), 1, 2)
         self.check_comm_run(foo)
 
