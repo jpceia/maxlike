@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 from maxlike.func import (
-    Exp, Sigmoid, Scalar, Sum, Product, X,
+    Exp, Sigmoid, Scalar, Sum, Product, Affine, X,
     MarkovMatrix, Poisson, LogNegativeBinomial)
 
 
@@ -81,6 +81,16 @@ class Test(unittest.TestCase):
     def test_sigmoid(self):
         self.check_comm_run(Sigmoid("Logistic"))
         self.check_comm_run(Sigmoid("ArcTan"))
+
+    def test_affine(self):
+        foo = Affine(X(), 1, 2)  # X.hess = null
+        self.check_comm_run(foo)
+
+        foo = Affine(Exp() @ X(), 1, 2)
+        self.check_comm_run(foo)
+
+        foo = Affine(Affine(X(), 2, 1), 1, 2)
+        self.check_comm_run(foo)
 
 
 if __name__ == "__main__":
