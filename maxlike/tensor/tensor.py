@@ -43,7 +43,7 @@ class TensorOp(Enum):
 
 class BaseTensor(object, with_metaclass(abc.ABCMeta)):
 
-    __slots__ = ['x_dim', 'y_dim', 'n', 'dim', 'hash']
+    __slots__ = ['x_dim', 'y_dim', 'n', 'dim']
 
     def __init__(self, x_dim=0, y_dim=0, n=0, dim=0):
         assert x_dim >= 0
@@ -54,7 +54,6 @@ class BaseTensor(object, with_metaclass(abc.ABCMeta)):
         object.__setattr__(self, 'y_dim', y_dim)
         object.__setattr__(self, 'n', n)
         object.__setattr__(self, 'dim', dim)
-        object.__setattr__(self, 'hash', getrandbits(128))
 
     @abc.abstractmethod
     def toarray(self):
@@ -111,8 +110,6 @@ class BaseTensor(object, with_metaclass(abc.ABCMeta)):
         Binary operations between (Base)Tensors
         """
 
-    def __hash__(self):
-        return self.hash
 
     def __str__(self):
         return "shape: [{}, {}, {}, {}]".format(
