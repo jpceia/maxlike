@@ -133,14 +133,8 @@ class BaseTensor(object, with_metaclass(abc.ABCMeta)):
     def __rmul__(self, other):
         return self.bin_op(other, TensorOp.MUL)
 
-    def __div__(self, other):
-        return self.bin_op(other, TensorOp.DIV)
-
     def __truediv__(self, other):
         return self.bin_op(other, TensorOp.DIV)
-
-    def __rdiv__(self, other):
-        return self.bin_op(other, TensorOp.RDIV)
 
     def __rtruediv__(self, other):
         return self.bin_op(other, TensorOp.RDIV)
@@ -392,7 +386,7 @@ class Tensor(BaseTensor):
     def toarray(self):
         arr = self.values
         p = self.x_dim + self.y_dim
-        arr = arr_expand_diag(arr,       0, p, self.x_map)
+        arr = arr_expand_diag(arr,          0, p, self.x_map)
         arr = arr_expand_diag(arr, self.x_dim, p, self.y_map)
         return arr
 
@@ -543,7 +537,7 @@ class Tensor(BaseTensor):
 
             if self.y_dim > 0:
                 return self.transpose().dot_right(other.transpose()).transpose()
-            
+
             raise ValueError
 
         if other.x_dim > 0:
@@ -571,13 +565,13 @@ class Tensor(BaseTensor):
         """
         Matrix - Vector inner product
 
-        P1 -  N E (other)
-        N  P2 M E (self)
+        X - N E (other)
+        N Y M E (self)
 
         product
-        P1 N -  - E
-        -  N P2 M E
-           x
+        X N - - E
+        - N Y M E
+          *
         """
         dim = max(self.dim, other.dim)
 
@@ -592,7 +586,8 @@ class Tensor(BaseTensor):
         p = self.x_dim + self.y_dim
 
         l_idx = [slice(None)] * (other.x_dim + other.n) + \
-                [None] * (self.y_dim + self.n) + [slice(None)] * other.dim + \
+                [None] * (self.y_dim + self.n) + \
+                [slice(None)] * other.dim + \
                 [None] * (dim - other.dim)
         r_idx = [None] * other.x_dim + [...] + [None] * (dim - self.dim)
 
@@ -614,13 +609,13 @@ class Tensor(BaseTensor):
         """
         Vector - Matrix  inner product
 
-        P1 P2 N E (other)
-        N  -  M E (self)
+        X Y N E (other)
+        N - M E (self)
 
         product
-        P1 P2 N - E
-        -  -  N M E
-              x
+        X Y N - E
+        - - N M E
+            *
         """
 
         try:
@@ -743,15 +738,18 @@ class Tensor(BaseTensor):
         n = max(self.n, other.n)
 
         # set dim
-        assert (self.dim == 0) | (other.dim == 0) | (self.dim == other.dim)
+        assert (self.dim == 0) | (other.dim == 0) | \
+               (self.dim == other.dim)
         dim = max(self.dim, other.dim)
 
         # set x_dim
-        assert (self.x_dim == 0) | (other.x_dim == 0) | (self.x_dim == other.x_dim)
+        assert (self.x_dim == 0) | (other.x_dim == 0) | \
+               (self.x_dim == other.x_dim)
         x_dim = max(self.x_dim, other.x_dim)
 
         # set y_dim
-        assert (self.y_dim == 0) | (other.y_dim == 0) | (self.y_dim == other.y_dim)
+        assert (self.y_dim == 0) | (other.y_dim == 0) | \
+               (self.y_dim == other.y_dim)
         y_dim = max(self.y_dim, other.y_dim)
 
         l_values = self.values
