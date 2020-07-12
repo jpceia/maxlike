@@ -1,6 +1,5 @@
 import abc
 import numpy as np
-from .ctensor import *
 from random import getrandbits
 from array import array
 from six import with_metaclass
@@ -28,6 +27,75 @@ def set_dtype(s):  # pragma: no cover
         TENSOR_DTYPE = mapping[s]
     else:
         TENSOR_DTYPE = s
+
+
+def compose_mappings(map1, map2):
+    return array('b', [
+        -1 if f < 0 else map1[f]
+        for k, f in enumerate(map2)
+    ])
+
+
+def arr_swapaxes(arr, q, p, mapping):
+    for k, f in enumerate(mapping):
+        if f >= 0:
+            arr = arr.swapaxes(q + k, p + f)
+    return arr
+
+
+def arr_take_diag(arr, q, p, mapping):
+    for k, f in enumerate(mapping):
+        if f < 0:
+            continue
+        arr = np.diagonal(arr, 0, q + k, p + f)  # np.diagonal
+        arr = arr.swapaxes(-1, p + f - 1)
+        arr = np.expand_dims(arr, k)
+    return arr
+
+
+def arr_expand_diag(arr, q, p, mapping):
+    idx = np.ones(arr.ndim, dtype=np.int32)
+    for k, f in enumerate(mapping):
+        if f < 0:
+            continue
+        n = arr.shape[p + f]
+        idx[q + k] = n
+        idx[p + f] = n
+        arr = arr * np.eye(n).reshape(idx)
+        idx[q + k] = 1
+        idx[p + f] = 1
+    return arr
+
+
+def arr_expand_cross_diag(arr, p, map1, map2):
+    idx = np.ones(arr.ndim, dtype=np.int32)
+    for i, j in zip(map1, map2):
+        if i == j:
+            continue
+        n = arr.shape[p + i]
+        idx[p + i] = n
+        idx[p + j] = n
+        arr = arr * np.broadcast_to(np.eye(n), idx)
+        idx[p + i] = 1
+        idx[p + j] = 1
+    return arr
+
+
+def arr_swapaxes_cross(arr, p, map1, map2):
+    idx = np.ones(arr.ndim, dtype=np.int32)
+    for k, f in enumerate(map2):
+        for l, g in enumerate(map1):
+            if g == f:
+                n = arr.shape[k]
+                idx[l] = n
+                idx[p + k] = n
+                arr = arr * np.broadcast_to(np.eye(n), idx)
+                idx[l] = 1
+                idx[p + k] = 1
+                break
+        else:
+            arr = arr.swapaxes(p + k, p + f)
+    return arr
 
 
 class TensorOp(Enum):
