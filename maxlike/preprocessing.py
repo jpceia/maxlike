@@ -39,10 +39,7 @@ def prepare_series(observations, transformations=None, add_axis=None):
                 if level.name in add_axis:
                     axis[k] = sorted(set(axis[k]).union(add_axis[level.name]))
         shape = tuple((len(a) for a in axis))
-        df = observations.groupby(observations.index).\
-            agg(transformations.values()).\
-            rename(columns={transf.__name__: name
-                            for name, transf in transformations.items()}).\
+        df = observations.groupby(observations.index).agg(**transformations).\
             reindex(pd.MultiIndex.from_product(axis)).fillna(0)
     else:
         axis = sorted(observations.index.unique())    
@@ -50,10 +47,8 @@ def prepare_series(observations, transformations=None, add_axis=None):
             axis = sorted(set(axis).union(add_axis))
         shape = (len(axis))
         df = observations.groupby(observations.index).\
-            agg(transformations.values()).\
-            rename(columns={transf.__name__: name
-                            for name, transf in transformations.items()}).\
-            reindex(axis).fillna(0)
+            agg(**transformations).reindex(axis).fillna(0)
+    
     res = {k: df[k].values.reshape(shape) for k in transformations.keys()}
     return res, axis
 
@@ -70,10 +65,7 @@ def prepare_dataframe(df, weight_col, result_col, transformations,
     w = df[weight_col].to_frame('N').groupby(df.index).sum().\
         reindex(new_index).fillna(0)
     df = (df[result_col] * df[weight_col]).groupby(df.index).\
-        agg(transformations.values()).\
-        rename(columns={transf.__name__: name
-                        for name, transf in transformations.items()}).\
-        reindex(new_index).fillna(0)
+        agg(**transformations).reindex(new_index).fillna(0)
     res = {k: df[k].values.reshape(shape) for k in transformations.keys()}
     res['N'] = w.values.reshape(shape)
     return res, axis
