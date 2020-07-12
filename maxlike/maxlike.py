@@ -1,6 +1,6 @@
 import numpy as np
 from .maxlike_base import MaxLike
-from scipy.special import factorial
+from scipy.special import gammaln
 
 
 class Poisson(MaxLike):
@@ -14,7 +14,7 @@ class Poisson(MaxLike):
 
     def like(self, params, y):
         return (self.X * y - self.N * np.exp(y) -
-                np.log(factorial(self.X))).sum()
+                gammaln(self.X + 1)).sum()
 
     def grad_like(self, params, y, der):
         delta = self.X - self.N * np.exp(y)
@@ -45,7 +45,7 @@ class ZeroInflatedPoisson(MaxLike):
     def like(self, params, y):
         return (self.X * y + self.Z * np.log(self.s) -
                 self.N * np.log(np.exp(np.exp(y)) + self.s - 1) - 
-                np.log(factorial(self.X))).sum()
+                gammaln(self.X + 1)).sum()
 
     def grad_like(self, params, y, der):
         exp_y = np.exp(y)
