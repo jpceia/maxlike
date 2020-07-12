@@ -829,7 +829,7 @@ class Tensor(BaseTensor):
         name = ufunc.__name__
 
         if name in (
-            "exp", "log", "gamma", "square",
+            "exp", "log", "gamma", "square", "gammaln",
             "expit", "logit", "tanh", "arctan"):
             if (self.x_dim > 0) | (self.y_dim > 0):
                 raise InvalidOperation(
