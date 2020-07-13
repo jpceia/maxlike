@@ -486,7 +486,7 @@ class Tensor(BaseTensor):
             idx = tuple(p + np.arange(self.n))
             dim = self.dim
 
-        val = np.asarray(val.sum(idx)).transpose()
+        val = np.asarray(val.sum(tuple(idx)))
 
         for k, f in cross_map.items():
             idx = [None] * val.ndim
@@ -716,7 +716,7 @@ class Tensor(BaseTensor):
         val = arr_swapaxes(val, p, p + self.x_dim, self.x_map)
         if not self.x_map:
             val = arr_swapaxes(val, 0, p, other.x_map)
-            val = arr_swapaxes_cross(val, other.x_dim,
+            val = arr_swapaxes_cross(val, other.x_dim,                      # NOT COVERED
                                      other.x_map, other.y_map)
 
         x_map = compose_mappings(self.x_map, other.x_map)

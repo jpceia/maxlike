@@ -352,12 +352,16 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         #
         # then hess[i][j].shape = shape[j] x shape[i]
 
-        hess = [[hess[j][i].values[np.multiply.outer(
-            ~params[i].mask, ~p_j.mask)].reshape(
-            (params[i].count(), p_j.count()))
-            for i in range(j + 1)] for j, p_j in enumerate(params)]
-        hess = [[hess[i][j].transpose() for j in range(i)] +
-                [hess[j][i] for j in range(i, n)] for i in range(n)]
+        hess = [[hess[i][j].values[
+                     np.multiply.outer(~p_i.mask, ~params[j].mask)].
+                     reshape((p_i.count(), params[j].count()))
+                 for j in range(i + 1)]
+                for i, p_i in enumerate(params)]
+        
+        hess = [[hess[i][j] for j in range(i)] +
+                [hess[j][i].transpose() for j in range(i, n)]
+                for i in range(n)]
+        
         hess_c = [[hess_c[i][j][~p_j.mask] for j, p_j in enumerate(params)]
                   for i in range(c_len)]
 
