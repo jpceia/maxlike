@@ -414,6 +414,20 @@ class GenericTensor(BaseTensor):
 
         raise ValueError
 
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        name = ufunc.__name__
+        try:
+            op_type = {
+                'add': TensorOp.ADD,
+                'subtract': TensorOp.RSUB,
+                'multiply': TensorOp.MUL,
+                'true_divide': TensorOp.RDIV,
+                'divide': TensorOp.RDIV,
+            }[name]
+        except:
+            raise InvalidOperation('Invalid ufunc:', name)
+        return self.bin_op(inputs[0], op_type)
+
 
 class Tensor(BaseTensor):
 
