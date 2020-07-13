@@ -420,7 +420,7 @@ class Test(unittest.TestCase):
 
     def test_sum(self):
         sum_tensor = lambda x: x.sum()
-        sum_array = lambda x: x.sum((-1, -2)).transpose()
+        sum_array = lambda x: x.sum((-1, -2))
         check = lambda x: self.check_comm2(sum_tensor, sum_array, x)
 
         check(self.a)

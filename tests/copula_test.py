@@ -2,6 +2,7 @@ import os
 import unittest
 import numpy as np
 import pandas as pd
+import sys; sys.path.insert(0, "..")
 from maxlike import copula
 save = False
 
