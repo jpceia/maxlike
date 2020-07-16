@@ -206,7 +206,9 @@ class NegativeBinomial(MaxLike):
         # f = x * ln m - (x + r) * ln (r + m)
         # sum => X * ln m - (X + r * N) * ln (r + m)
         r = self.scale
-        return (self.X * y - (self.X + r * self.N) *
+        return (gammaln(self.X + r) - gammaln(self.X + 1) +
+                r * np.log(r) - gammaln(r) +
+                self.X * y - (self.X + r * self.N) *
                 np.log(r + np.exp(y))).sum()
 
     def grad_like(self, params, y, der):
