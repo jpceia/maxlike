@@ -1,7 +1,6 @@
 import os
 import numpy as np
 from setuptools import setup
-from Cython.Build import cythonize
 
 
 __version__ = '2.3.6'
@@ -30,9 +29,6 @@ setup(
     install_requires=required,
     tests_require=["nose", "coverage"],
     test_suite="nose.collector",
-    include_dirs = [np.get_include()],
-    ext_modules=cythonize(
-        os.path.join(here, "maxlike/tensor/ctensor.pyx")),
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Science/Research',
