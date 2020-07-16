@@ -502,11 +502,12 @@ class Tensor(BaseTensor):
 
         val = np.asarray(val.sum(tuple(idx)))
 
+        # applying cross_map
         for k, f in cross_map.items():
             idx = [None] * val.ndim
             idx[k] = slice(None)
             idx[self.x_dim + f] = slice(None)
-            val = val * np.eye(val.shape[self.x_dim + f])[tuple(idx)]
+            val = val * np.eye(val.shape[k])[tuple(idx)]
 
         return Tensor(val, self.x_dim, self.y_dim, dim)
 
