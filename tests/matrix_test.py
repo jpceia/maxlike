@@ -70,8 +70,8 @@ class Test(unittest.TestCase):
         a = np.log(a) - log_mean
         b = log_mean - np.log(b)
 
-        mle.add_param(a.values)
-        mle.add_param(b.values)
+        mle.add_param(a)
+        mle.add_param(b)
         mle.add_param(h)
         mle.add_constraint([0, 1], Linear([1, 1]))
 
@@ -134,8 +134,8 @@ class Test(unittest.TestCase):
         a = np.log(a) - log_mean
         b = log_mean - np.log(b)
 
-        mle.add_param(a.values)
-        mle.add_param(b.values)
+        mle.add_param(a)
+        mle.add_param(b)
         mle.add_param(h)
         mle.add_constraint([0, 1], Linear([1, 1]))
 
@@ -256,8 +256,8 @@ class Test(unittest.TestCase):
         a = np.log(a) - log_mean
         b = log_mean - np.log(b)
 
-        mle.add_param(a.values)
-        mle.add_param(b.values)
+        mle.add_param(a)
+        mle.add_param(b)
         mle.add_param(h)
         mle.add_constraint([0, 1], Linear([1, 1]))
 

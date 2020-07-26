@@ -35,8 +35,8 @@ class Test(unittest.TestCase):
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean().map(np.log)
-        mle.add_param(a.values)
-        mle.add_param(b.values)
+        mle.add_param(a)
+        mle.add_param(b)
         mle.add_param(h)
 
         tol = 1e-8
@@ -78,8 +78,8 @@ class Test(unittest.TestCase):
         b_fix = 3
         a[a_fix] = 1
         b[b_fix] = -1
-        mle.add_param(a.values, np.arange(a.size) == a_fix)
-        mle.add_param(b.values, np.arange(b.size) == b_fix)
+        mle.add_param(a, np.arange(a.size) == a_fix)
+        mle.add_param(b, np.arange(b.size) == b_fix)
         mle.add_param(h, False)
 
         tol = 1e-8
@@ -126,8 +126,8 @@ class Test(unittest.TestCase):
         b_fix = 3
         a[a_fix] = 1
         b[b_fix] = -1
-        mle.add_param(a.values, np.arange(a.size) == a_fix)
-        mle.add_param(b.values, np.arange(b.size) == b_fix)
+        mle.add_param(a, np.arange(a.size) == a_fix)
+        mle.add_param(b, np.arange(b.size) == b_fix)
         mle.add_param(h, False)
 
         tol = 1e-8
@@ -188,8 +188,8 @@ class Test(unittest.TestCase):
         a[a_fix] = 1
         b[b_fix] = -1
 
-        mle.add_param(a.values)
-        mle.add_param(b.values)
+        mle.add_param(a)
+        mle.add_param(b)
         mle.add_param(h)
         mle.add_param(h1)
 
@@ -230,8 +230,8 @@ class Test(unittest.TestCase):
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean().map(np.log)
-        mle.add_param(a.values)
-        mle.add_param(b.values)
+        mle.add_param(a)
+        mle.add_param(b)
         mle.add_param(h)
 
         tol = 1e-8
@@ -265,8 +265,8 @@ class Test(unittest.TestCase):
         log_mean = np.log(g.mean()) / 2
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean().map(np.log)
-        mle.add_param(a.values)
-        mle.add_param(b.values)
+        mle.add_param(a)
+        mle.add_param(b)
         mle.add_param(h)
 
         tol = 1e-8
@@ -306,8 +306,8 @@ class Test(unittest.TestCase):
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean().map(np.log)
 
-        mle.add_param(a.values)
-        mle.add_param(b.values)
+        mle.add_param(a)
+        mle.add_param(b)
         mle.add_param(h)
 
         tol = 1e-8
@@ -356,8 +356,8 @@ class Test(unittest.TestCase):
         a = np.log(a / 2) - log_mean
         b = log_mean - np.log(b / 2)
 
-        mle.add_param(a.values)
-        mle.add_param(b.values)
+        mle.add_param(a)
+        mle.add_param(b)
         mle.add_param(h)
 
         tol = 1e-8
@@ -389,8 +389,8 @@ class Test(unittest.TestCase):
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean().map(np.log)
 
-        mle.add_param(a.values)
-        mle.add_param(b.values)
+        mle.add_param(a)
+        mle.add_param(b)
         mle.add_param(h)
 
         tol = 1e-8
@@ -422,8 +422,8 @@ class Test(unittest.TestCase):
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean().map(np.log)
 
-        mle.add_param(a.values)
-        mle.add_param(b.values)
+        mle.add_param(a)
+        mle.add_param(b)
         mle.add_param(h)
         tol = 1e-8
         mle.fit(tol=tol, **kwargs)
@@ -456,8 +456,8 @@ class Test(unittest.TestCase):
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean().map(np.log)
 
-        mle.add_param(a.values)
-        mle.add_param(b.values)
+        mle.add_param(a)
+        mle.add_param(b)
         mle.add_param(h)
 
         tol = 1e-8
@@ -491,8 +491,8 @@ class Test(unittest.TestCase):
         a = g.groupby(level='t1').mean().map(np.log) - log_mean
         b = log_mean - g.groupby(level='t2').mean().map(np.log)
 
-        mle.add_param(a.values)
-        mle.add_param(b.values)
+        mle.add_param(a)
+        mle.add_param(b)
         mle.add_param(h)
 
         tol = 1e-8
