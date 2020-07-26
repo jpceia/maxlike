@@ -201,6 +201,9 @@ class Func(with_metaclass(FuncMeta, object)):
 
 
 class Affine(Func):
+    """
+    Affine(f, a, b)(x) = a * f(x) + b
+    """
 
     def __init__(self, base, a=1, b=0):
 
@@ -237,6 +240,10 @@ class Affine(Func):
 
 
 class Compose(Func):
+    """
+    Composition of Funcs
+    Compose(f, [g1, ..., gn])(x) := f(g1(x), ..., gn(x))
+    """
 
     def __init__(self, f, g_list):
 
