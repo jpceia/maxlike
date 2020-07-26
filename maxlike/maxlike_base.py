@@ -25,6 +25,10 @@ class Param(np.ma.MaskedArray):
 
 
 class MaxLike(with_metaclass(abc.ABCMeta)):
+    """
+    Base class to estimate the maximum likelihood under different
+    probabilistic models.
+    """
 
     @abc.abstractmethod
     def __init__(self):
