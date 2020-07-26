@@ -102,8 +102,8 @@ class Finite(MaxLike):
     Discrete Finite Distribution
 
     This class doesn't require the model function to be normalized,
-    I.e, the probabilistic model doesnt needs to satisfy sum_i p(i) = 1
-    However we require p(i) > 0 for every i
+    I.e, the probabilistic model doesnt need to satisfy sum_i p(x=i) = 1
+    However we require p(x=i) > 0 for every i
 
     Can be used to minimize the Kullback-Leibler divergence, replacing
     frequencies by probabilities.
