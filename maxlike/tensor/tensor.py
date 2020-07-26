@@ -235,26 +235,35 @@ class GenericTensor(BaseTensor):
         if not sum_val and not sum_dim:
             return self
 
-        i0 = 0
-        i1 = self.n + self.dim
+        if sum_val is False:
+            idx = []
+        elif sum_val is True:
+            idx = np.arange(self.n).tolist()
+        else:
+            if isinstance(sum_val, int):
+                idx = [sum_val]
+            if isinstance(sum_val, (tuple, list)):
+                idx = list(sum_val)
+            else:
+                raise ValueError
 
-        if not sum_val:
-            i0 = self.n
+            if len(idx) == self.n:
+                sum_val = True
 
-        if not sum_dim:
-            i1 = self.dim
+        if sum_dim is True:
+            idx += (self.n + np.arange(self.dim)).tolist()
 
-        shape_n = np.ones(i1 - i0, dtype=np.int)
+        shape_n = np.ones(len(idx), dtype=np.int)
         el_sizes = np.empty(len(self.elements), dtype=np.int)
         for k, el in enumerate(self.elements):
             p = el.x_dim + el.y_dim
-            shape = el.values.shape[p + i0:p + i1]
+            shape = np.array(el.values.shape)[(p + np.array(idx)).tolist()]
             shape_n = np.maximum(shape_n, shape)
             el_sizes[k] = np.array(shape).prod()
 
         size = shape_n.prod()
 
-        if sum_val:
+        if sum_val is True:
             values = 0
             for el, el_size in zip(self.elements, el_sizes):
                 idx = []
@@ -475,17 +484,30 @@ class Tensor(BaseTensor):
     def sum(self, sum_val=True, sum_dim=True):
         val = self.values
         p = self.x_dim + self.y_dim
-        cross_map = {}
 
-        if not sum_val:
-            if sum_dim:
+        if sum_val is False:
+            if sum_dim is True:
                 val = val.sum(tuple(p + self.n + np.arange(self.dim)))
             return Tensor(val, self.x_dim, self.y_dim, 0,
                           self.x_map, self.y_map)
 
-        val = arr_swapaxes(val, 0, p, self.x_map)
+        if sum_val is True:
+            sum_val = np.arange(self.n).tolist()
+
+        if isinstance(sum_val, int):
+            sum_val = [sum_val]
+
+        assert isinstance(sum_val, (list, tuple))
+
+        # swapping for x
+        for k, f in enumerate(self.x_map):
+            if f in sum_val:
+                val = val.swapaxes(k, p + f)
+
+        # swapping for y + cross_map setup
+        cross_map = {}
         for k, f in enumerate(self.y_map):
-            if f < 0:
+            if f not in sum_val:
                 continue
             if f in self.x_map:
                 l = self.x_map.index(f)
@@ -493,11 +515,11 @@ class Tensor(BaseTensor):
             else:
                 val = val.swapaxes(self.x_dim + k, p + f)
 
+        idx = p + np.array(sum_val)
         if sum_dim is True:
-            idx = tuple(p + np.arange(self.n + self.dim))
+            idx = idx.tolist() + (p + self.n + np.arange(self.dim)).tolist()
             dim = 0
         else:
-            idx = tuple(p + np.arange(self.n))
             dim = self.dim
 
         val = np.asarray(val.sum(tuple(idx)))
