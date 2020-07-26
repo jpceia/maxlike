@@ -4,6 +4,10 @@ import numpy as np
 
 
 class Game(Func):
+    """
+    Func with probabilities of winning a (tennis) gamme,
+    given the probability of winning a point.
+    """
     
     def __call__(self, params):
         p = np.asarray(params[0])
@@ -42,6 +46,10 @@ class Game(Func):
 
 
 class TieBreak(Func):
+    """
+    Func with probabilities of winning a (tennis) tiebreak gamme,
+    given the probability of winning a point.
+    """
 
     def __call__(self, params):
         p = np.asarray(params[0])
@@ -89,6 +97,10 @@ class TieBreak(Func):
 
 
 class Set(Func):
+    """
+    Func with probabilities of winning a (tennis) set,
+    given the probabilities of winning a game and a tiebreak.
+    """
 
     def __call__(self, params):
         p, t = params
