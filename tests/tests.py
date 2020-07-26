@@ -41,7 +41,7 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
@@ -84,7 +84,7 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
@@ -100,8 +100,8 @@ class Test(unittest.TestCase):
 
         aic = mle.akaine_information_criterion()
         bic = mle.bayesian_information_criterion()
-        self.assertAlmostEqual(aic, 3.6169964234833927, delta=tol)
-        self.assertAlmostEqual(bic, 3.773592954344472, delta=tol)
+        self.assertAlmostEqual(aic, 3.6204860853956444, delta=tol)
+        self.assertAlmostEqual(bic, 3.7852104044475317, delta=tol)
 
     def test_poisson2(self):
         mle = maxlike.Poisson()
@@ -132,7 +132,7 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
@@ -195,7 +195,7 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
-        a, b, h, h1 = mle.params
+        a, b, h, h1 = mle.get_params()
         s_a, s_b, s_h, s_h1 = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
@@ -236,7 +236,7 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(**kwargs, method="broyden", verbose=self.verbose)
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
@@ -271,7 +271,7 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
@@ -312,7 +312,7 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
@@ -362,7 +362,7 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
@@ -395,7 +395,7 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
@@ -427,7 +427,7 @@ class Test(unittest.TestCase):
         mle.add_param(h)
         tol = 1e-8
         mle.fit(tol=tol, **kwargs)
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
@@ -462,7 +462,7 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(**kwargs, tol=tol, verbose=self.verbose)
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
@@ -497,7 +497,7 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(**kwargs, tol=tol, verbose=self.verbose)
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 

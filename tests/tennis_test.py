@@ -62,8 +62,8 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(N=N, verbose=self.verbose)
-        a = mle.params[0].data
-        s_a = mle.std_error()[0].data
+        a = mle.get_params()[0]
+        s_a = mle.std_error()[0]
 
         df = pd.read_csv(
             os.path.join(self.data_folder, "test_tennis_set.csv"),

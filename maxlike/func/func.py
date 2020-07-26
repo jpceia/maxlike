@@ -47,7 +47,7 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
         if i != j:
             return Tensor(0)
         return hess_tensor(
-            2 * np.ones(params[i].shape) / self.s / self.s,
+            2 * np.ones_like(params[i]) / self.s / self.s,
             params, i, j, True, True).sum()
 
 

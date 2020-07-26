@@ -45,7 +45,7 @@ class Test(unittest.TestCase):
         tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
         
-        a, h = mle.params
+        a, h = mle.get_params()
         s_a, s_h = mle.std_error()
 
         df = pd.read_csv(
@@ -104,7 +104,7 @@ class Test(unittest.TestCase):
         # calibration
         tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
@@ -162,7 +162,7 @@ class Test(unittest.TestCase):
         # calibration
         tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
@@ -227,7 +227,7 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
@@ -282,7 +282,7 @@ class Test(unittest.TestCase):
         tol = 1e-8
         mle.fit(**kwargs, verbose=0, tol=tol)
 
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 
@@ -343,7 +343,7 @@ class Test(unittest.TestCase):
 
         tol = 1e-8
         mle.fit(**kwargs, verbose=self.verbose)
-        a, b, h = mle.params
+        a, b, h = mle.get_params()
         s_a, s_b, s_h = mle.std_error()
         r = np.diag(mle.error_matrix()[0][1]) / s_a / s_b
 

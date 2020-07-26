@@ -14,14 +14,41 @@ class ConvergenceError(Exception):
         self.type = type
 
 
-class Param(np.ma.MaskedArray):
-    def __new__(cls, data, *args, **kwargs):
-        obj = super(Param, cls).__new__(cls, data, *args, **kwargs)
-        obj.hash = getrandbits(128)
-        return obj
+class Param(object):
+
+    def __init__(self, values, mask=None):
+        
+        if mask is None or mask is False:
+            mask = np.zeros_like(values, dtype=np.bool)
+        else:
+            assert mask.shape == values.shape
+
+        object.__setattr__(self, 'values', np.asarray(values))
+        object.__setattr__(self, 'mask',   np.asarray(mask))
+        object.__setattr__(self, 'shape',  self.values.shape)
+        object.__setattr__(self, 'hash',   getrandbits(128))
+        self.values.flags["WRITEABLE"] = False
+
+    def compressed(self):
+        return self.values[~self.mask]
+
+    def count(self):
+        return (~self.mask).sum()
+
+    def as_masked(self):
+        return np.ma.array(self.values, mask=self.mask)
+
+    def __array__(self, *args, **kwargs):
+        return np.asarray(self.values)
 
     def __hash__(self):
         return self.hash
+
+    def __setattr__(self, *ignored):
+        raise NotImplementedError
+
+    def __delattr__(self, *ignored):
+        raise NotImplementedError
 
 
 class MaxLike(with_metaclass(abc.ABCMeta)):
@@ -93,6 +120,9 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         except AttributeError:
             self.params = ()
             self.add_param(values, fixed)
+
+    def get_params(self):
+        return [p.as_masked() for p in self.params]
 
     def add_constraint(self, param_map, g):
         """
@@ -226,7 +256,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
     def _reshape_params(self, params_free):
         return self._reshape_array(
             params_free,
-            np.concatenate([p[p.mask].data for p in self.params]))
+            np.concatenate([p.values[p.mask] for p in self.params]))
 
     def _reshape_matrix(self, matrix, val=np.nan):
         if matrix.ndim != 2:
@@ -283,8 +313,10 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         cut = len(self.constraint)
         if cut == 0:
             cut = None
-        return self._reshape_array(np.sqrt(np.diag(-np.linalg.inv(
+        return [p.as_masked() for p in
+            self._reshape_array(np.sqrt(np.diag(-np.linalg.inv(
             self.flat_hess_))[:-cut]))
+        ]
 
     def flat_grad(self, params, *args, **kwargs):
 
@@ -305,7 +337,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
             for i, idx in enumerate(param_map):
                 grad[idx] -= grad_h[i]
 
-        grad = [g.values[~p.mask] for g, p in zip(grad, params)] + grad[n:]
+        grad = [d.values[~p.mask] for d, p in zip(grad, params)] + grad[n:]
         grad = np.concatenate(grad)
 
         return grad
@@ -331,7 +363,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
             grad_g = g.grad(args)
             hess_g = g.hess(args)
             for i, idx in enumerate(param_map):
-                hess_c[k][idx] += grad_g[i]
+                hess_c[k][idx] += grad_g[i].values
                 for j in range(i + 1):
                     hess[idx][param_map[j]] += gamma * hess_g[i][j]
 
