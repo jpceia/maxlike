@@ -363,7 +363,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
             grad_g = g.grad(args)
             hess_g = g.hess(args)
             for i, idx in enumerate(param_map):
-                hess_c[k][idx] += grad_g[i].values
+                hess_c[k][idx] += grad_g[i].sum().values
                 for j in range(i + 1):
                     hess[idx][param_map[j]] += gamma * hess_g[i][j]
 

@@ -18,12 +18,12 @@ class Linear(Func):
 
     def grad(self, params, i):
         return grad_tensor(self.weights[i] * np.ones((1, ) *
-                           np.asarray(params[i]).ndim), params, i)
+                           np.asarray(params[i]).ndim), params, i, True)
 
     def hess(self, params, i, j):
         return hess_tensor(np.zeros((1, ) *
             (np.asarray(params[j]).ndim + np.asarray(params[i]).ndim)),
-            params, i, j)
+            params, i, j, True, True)
 
 
 class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
