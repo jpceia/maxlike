@@ -242,7 +242,7 @@ class GenericTensor(BaseTensor):
         else:
             if isinstance(sum_val, int):
                 idx = [sum_val]
-            if isinstance(sum_val, (tuple, list)):
+            elif isinstance(sum_val, (tuple, list)):
                 idx = list(sum_val)
             else:
                 raise ValueError
