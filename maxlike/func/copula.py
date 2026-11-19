@@ -1,6 +1,5 @@
 import numpy as np
-from scipy.special import ndtri
-from scipy.stats.mvn import mvnun
+from scipy.special import ndtri, ndtr, owens_t
 from six import with_metaclass
 from .func_base import FuncMeta
 from ..tensor import Tensor
@@ -13,16 +12,35 @@ def no_divwarn(foo):
     return wrap
 
 
-def vectorize(n_in, n_out):
-    def wrap(foo):
-        return np.frompyfunc(foo, n_in, n_out)
-    return wrap
-
-
-@no_divwarn
-@vectorize(3, 1)
 def gauss_bivar(x, y, rho):
-    return mvnun((-999, -999), (x, y), (0, 0), ((1, rho), (rho, 1)))[0]
+    """
+    Standard bivariate normal CDF P(X <= x, Y <= y) with correlation rho.
+
+    Uses the closed form based on Owen's T function (Owen, 1956):
+        F(h, k) = (Phi(h) + Phi(k)) / 2 - T(h, a_h) - T(k, a_k) - beta
+    with a_h = (k - rho h) / (h sqrt(1 - rho^2)), a_k symmetric, and
+    beta = 1/2 when h * k < 0 (or h * k == 0 and h + k < 0), else 0.
+    """
+    h, k = np.broadcast_arrays(np.asarray(x, dtype=float),
+                               np.asarray(y, dtype=float))
+    if rho == 0:
+        # independence: exact product avoids round-off in the closed form
+        return ndtr(h) * ndtr(k)
+    if rho >= 1:
+        return ndtr(np.minimum(h, k))
+    if rho <= -1:
+        return np.maximum(ndtr(h) - ndtr(-k), 0)
+    # the closed form is singular at h == 0 or k == 0 but continuous,
+    # so zeros are nudged to a tiny value
+    eps = 1e-15
+    h = np.where(h == 0, eps, h)
+    k = np.where(k == 0, eps, k)
+    s = np.sqrt(1 - rho * rho)
+    a_h = (k - rho * h) / (h * s)
+    a_k = (h - rho * k) / (k * s)
+    beta = np.where(h * k < 0, .5, 0.)
+    res = .5 * (ndtr(h) + ndtr(k)) - owens_t(h, a_h) - owens_t(k, a_k) - beta
+    return np.clip(res, 0, 1)
 
 
 def copulaWrap(C):
