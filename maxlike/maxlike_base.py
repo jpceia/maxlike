@@ -19,7 +19,7 @@ class Param(object):
     def __init__(self, values, mask=None):
         
         if mask is None or mask is False:
-            mask = np.zeros_like(values, dtype=np.bool)
+            mask = np.zeros_like(values, dtype=bool)
         else:
             assert mask.shape == values.shape
 
