@@ -536,7 +536,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
                     g = self.g(params)
 
                     if verbose > 0:
-                        print(k + 1, new_g)
+                        print(k + 1, g)
 
                     if abs(prev_g / g - 1) < tol:
                         self.params = params
