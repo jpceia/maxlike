@@ -253,8 +253,8 @@ class GenericTensor(BaseTensor):
         if sum_dim is True:
             idx += (self.n + np.arange(self.dim)).tolist()
 
-        shape_n = np.ones(len(idx), dtype=np.int)
-        el_sizes = np.empty(len(self.elements), dtype=np.int)
+        shape_n = np.ones(len(idx), dtype=int)
+        el_sizes = np.empty(len(self.elements), dtype=int)
         for k, el in enumerate(self.elements):
             p = el.x_dim + el.y_dim
             shape = np.array(el.values.shape)[(p + np.array(idx)).tolist()]
