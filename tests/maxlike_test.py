@@ -12,11 +12,18 @@ from maxlike.func import (
     Poisson, NegativeBinomial, Sum, Product)
 
 
-np.seterr(all='raise', under='ignore')
 data_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 
 class Test(unittest.TestCase):
+
+    def setUp(self):
+        # raise on floating point errors, restoring the state afterwards
+        # so other test modules are not affected
+        self._np_err = np.seterr(all='raise', under='ignore')
+
+    def tearDown(self):
+        np.seterr(**self._np_err)
 
     verbose = 0
 

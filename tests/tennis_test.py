@@ -6,10 +6,17 @@ import numpy as np
 import pandas as pd
 import os
 import unittest
-np.seterr(all='raise')
 
 
 class Test(unittest.TestCase):
+
+    def setUp(self):
+        # raise on floating point errors, restoring the state afterwards
+        # so other test modules are not affected
+        self._np_err = np.seterr(all='raise')
+
+    def tearDown(self):
+        np.seterr(**self._np_err)
     
     verbose = False
     data_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
