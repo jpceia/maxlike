@@ -556,5 +556,5 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
             raise ValueError("Invalid Method")
 
         self.converged = False
-        raise ConvergenceError("Error: the objective function did not" +
+        raise ConvergenceError("Error: the objective function did not " +
                                "converge after %d steps" % max_steps)
