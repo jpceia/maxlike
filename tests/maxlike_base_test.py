@@ -68,3 +68,9 @@ class Test(unittest.TestCase):
         with self.assertRaises(maxlike.ConvergenceError):
             mle.fit(max_steps=0, **kwargs)
         self.assertFalse(mle.converged)
+
+    def test_akaike_alias(self):
+        mle, kwargs = poisson_model()
+        mle.fit(**kwargs)
+        self.assertEqual(mle.akaike_information_criterion(),
+                         mle.akaine_information_criterion())
