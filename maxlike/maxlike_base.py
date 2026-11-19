@@ -500,6 +500,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
                 if abs(prev_g / g - 1) < tol:
                     self.params = params
                     self.flat_hess_ = hess
+                    self.converged = True
                     return True
 
         elif method == "broyden":

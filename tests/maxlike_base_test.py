@@ -58,3 +58,13 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(np.diag(cov[1][1]), s_b ** 2, rtol=1e-8)
         np.testing.assert_allclose(float(cov[2][2]), float(s_h) ** 2,
                                    rtol=1e-8)
+
+    def test_converged_flag(self):
+        mle, kwargs = poisson_model()
+        self.assertFalse(mle.converged)
+        self.assertTrue(mle.fit(**kwargs))
+        self.assertTrue(mle.converged)
+        # failing to converge resets the flag
+        with self.assertRaises(maxlike.ConvergenceError):
+            mle.fit(max_steps=0, **kwargs)
+        self.assertFalse(mle.converged)
