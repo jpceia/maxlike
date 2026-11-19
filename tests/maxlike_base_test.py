@@ -44,3 +44,17 @@ class Test(unittest.TestCase):
             self.assertTrue(mle.fit(method="broyden", verbose=1,
                                     max_steps=50, **kwargs))
         self.assertGreater(len(out.getvalue().splitlines()), 1)
+
+    def test_std_error_without_constraints(self):
+        mle, kwargs = poisson_model(constraint=False)
+        mle.fit(**kwargs)
+        s_a, s_b, s_h = mle.std_error()
+        self.assertTrue(s_a.mask[0])  # fixed parameter has no std error
+        self.assertTrue(np.all(np.isfinite(s_a.compressed())))
+        self.assertTrue(np.all(s_b > 0))
+        self.assertGreater(float(s_h), 0)
+        # consistent with the diagonal of the covariance matrix
+        cov = mle.error_matrix()
+        np.testing.assert_allclose(np.diag(cov[1][1]), s_b ** 2, rtol=1e-8)
+        np.testing.assert_allclose(float(cov[2][2]), float(s_h) ** 2,
+                                   rtol=1e-8)
