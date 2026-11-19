@@ -310,13 +310,10 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         """
         Standard Deviation Array.
         """
-        cut = len(self.constraint)
-        if cut == 0:
-            cut = None
-        return [p.as_masked() for p in
-            self._reshape_array(np.sqrt(np.diag(-np.linalg.inv(
-            self.flat_hess_))[:-cut]))
-        ]
+        var = np.diag(-np.linalg.inv(self.flat_hess_))
+        # drop the entries of the Lagrange multipliers (constraints)
+        var = var[:var.size - len(self.constraint)]
+        return [p.as_masked() for p in self._reshape_array(np.sqrt(var))]
 
     def flat_grad(self, params, *args, **kwargs):
 
