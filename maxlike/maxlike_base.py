@@ -156,7 +156,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
 
         self.reg.append((param_map, h))
 
-    def akaine_information_criterion(self, nb_extra_params=0):
+    def akaike_information_criterion(self, nb_extra_params=0):
         """
         Akaike information criterion (AIC)
 
@@ -186,6 +186,9 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         n = self.N.sum(sum_val=True, sum_dim=True).values
         l = self.g(self.params)
         return 2 * k / (n - k - 1) - 2 * l
+
+    # backward-compatible alias for the former (misspelled) name
+    akaine_information_criterion = akaike_information_criterion
 
     def bayesian_information_criterion(self, nb_extra_params=0):
         """
