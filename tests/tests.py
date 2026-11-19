@@ -100,8 +100,8 @@ class Test(unittest.TestCase):
 
         aic = mle.akaine_information_criterion()
         bic = mle.bayesian_information_criterion()
-        self.assertAlmostEqual(aic, 3.6204860853956444, delta=tol)
-        self.assertAlmostEqual(bic, 3.7852104044475317, delta=tol)
+        self.assertAlmostEqual(aic, 3.6169964234833927, delta=tol)
+        self.assertAlmostEqual(bic, 3.773592954344472, delta=tol)
 
     def test_poisson2(self):
         mle = maxlike.Poisson()

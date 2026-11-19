@@ -180,7 +180,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         l : mean log likelihood  (1/n) * log L
 
         """
-        k = sum(map(np.ma.count, self.params))
+        k = sum(p.count() for p in self.params)  # free params only
         k += nb_extra_params
         k -= len(self.constraint)
         n = self.N.sum(sum_val=True, sum_dim=True).values
@@ -203,7 +203,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         l : mean log likelihood  (1/n) * log L
         
         """
-        k = sum(map(np.ma.count, self.params))
+        k = sum(p.count() for p in self.params)  # free params only
         k += nb_extra_params
         k -= len(self.constraint)
         n = self.N.sum(sum_val=True, sum_dim=True).values
