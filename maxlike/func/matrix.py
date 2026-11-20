@@ -14,11 +14,15 @@ class CollapseMatrix(Func):
         sgn(A*x + B*y + C) == s
         """
         if conditions is None:
-            self.conditions = [
+            # home win, draw, away win
+            conditions = [
                 (1, -1, 0, 1),
                 (1, -1, 0, 0),
                 (1, -1, 0, -1),
             ]
+        elif isinstance(conditions, tuple):
+            conditions = [conditions]
+        self.conditions = list(conditions)
 
     def __call__(self, params):
         """

@@ -130,6 +130,10 @@ def composite():
             [A, B, H]),
         "CollapseMatrix @ Product": (
             CollapseMatrix() @ product_of_poissons(), [A, B, H]),
+        # custom conditions: over / under 2.5 goals
+        "CollapseMatrix (over/under) @ Product": (
+            CollapseMatrix([(1, 1, -2.5, 1), (1, 1, -2.5, -1)]) @
+            product_of_poissons(), [A, B, H]),
         "CollapseMatrix @ MarkovMatrix": (
             CollapseMatrix() @ MarkovMatrix(steps=18, size=4) @
             [Exp() @ p2, Exp() @ p1], [A, B, H]),
