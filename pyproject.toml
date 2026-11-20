@@ -30,6 +30,7 @@ classifiers = [
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov"]
 graph = ["graphviz"]
+notebooks = ["graphviz", "matplotlib", "jupyter", "nbconvert", "ipykernel"]
 
 [project.urls]
 Homepage = "https://github.com/jpceia/maxlike"

@@ -103,3 +103,6 @@ dist/
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Jupyter
+.ipynb_checkpoints/
