@@ -43,12 +43,26 @@ class IdentifiabilityError(ValueError):
 
 
 class ConvergenceError(Exception):
+    """
+    The fit did not converge. `type` is "step" when no step increased the
+    objective (no ascent direction, or damping failed), 0 when the maximum
+    number of steps was reached.
+    """
     def __init__(self, message, type=0):
         super(ConvergenceError, self).__init__(message)
         self.type = type
 
 
 class Param(object):
+    """
+    An immutable parameter: an array of values with a boolean mask, True
+    where the value is fixed (not estimated).
+
+    It converts to its values with np.asarray, compressed() gives the free
+    values, count() their number, and as_masked() a numpy masked array.
+    Each instance hashes to a random id, so cached results computed for one
+    set of parameters are not reused for another.
+    """
 
     def __init__(self, values, mask=None):
         

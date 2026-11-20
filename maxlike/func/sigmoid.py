@@ -14,6 +14,12 @@ def Sigmoid(name):
 
 
 class Logistic(Func):
+    """
+    Logistic()(p) = 1 / (1 + exp(-p)), element-wise.
+
+    Maps a linear predictor to a probability in (0, 1). The derivatives are
+    diagonal. See also Sigmoid("logistic").
+    """
 
     def __call__(self, params):
         return Tensor(expit(params[0]))
@@ -36,6 +42,13 @@ class Logistic(Func):
 
 
 class ArcTan(Func):
+    """
+    ArcTan()(p) = arctan(p), element-wise.
+
+    Sigmoid("arctan") rescales it to a probability, arctan(p) / pi + 1/2,
+    a sigmoid with heavier tails than the logistic. The derivatives are
+    diagonal.
+    """
 
     def __call__(self, params):
         x = params[0]

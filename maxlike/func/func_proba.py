@@ -101,6 +101,25 @@ class Poisson(Func):
 
 
 class LogNegativeBinomial(Func):
+    """
+    LogNegativeBinomial(size, r)(m)[x] = log P(X = x),  x = 0 .. size - 1
+
+    Log-pmf of a negative binomial with mean m and shape r (variance
+    m + m^2 / r), on a new distribution axis of length size:
+
+        gammaln(r + x) - gammaln(r) - log x! + x log m + r log r
+            - (x + r) log(r + m)
+
+    The tail beyond size - 1 is dropped (not normalised).
+    NegativeBinomial(size, r) is Exp() @ LogNegativeBinomial(size, r).
+
+    Parameters
+    ----------
+    size : int
+        Length of the distribution axis.
+    r : float
+        Shape (dispersion) parameter; r -> infinity gives the Poisson.
+    """
 
     def __init__(self, size=10, r=1):
         self.size = size

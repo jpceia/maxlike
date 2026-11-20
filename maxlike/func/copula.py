@@ -64,6 +64,11 @@ def copulaWrap(C):
 
 
 class CopulaMeta(FuncMeta):
+    """
+    Metaclass of the copulas: wraps the copula function C(u, v) of each
+    subclass (see copulaWrap) so that its instances take two marginal pmfs
+    and return their joint pmf.
+    """
     def __new__(cls, name, bases, attrs, **kwargs):
         res = type.__new__(cls, name, bases, attrs, **kwargs)
         res.__call__ = copulaWrap(res.__call__)
@@ -71,6 +76,16 @@ class CopulaMeta(FuncMeta):
 
 
 class Copula(metaclass=CopulaMeta):
+    """
+    Base class of the copulas (Gaussian, Clayton, Gumbel, Frank,
+    AkiMikhailHaq).
+
+    A subclass defines the copula function C(u, v) as __call__(self, u, v).
+    Its instances are called with two marginal pmfs, params = [p_x, p_y]
+    (unnormalised, along the last axis), and return the joint pmf
+    P(X = x, Y = y), a matrix on the last two axes, from the copula applied
+    to the marginal cdfs.
+    """
     pass
 
 

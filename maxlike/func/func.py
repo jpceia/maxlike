@@ -33,6 +33,21 @@ class Linear(Func):
 
 
 class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
+    """
+    Quadratic(u, s)(p_0, ..., p_k) = sum_i sum(((p_i - u) / s) ** 2)
+
+    A scalar function (no feature axes), mostly used as a regularization:
+    it pulls every entry of the parameters towards u, with a scale s (a
+    Gaussian prior with mean u and standard deviation s / sqrt(2), up to a
+    constant).
+
+    Parameters
+    ----------
+    u : float or array
+        Centre, broadcast against the parameters.
+    s : float or array
+        Scale, broadcast against the parameters.
+    """
 
     def __init__(self, u=0, s=1):
         self.u = u
@@ -69,7 +84,95 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
         return sp.diags(np.broadcast_to(2. / self.s / self.s, (size, )))
 
 
+class RandomWalk(Func):
+    """
+    RandomWalk(s, axis)(p_0, ..., p_k) =
+        1/2 * sum_i sum_t ((p_i[..., t] - p_i[..., t - 1]) / s[t]) ** 2
+
+    Penalty of a Gaussian random walk along `axis` (time): minus the log
+    density of the increments, up to a constant. Used as a regularization,
+    it lets a parameter with a time axis (e.g. the attack of each team in
+    each period) move from one period to the next, with steps of typical
+    size s. A small s tends to a constant parameter (a static model), a
+    large s to independent fits per period.
+
+    Parameters
+    ----------
+    s : float or array
+        Standard deviation of each step, broadcast against the differences
+        (shape of p with `axis` one shorter). With unequal gaps between
+        periods, use s = sigma * sqrt(gap).
+    axis : int
+        Time axis of the parameters.
+
+    A scalar function (no feature axes). The Hessian is constant, a
+    second-difference matrix along `axis`.
+    """
+
+    def __init__(self, s=1., axis=-1):
+        self.s = s
+        self.axis = axis
+
+    def _weights(self, shape):
+        # 1 / s^2 for every difference, with time moved to the last axis
+        shape = list(shape)
+        shape[self.axis] -= 1
+        w = np.broadcast_to(np.asarray(self.s, dtype=float) ** -2.,
+                            tuple(shape))
+        return np.moveaxis(w, self.axis, -1)
+
+    def _diff(self, p):
+        return np.diff(np.moveaxis(np.asarray(p, dtype=float),
+                                   self.axis, -1), axis=-1)
+
+    def __call__(self, params):
+        return Tensor(sum(.5 * (self._weights(np.shape(p)) *
+                                self._diff(p) ** 2).sum() for p in params))
+
+    def grad(self, params, i):
+        p = np.asarray(params[i], dtype=float)
+        wd = self._weights(p.shape) * self._diff(p)
+        # transpose of the difference operator
+        g = np.zeros(wd.shape[:-1] + (wd.shape[-1] + 1, ))
+        g[..., 1:] += wd
+        g[..., :-1] -= wd
+        return grad_tensor(np.moveaxis(g, -1, self.axis), params, i)
+
+    def _matrix(self, shape):
+        # D' W D over the flattened parameter, as a scipy.sparse matrix
+        size = int(np.prod(shape))
+        pos = np.moveaxis(np.arange(size).reshape(shape), self.axis, -1)
+        rows = np.arange(pos[..., 1:].size)
+        d = sp.csr_matrix(
+            (np.concatenate([np.ones(rows.size), -np.ones(rows.size)]),
+             (np.concatenate([rows, rows]),
+              np.concatenate([pos[..., 1:].ravel(), pos[..., :-1].ravel()]))),
+            shape=(rows.size, size))
+        return (d.T @ sp.diags(self._weights(shape).ravel()) @ d).tocsr()
+
+    def hess(self, params, i, j):
+        if i != j:
+            return Tensor(0)
+        shape = np.shape(params[i])
+        return hess_tensor(self._matrix(shape).toarray().reshape(shape * 2),
+                           params, i, j)
+
+    def hess_sparse(self, params, i, j):
+        """The same as hess, as a scipy.sparse matrix (see Quadratic)."""
+        if i != j:
+            return None
+        return self._matrix(np.shape(params[i]))
+
+
 class X(Func):
+    """
+    X()(p) = p
+
+    The identity: the output has the shape of the parameter, one feature
+    axis per axis of p. The derivative is diagonal and only its diagonal is
+    stored. Combined with Sum.add, it maps a parameter onto feature axes of
+    a grid model (e.g. attack[i] onto the axis of the home team).
+    """
 
     def __call__(self, params):
         return Tensor(params[0])
@@ -166,6 +269,17 @@ class Take(Func):
 
 
 class Constant(Func):
+    """
+    Constant(v)(params) = v
+
+    A fixed array that does not depend on the parameters (zero derivatives):
+    an offset of a linear predictor, known log-exposures, and so on.
+
+    Parameters
+    ----------
+    vector : array-like
+        The value returned.
+    """
 
     def __init__(self, vector):
         self.vector = np.asarray(vector)
@@ -178,6 +292,14 @@ class Constant(Func):
 
 
 class Scalar(Func):
+    """
+    Scalar()(p) = p
+
+    The identity for a scalar parameter (a 0-d parameter, e.g. the home
+    advantage or a global intercept): the output has no feature axes, so
+    Sum broadcasts it over all of them. For a parameter with one value per
+    observation or per cell, use X or Vector.
+    """
 
     def __call__(self, params):
         return Tensor(params[0])
@@ -219,6 +341,12 @@ class Vector(Func):
 
 
 class Exp(Func):
+    """
+    Exp()(p) = exp(p), element-wise.
+
+    Usually composed with a linear predictor, Exp() @ model, to turn a log
+    rate into a rate. The derivatives are diagonal.
+    """
 
     def __call__(self, params):
         return Tensor(np.exp(params[0]))
@@ -239,6 +367,11 @@ class Exp(Func):
 
 
 class Log(Func):
+    """
+    Log()(p) = log(p), element-wise (p > 0).
+
+    The derivatives are diagonal.
+    """
 
     def __call__(self, params):
         return Tensor(np.log(params[0]))

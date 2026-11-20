@@ -117,6 +117,14 @@ def not_implemented_foo(obj, *args, **kwargs):
 
 
 class FuncMeta(type):
+    """
+    Metaclass of Func. It wraps __call__, grad and hess so that they accept
+    the parameters as a list and return Tensors: grad without an index
+    returns the list of all gradients, hess without indices the
+    lower-triangular list of lists of all second derivatives. It also adds
+    a default eval (value, gradients and Hessian in one call) when a
+    subclass does not define one.
+    """
 
     def __new__(cls, name, bases, attrs, **kwargs):
         call = call_wrap(attrs['__call__'])
@@ -143,6 +151,23 @@ class FuncMeta(type):
 
 
 class Func(metaclass=FuncMeta):
+    """
+    Base class of the functions of the parameters that make up a model.
+
+    A subclass defines
+
+        __call__(params)    the value, a Tensor
+        grad(params, i)     derivative with respect to params[i]
+        hess(params, i, j)  second derivative with respect to params[i]
+                            and params[j] (j <= i)
+
+    and optionally eval(params), which returns all three at once. params is
+    a list of arrays. The derivatives are Tensors that keep the structure
+    of the function (diagonal in the parameter / feature axes they share).
+
+    Funcs combine with arithmetic and composition: a * f + b (Affine),
+    -f, and f @ g (Compose, f applied to the output of g).
+    """
 
     def __call__(self, params):
         raise NotImplementedError
