@@ -17,7 +17,7 @@ class Game(Func):
         g.append(4 * p ** 4 * q)
         g.append(10 * p ** 4 * q ** 2)
         g.append(20 * p ** 5 * q ** 3 / (1 - 2 * p * q))
-        return Tensor(np.stack(g).swapaxes(0, -1), dim=1)
+        return Tensor(np.stack(g, axis=-1), dim=1)
     
     def grad(self, params, i):
         p = np.asarray(params[0])
@@ -28,7 +28,7 @@ class Game(Func):
         d.append(20 * (2 - 3 * p) * q * p ** 3)
         d.append(-20 * (12 * p ** 3 - 20 * p ** 2 + 16 * p - 5) *
                  q ** 2 * p ** 4 / (1 - 2 * p * q) ** 2)
-        return grad_tensor(np.stack(d).swapaxes(0, -1),
+        return grad_tensor(np.stack(d, axis=-1),
                            params, i, True, dim=1)
     
     def hess(self, params, i, j):
@@ -41,7 +41,7 @@ class Game(Func):
         h.append(40 * (60 * p ** 6 - 200 * p ** 5 + 322 * p ** 4 -
                        308 * p ** 3 + 184 * p ** 2 - 65 * p + 10) *
                  q * p ** 3 / (1 - 2 * p * q) ** 3)
-        return hess_tensor(np.stack(h).swapaxes(0, -1),
+        return hess_tensor(np.stack(h, axis=-1),
                            params, i, j, True, True, dim=1)
 
 
@@ -62,7 +62,7 @@ class TieBreak(Func):
         t.append(210 * p ** 7 * q ** 4)
         t.append(462 * p ** 7 * q ** 5)
         t.append(924 * p ** 8 * q ** 6 / (1 - 2 * p * q))
-        return Tensor(np.stack(t).swapaxes(0, -1), dim=1)
+        return Tensor(np.stack(t, axis=-1), dim=1)
     
     def grad(self, params, i):
         p = np.asarray(params[0])
@@ -76,7 +76,7 @@ class TieBreak(Func):
         d.append(462 * (7 - 12 * p) * q ** 4 * p ** 6)
         d.append(-1848 * (12 * p ** 3 - 19 * p ** 2 + 14 * p - 4) *
                  q ** 5 * p ** 7 / (1 - 2 * p * q) ** 2)
-        return grad_tensor(np.stack(d).swapaxes(0, -1),
+        return grad_tensor(np.stack(d, axis=-1),
                            params, i, True, dim=1)
     
     def hess(self, params, i, j):
@@ -92,7 +92,7 @@ class TieBreak(Func):
         h.append(1848 * (264 * p ** 6 - 836 * p ** 5 + 1270 * p ** 4 -
                          1136 * p ** 3 + 625 * p ** 2 - 200 * p + 28) *
                  q ** 4 * p ** 6 / (1 - 2 * p * q) ** 3)
-        return hess_tensor(np.stack(h).swapaxes(0, -1),
+        return hess_tensor(np.stack(h, axis=-1),
                            params, i, j, True, True, dim=1)
 
 
@@ -115,7 +115,7 @@ class Set(Func):
         s.append(126 * p ** 6 * q ** 4)     # s64
         s.append(252 * p ** 7 * q ** 5)     # s75
         s.append(504 * p ** 6 * q ** 6 * t) # s76
-        return Tensor(np.stack(s).swapaxes(0, -1), dim=1)
+        return Tensor(np.stack(s, axis=-1), dim=1)
     
     def grad(self, params, i):
         p, t = params
@@ -137,7 +137,7 @@ class Set(Func):
         else:
             raise ValueError
 
-        return grad_tensor(np.stack(d).swapaxes(0, -1),
+        return grad_tensor(np.stack(d, axis=-1),
                            params, i, True, dim=1)
     
     def hess(self, params, i, j):
@@ -163,5 +163,5 @@ class Set(Func):
         else:
             raise ValueError
 
-        return hess_tensor(np.stack(h).swapaxes(0, -1),
+        return hess_tensor(np.stack(h, axis=-1),
                            params, i, j, True, True, dim=1)
