@@ -160,7 +160,7 @@ Tennis: probability of winning a point → game and tie-break → set score
 
 ![Tennis set model](docs/graphs/tennis_set.svg)
 
-Football goals as a Markov chain over the minutes of a match
+Football goals as a Markov chain over the time steps of a match (18 here)
 (`tests/matrix_test.py`):
 
 ![Markov chain of goals](docs/graphs/football_markov.svg)
