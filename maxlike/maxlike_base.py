@@ -102,6 +102,23 @@ class MaxLike(abc.ABC):
         Calculates the hessian of the log-likelihood function.
         """
 
+    def _memo(self, name, key, compute):
+        """
+        Caches compute() while 'key' is the same object. Used for quantities
+        that depend only on the model value y (e.g. exp(y), shared by like,
+        grad_like and hess_like within a Newton step) or only on the data.
+        'key' may be a tuple of objects, compared by identity.
+        """
+        if not isinstance(key, tuple):
+            key = (key,)
+        cached = self.__dict__.get("_memo_" + name)
+        if cached is not None and len(cached[0]) == len(key) and \
+                all(a is b for a, b in zip(cached[0], key)):
+            return cached[1]
+        value = compute()
+        self.__dict__["_memo_" + name] = (key, value)
+        return value
+
     def reset_params(self):
         self.params = ()
 
@@ -114,7 +131,7 @@ class MaxLike(abc.ABC):
         g = self.like(params, y)
         for param_map, h in self.reg:
             g -= h([params[k] for k in param_map])
-        res = g / self.N.sum()
+        res = g / self._memo("n_total", self.N, self.N.sum)
         return float(res)
 
     def add_param(self, values, fixed=None):
@@ -169,6 +186,15 @@ class MaxLike(abc.ABC):
             param_map = [param_map]
 
         self.reg.append((param_map, h))
+
+    def graph(self, param_names=None):
+        """
+        Computation graph of the problem: parameters, model, likelihood,
+        constraints and regularizations (see maxlike.graph). Export it with
+        .to_dot(), .to_mermaid() or .render(path).
+        """
+        from .graph import maxlike_graph
+        return maxlike_graph(self, param_names)
 
     def akaike_information_criterion(self, nb_extra_params=0):
         """

@@ -129,6 +129,44 @@ these maps. `GenericTensor` holds a lazy sum of terms with incompatible
 structure instead of densifying them. `Compose` applies the full second-order
 chain rule, `H = Jᵀ H_f J + Σ_k ∇f_k H_{g_k}`, on these structured objects.
 
+### Model graphs
+
+`mle.graph()` (or `func.graph()` for a model on its own) builds the
+computation graph of a problem. It shows the parameters, the functions they
+flow through (with weights and the feature axes each term maps to), the
+likelihood, the constraints and the regularizations.
+
+```python
+g = mle.graph(["attack", "defence", "home"])
+print(g.to_mermaid())        # Mermaid text, rendered natively by GitHub
+print(g.to_dot())            # Graphviz DOT text
+g.render("model.svg")        # image; needs Graphviz
+```
+
+To render images and show graphs inline in Jupyter, install Graphviz
+and the optional extra: `pip install "maxlike[graph]"`.
+
+The graph of the example above:
+
+![Poisson attack/defence model](docs/graphs/football_poisson.svg)
+
+Football scores as a bivariate Poisson, collapsed to win/draw/loss
+probabilities (`tests/matrix_test.py`):
+
+![Bivariate Poisson to 1X2](docs/graphs/football_bivariate_poisson_1x2.svg)
+
+Tennis: probability of winning a point → game and tie-break → set score
+(`tests/tennis_test.py`):
+
+![Tennis set model](docs/graphs/tennis_set.svg)
+
+Football goals as a Markov chain over the time steps of a match (18 here)
+(`tests/matrix_test.py`):
+
+![Markov chain of goals](docs/graphs/football_markov.svg)
+
+The Mermaid sources of all these graphs are in [`docs/graphs`](docs/graphs).
+
 ## Limitations
 
 - CPU only (NumPy); no GPU support.

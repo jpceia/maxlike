@@ -174,6 +174,14 @@ class Func(metaclass=FuncMeta):
     def __matmul__(self, other):
         return Compose(self, other)
 
+    def graph(self, param_names=None):
+        """
+        Computation graph of this function (see maxlike.graph); export it
+        with .to_dot(), .to_mermaid() or .render(path).
+        """
+        from ..graph import func_graph
+        return func_graph(self, param_names)
+
 
 class Affine(Func):
     """
