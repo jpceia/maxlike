@@ -167,6 +167,9 @@ def _fmt_value(v):
 
 
 def _func_label(foo):
+    if hasattr(foo, "graph_label"):
+        # the function describes itself (e.g. Take, whose index is an array)
+        return foo.graph_label()
     attrs = []
     for k, v in vars(foo).items():
         if k.startswith("_") or k in _SKIP_ATTRS or callable(v):
@@ -316,7 +319,11 @@ def maxlike_graph(mle, param_names=None):
     graph = Graph()
     params = _Params()
     for k, p in enumerate(getattr(mle, "params", ())):
-        name = param_names[k] if param_names else "param %d" % k
+        if param_names:
+            name = param_names[k]
+        else:
+            from .inference import param_name
+            name = param_name(mle, k)
         shape = "scalar" if p.shape == () else "shape %s" % (p.shape,)
         fixed = p.mask.sum()
         label = "%s\n%s%s" % (name, shape,

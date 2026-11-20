@@ -122,6 +122,26 @@ class Logistic(MaxLike):
                 for i in range(len(der))]
 
 
+    def _post_fit_checks(self, params):
+        # complete (or quasi-complete) separation: the maximum is at infinity
+        # and some fitted probabilities collapse to 0 or 1
+        import warnings
+        y = self.model(params)
+        y = np.asarray(y.toarray() if hasattr(y, "toarray") else y)
+        N = np.asarray(getattr(self.N, "values", self.N))
+        y, N = np.broadcast_arrays(y, N)
+        p = 1 / (1 + np.exp(-y))
+        observed = N > 0
+        extreme = observed & ((p < 1e-8) | (p > 1 - 1e-8))
+        if extreme.any():
+            warnings.warn(
+                "%d fitted probabilities are numerically 0 or 1: the data "
+                "may be (quasi-)separated, so some estimates diverge and "
+                "their standard errors are meaningless. Consider adding a "
+                "regularization (add_regularization)." % extreme.sum(),
+                RuntimeWarning)
+
+
 class Finite(MaxLike):
     """
     Class to model an probabilistic regression under an arbitrary
@@ -271,4 +291,28 @@ class NegativeBinomial(MaxLike):
         return [[(hess[i][j] * delta +
                   der[i] * der[j].transpose() * delta2).sum()
                  for j in range(i + 1)]
+                for i in range(len(der))]
+
+
+class LogLikelihood(MaxLike):
+    """
+    Generic objective: the model returns the log-likelihood (or any score)
+    of each observation, and the objective is its weighted sum,
+        sum_t N[t] * y[t],
+    with N the observation weights (e.g. ones). Use it for models whose
+    likelihood is not one of the built-in distributions, e.g.
+    maxlike.func.FirstOrderStatistic.
+    """
+
+    def __init__(self):
+        MaxLike.__init__(self)
+
+    def like(self, params, y):
+        return (self.N * y).sum()
+
+    def grad_like(self, params, y, der):
+        return [(self.N * d).sum() for d in der]
+
+    def hess_like(self, params, y, der, hess):
+        return [[(self.N * hess[i][j]).sum() for j in range(i + 1)]
                 for i in range(len(der))]

@@ -35,6 +35,21 @@ compilation):
 
 Both reach the same estimates.
 
+## Examples
+
+Runnable scripts in [`docs/examples`](docs/examples), on the data used by
+the tests (`python docs/examples/<name>.py`):
+
+| Example | Model | What it shows |
+|---|---|---|
+| [`football_goals.py`](docs/examples/football_goals.py) | Poisson, attack/defence, one row per team and match (`Take`) | team table with standard errors, expected goals of a match |
+| [`football_scores.py`](docs/examples/football_scores.py) | bivariate Poisson score matrix, `Finite` likelihood | win/draw/loss, over/under and most likely score of a match, with standard errors |
+| [`football_market_calibration.py`](docs/examples/football_market_calibration.py) | the score model fitted to market 1X2 probabilities (KL divergence) | prices of markets that are not in the data (goal lines, handicaps) |
+| [`tennis.py`](docs/examples/tennis.py) | point → game / tie-break → set recursions | player ranking, probability of winning a set and its score distribution |
+| [`race.py`](docs/examples/race.py) | `FirstOrderStatistic`: only the winner and the winning time are observed | recovering each runner's level, with and without a race-day common factor |
+
+`tests/examples_test.py` runs them all.
+
 ## Installation
 
 ```bash
@@ -85,6 +100,113 @@ print("AIC: %.4f" % mle.akaike_information_criterion())
 home advantage: 0.177 +/- 0.073
 AIC: 2.5834
 ```
+
+### Results, predictions and simulation
+
+Parameters can carry names and labels. A pandas `Series` brings its index
+as labels; otherwise pass `labels=`.
+
+```python
+mle.add_param(pd.Series(0., index=teams), name="attack")
+
+mle.summary()                      # estimate, std error, z, p-value, 95% CI
+mle.get_params(labeled=True)       # pandas objects indexed by team
+
+# any function of the parameters, with delta-method standard errors
+expected_goals = Exp() @ mle.model
+value, se = mle.predict(expected_goals, se=True)
+
+# parametric bootstrap: simulate data from the fitted model and refit
+other.fit(**mle.simulate(rng=1))
+```
+
+`fit` explains models it cannot estimate. A missing constraint raises
+`IdentifiabilityError` naming the flat direction, e.g. *"flat along all
+of 'attack' (+1) + all of 'defence' (+1)"*; `mle.identifiability()` runs
+the same check on demand. A logistic model whose data are separated (a
+player who always wins) gives a warning instead of silently returning
+diverging estimates. Newton steps that would decrease the objective (a
+non-concave start) are damped automatically.
+
+### Who wins, and with what value
+
+`FirstOrderStatistic` covers observations where several participants
+draw latent values, the smallest wins, and only the winner and the
+winning value are observed: the fastest time in a race, the lowest bid in
+an auction, the first event among competing risks. Losing participants
+contribute through the probability that they drew more, so each
+participant's distribution is recovered from winners only. A latent
+common factor per observation (e.g. the conditions of a race day, which
+slow every runner together) is integrated out. Fit it with
+`maxlike.LogLikelihood`.
+
+See [docs/first_order_statistic.md](docs/first_order_statistic.md) for
+the formulas, and [docs/examples/race.py](docs/examples/race.py) for a
+worked example.
+
+### Large sparse data: one row per observation
+
+The example above stores `N` and `goals` on the grid of all the
+(team, opponent, venue) combinations, which wastes memory when most teams
+never meet. `Take(index)` gathers the parameter entry of each observation
+instead, `Take(index)(p) = p[index]`, so the data are plain arrays with one
+entry per row of a table:
+
+```python
+import pandas as pd
+from maxlike.func import Take
+from maxlike.preprocessing import prepare_index
+
+# df: one row per team and game, with columns team, opponent, at_home, goals
+index, labels = prepare_index(df, {"team": ["team", "opponent"]})
+
+mle = maxlike.Poisson()
+mle.model = Sum(1)                                   # 1 feature axis: rows
+mle.model.add(Take(index["team"]), 0, 0)             # attack[team]
+mle.model.add(-Take(index["opponent"]), 1, 0)        # - defence[opponent]
+mle.model.add(Vector(df.at_home.values - .5), 2, 0)  # home advantage
+mle.add_constraint([0, 1], Linear([1, 1]))
+
+n_teams = len(labels["team"])
+mle.add_param(np.zeros(n_teams), name="attack", labels=labels["team"])
+mle.add_param(np.zeros(n_teams), name="defence", labels=labels["team"])
+mle.add_param(0., name="home")
+
+mle.fit(N=np.ones(len(df)), X=df.goals.values)
+```
+
+Everything else works as before: the other likelihoods, compositions
+(`Exp() @ model`, a pmf with a distribution axis), constraints,
+regularization, fixed values, `summary()` and `predict()`. The same
+parameter can be gathered twice, as in a Bradley–Terry model for tennis or
+chess, `skill[winner] - skill[loser]`:
+
+```python
+model = Sum(1)
+model.add(Take(player_1), 0, 0)
+model.add(-Take(player_2), 0, 0)
+```
+
+`prepare_observations` also adds up repeated rows (the same pairing and
+covariates) into counts `N` and totals, which the likelihoods accept.
+
+The derivative of `Take` has one non-zero per observation, so the Hessian
+blocks are sparse matrices with one entry per pair of effects that met.
+From 500 free parameters on they are assembled into a `scipy.sparse`
+Newton system (`mle.sparse_hess = True / False` forces the choice), solved
+by a direct method that first eliminates the effects whose own Hessian
+block is diagonal (see `maxlike.linalg`). Attack/defence model, random
+schedule with 20 games per team, one CPU thread (memory: increase of the
+peak resident memory during the fit):
+
+| teams | parameters | rows    | grid: fit, memory | rows: fit, memory | rows: `std_error()` |
+|------:|-----------:|--------:|------------------:|------------------:|--------------------:|
+|   400 |        801 |   8 000 |     0.34 s, 42 MB |      0.08 s, 7 MB |              0.02 s |
+| 1 000 |      2 001 |  20 000 |     2.3 s, 251 MB |     0.29 s, 24 MB |              0.12 s |
+| 2 000 |      4 001 |  40 000 |      13 s, 775 MB |      1.0 s, 64 MB |               0.6 s |
+| 5 000 |     10 001 | 100 000 |     130 s, 4.6 GB |      10 s, 275 MB |                 7 s |
+
+When every pair of teams has met, both forms take the same time.
 
 ## How it works
 
@@ -170,8 +292,25 @@ The Mermaid sources of all these graphs are in [`docs/graphs`](docs/graphs).
 ## Limitations
 
 - CPU only (NumPy); no GPU support.
-- The final Newton system over the free parameters is dense, so the method
-  suits problems up to a few thousand parameters.
+- For grid models the final Newton system over the free parameters is
+  dense, so they suit problems up to a few thousand parameters.
+- For observation-indexed models the Newton system is sparse, and its cost
+  is that of factorising what is left after eliminating one set of effects
+  (`maxlike.linalg`): small for students × questions data, but a dense
+  matrix of half the size when two equally large sets of effects meet at
+  random (5 000 teams: 0.3 GB), and above 20 000 rows a sparse LU that is
+  slow for such data. A model with a single set of effects (Bradley–Terry)
+  has nothing to eliminate: with random pairings it is solved as a dense
+  matrix (10 000 players: 17 s on 4 threads, 1.7 GB with `std_error()`),
+  with structured ones (leagues, regions, neighbours in rank) by a sparse
+  LU.
+- `error_matrix()` and `fisher_matrix()` are dense, (number of
+  parameters)²; `std_error()` computes only the diagonal.
+- `fit(method="broyden")` keeps a dense inverse Hessian, so it is meant
+  for moderate numbers of parameters.
+- With SciPy older than 1.8 the sparse Newton system is always factorised
+  dense (up to 20 000 rows): SciPy 1.7's SuperLU crashed intermittently in
+  our CI. Large sparse problems are faster with a recent SciPy.
 - The built-in scores assume the objective is a sum over the cells of `y`
   (`Finite` additionally normalises along the distribution axes).
 
