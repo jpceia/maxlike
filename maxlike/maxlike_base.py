@@ -121,6 +121,8 @@ class MaxLike(abc.ABC):
 
     def reset_params(self):
         self.params = ()
+        self.param_names = []
+        self.param_labels = []
 
     def g(self, params, y=None):
         """
@@ -134,26 +136,74 @@ class MaxLike(abc.ABC):
         res = g / self._memo("n_total", self.N, self.N.sum)
         return float(res)
 
-    def add_param(self, values, fixed=None):
+    def add_param(self, values, fixed=None, name=None, labels=None):
         """
         Adds a new parameter.
 
         Parameters
         ----------
-        values: list
-            Initial guess for the parameter.
-        fixed: list (optional)
-            Boolean arrays with value = True if the parameter has a
-            fixed value.
+        values: array-like, pd.Series or pd.DataFrame
+            Initial guess for the parameter. The index (and columns) of a
+            pandas object are used as labels of its entries.
+        fixed: array-like (optional)
+            Boolean array, True where the parameter has a fixed value.
+        name: str (optional)
+            Name of the parameter, used in summary(), get_params(labeled=True)
+            and graph().
+        labels: list (optional)
+            Labels of the entries along each axis, e.g. [team_names].
         """
-        try:
-            self.params = self.params + (Param(values, mask=fixed), )
-        except AttributeError:
-            self.params = ()
-            self.add_param(values, fixed)
+        from .inference import labels_from_values
+        if labels is None:
+            labels = labels_from_values(values)
+        elif np.ndim(values) == 1 and all(np.isscalar(v) for v in labels):
+            labels = [labels]   # labels of a single axis, as a flat list
+        if fixed is not None and fixed is not False:
+            fixed = np.asarray(fixed, dtype=bool)
+        if not hasattr(self, "params"):
+            self.reset_params()
+        values = np.asarray(values, dtype=float)
+        self.params = self.params + (Param(values, mask=fixed), )
+        self.param_names.append(name)
+        self.param_labels.append(labels)
 
-    def get_params(self):
+    def get_params(self, labeled=False):
+        """
+        Current parameter values: masked arrays (fixed entries masked), or
+        with labeled=True, pandas objects indexed by the parameter labels.
+        """
+        if labeled:
+            from .inference import labeled as _labeled
+            return [_labeled(self, k, p.as_masked())
+                    for k, p in enumerate(self.params)]
         return [p.as_masked() for p in self.params]
+
+    def summary(self, level=0.95):
+        """
+        Table of estimates with standard errors, z statistics, p-values and
+        confidence intervals (normal approximation), one row per parameter
+        entry, indexed by parameter name and label.
+        """
+        from .inference import summary
+        return summary(self, level)
+
+    def predict(self, model=None, params=None, se=False):
+        """
+        Value of the fitted model (or of another Func of the parameters,
+        e.g. a win probability) at the fitted parameters. With se=True,
+        returns (value, standard error) using the delta method.
+        """
+        from .inference import predict
+        return predict(self, model, params, se)
+
+    def simulate(self, rng=None, params=None):
+        """
+        Simulates a new data set from the fitted model, with the same
+        counts N. Returns the keyword arguments of fit(), so a parametric
+        bootstrap is other.fit(**mle.simulate(rng)).
+        """
+        from .inference import simulate
+        return simulate(self, rng, params)
 
     def add_constraint(self, param_map, g):
         """
