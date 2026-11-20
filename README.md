@@ -308,6 +308,9 @@ The Mermaid sources of all these graphs are in [`docs/graphs`](docs/graphs).
   parameters)²; `std_error()` computes only the diagonal.
 - `fit(method="broyden")` keeps a dense inverse Hessian, so it is meant
   for moderate numbers of parameters.
+- With SciPy older than 1.8 the sparse Newton system is always factorised
+  dense (up to 20 000 rows): SciPy 1.7's SuperLU crashed intermittently in
+  our CI. Large sparse problems are faster with a recent SciPy.
 - The built-in scores assume the objective is a sum over the cells of `y`
   (`Finite` additionally normalises along the distribution axes).
 

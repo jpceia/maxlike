@@ -20,8 +20,10 @@ Limits: memory and time are those of the factorisation of S. When effects
 meet at random (every team plays random opponents) S, or its sparse factor,
 fills in, and the cost is that of a dense matrix of its size.
 """
+import re
 import warnings
 import numpy as np
+import scipy
 import scipy.sparse as sp
 from scipy.linalg import lu_factor, lu_solve, LinAlgWarning
 from scipy.sparse.linalg import splu
@@ -40,6 +42,18 @@ DENSE_MIN_DENSITY = 0.05
 DENSE_MAX_SIZE = 20000
 # a matrix at least this dense is factorised as it is, as a dense matrix
 DENSE_DIRECT_DENSITY = 0.25
+
+
+
+def _version(text):
+    return tuple(int(x) for x in re.findall(r"\d+", text)[:2])
+
+
+# SciPy 1.7's SuperLU crashed intermittently (segmentation fault inside
+# splu) in the minimum-dependencies CI job, on both sparse and nearly
+# dense matrices; it never did with current SciPy. With older SciPy the
+# sparse LU is not used up to DENSE_MAX_SIZE rows (dense LAPACK instead).
+SPARSE_LU_SAFE = _version(scipy.__version__) >= (1, 8)
 
 
 class SingularMatrix(np.linalg.LinAlgError):
@@ -140,7 +154,8 @@ class SymmetricSolver:
         # intermittently (segmentation fault) with old SciPy (1.7)
         nearly_dense = m <= DENSE_MAX_SIZE and \
             S.nnz >= DENSE_DIRECT_DENSITY * m * m
-        self.dense = m <= DENSE_SIZE or nearly_dense or (
+        old_scipy = not SPARSE_LU_SAFE and m <= DENSE_MAX_SIZE
+        self.dense = m <= DENSE_SIZE or nearly_dense or old_scipy or (
             m <= DENSE_MAX_SIZE and DENSE_MIN_FILL <= 1 and
             (S.nnz >= DENSE_MIN_DENSITY * m * m or
              fill_estimate(S) >= DENSE_MIN_FILL))

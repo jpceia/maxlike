@@ -376,7 +376,9 @@ class Test(unittest.TestCase):
                 finally:
                     linalg.ELIMINATION_MIN_SHARE = elimination
                 self.assertEqual(solver.elim.size, n_e if share < 1 else 0)
-                self.assertEqual(solver.dense, dense_size > 0)
+                # with SciPy older than 1.8 the sparse LU is never used
+                self.assertEqual(solver.dense, dense_size > 0 or
+                                 not linalg.SPARSE_LU_SAFE)
                 np.testing.assert_allclose(solver.solve(b),
                                            np.linalg.solve(A, b), atol=1e-10)
                 np.testing.assert_allclose(solver.solve(rhs),
@@ -387,6 +389,25 @@ class Test(unittest.TestCase):
                                            atol=1e-10)
         with self.assertRaises(linalg.SingularMatrix):
             linalg.SymmetricSolver(sp.csc_matrix((5, 5)))
+
+    def test_no_sparse_lu_with_old_scipy(self):
+        self.assertEqual(linalg._version("1.7.3"), (1, 7))
+        self.assertEqual(linalg._version("1.18.1"), (1, 18))
+        self.assertEqual(linalg._version("1.10.0rc1"), (1, 10))
+        A = sp.random(30, 30, .1, random_state=np.random.RandomState(3))
+        A = sp.csc_matrix(A + A.T + 10 * sp.eye(30))
+        safe = linalg.SPARSE_LU_SAFE
+        linalg.DENSE_SIZE = 0
+        linalg.DENSE_MIN_FILL = 2.
+        try:
+            linalg.SPARSE_LU_SAFE = False
+            solver = linalg.SymmetricSolver(A)
+            self.assertTrue(solver.dense)
+            b = np.arange(30.)
+            np.testing.assert_allclose(solver.solve(b),
+                                       np.linalg.solve(A.toarray(), b))
+        finally:
+            linalg.SPARSE_LU_SAFE = safe
 
     def test_fill_estimate(self):
         # neighbours only (in a shuffled order), plus one dense row and
