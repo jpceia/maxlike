@@ -3,6 +3,22 @@
 ## Unreleased
 
 ### Added
+- Parameter names and labels (`add_param(..., name=, labels=)`, taken from
+  the index of a pandas Series), `summary()` with standard errors,
+  p-values and confidence intervals, and `get_params(labeled=True)`.
+- `predict(model, se=True)`: predictions of any function of the
+  parameters with delta-method standard errors.
+- `simulate()`: data simulated from the fitted model, ready for
+  `fit(**...)` (parametric bootstrap).
+- `IdentifiabilityError` and `identifiability()`: name the parameters along
+  which the objective is flat when a constraint is missing.
+- A warning for separated data in logistic models.
+
+### Fixed
+- The convergence test no longer divides by the objective; refitting from
+  the optimum no longer raises a ConvergenceError.
+- Newton steps that would decrease the objective (Hessian not negative
+  definite) are damped Levenberg-Marquardt style.
 - `MaxLike.graph()` and `Func.graph()` build the computation graph of a
   model. Export it as Graphviz DOT or Mermaid text, or render it with the
   optional extra `pip install "maxlike[graph]"`.

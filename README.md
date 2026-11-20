@@ -86,6 +86,33 @@ home advantage: 0.177 +/- 0.073
 AIC: 2.5834
 ```
 
+### Results, predictions and simulation
+
+Parameters can carry names and labels. A pandas `Series` brings its index
+as labels; otherwise pass `labels=`.
+
+```python
+mle.add_param(pd.Series(0., index=teams), name="attack")
+
+mle.summary()                      # estimate, std error, z, p-value, 95% CI
+mle.get_params(labeled=True)       # pandas objects indexed by team
+
+# any function of the parameters, with delta-method standard errors
+expected_goals = Exp() @ mle.model
+value, se = mle.predict(expected_goals, se=True)
+
+# parametric bootstrap: simulate data from the fitted model and refit
+other.fit(**mle.simulate(rng=1))
+```
+
+`fit` explains models it cannot estimate. A missing constraint raises
+`IdentifiabilityError` naming the flat direction, e.g. *"flat along all
+of 'attack' (+1) + all of 'defence' (+1)"*; `mle.identifiability()` runs
+the same check on demand. A logistic model whose data are separated (a
+player who always wins) gives a warning instead of silently returning
+diverging estimates. Newton steps that would decrease the objective (a
+non-concave start) are damped automatically.
+
 ## How it works
 
 A problem has three independent parts.
