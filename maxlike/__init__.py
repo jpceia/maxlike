@@ -9,4 +9,4 @@ from .func import copula
 from .maxlike import (Poisson, Logistic,
                       Finite, NormalizedFinite,
                       ZeroInflatedPoisson,
-                      NegativeBinomial)
+                      NegativeBinomial, LogLikelihood)

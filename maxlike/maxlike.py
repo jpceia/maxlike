@@ -292,3 +292,27 @@ class NegativeBinomial(MaxLike):
                   der[i] * der[j].transpose() * delta2).sum()
                  for j in range(i + 1)]
                 for i in range(len(der))]
+
+
+class LogLikelihood(MaxLike):
+    """
+    Generic objective: the model returns the log-likelihood (or any score)
+    of each observation, and the objective is its weighted sum,
+        sum_t N[t] * y[t],
+    with N the observation weights (e.g. ones). Use it for models whose
+    likelihood is not one of the built-in distributions, e.g.
+    maxlike.func.FirstOrderStatistic.
+    """
+
+    def __init__(self):
+        MaxLike.__init__(self)
+
+    def like(self, params, y):
+        return (self.N * y).sum()
+
+    def grad_like(self, params, y, der):
+        return [(self.N * d).sum() for d in der]
+
+    def hess_like(self, params, y, der, hess):
+        return [[(self.N * hess[i][j]).sum() for j in range(i + 1)]
+                for i in range(len(der))]
