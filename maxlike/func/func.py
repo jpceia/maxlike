@@ -4,6 +4,12 @@ from .func_base import Func, grad_tensor, hess_tensor, null_func
 
 
 class Linear(Func):
+    """
+    Linear(w)(p_0, ..., p_k) = sum_i w_i * sum(p_i)
+
+    A scalar function (no feature axes): it can be used as a constraint,
+    a regularization or composed with other functions.
+    """
 
     def __init__(self, weight_list=None):
         if isinstance(weight_list, (int, float)):
@@ -13,17 +19,16 @@ class Linear(Func):
         self.weights = weight_list
 
     def __call__(self, params):
-        return sum(((w * np.asarray(p)).sum()
-                    for w, p in zip(params, self.weights)))
+        return Tensor(sum((w * np.asarray(p)).sum()
+                          for w, p in zip(self.weights, params)))
 
     def grad(self, params, i):
-        return grad_tensor(self.weights[i] * np.ones((1, ) *
-                           np.asarray(params[i]).ndim), params, i, True)
+        # dense: every entry of params[i] contributes to the scalar output
+        p = np.asarray(params[i])
+        return Tensor(np.full(p.shape, self.weights[i], dtype=float),
+                      x_dim=p.ndim)
 
-    def hess(self, params, i, j):
-        return hess_tensor(np.zeros((1, ) *
-            (np.asarray(params[j]).ndim + np.asarray(params[i]).ndim)),
-            params, i, j, True, True)
+    hess = null_func
 
 
 class Quadratic(Func):  # TODO : expand this class to allow more generic stuff

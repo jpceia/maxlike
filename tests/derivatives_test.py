@@ -67,6 +67,8 @@ ELEMENTARY = {
     "Vector": (Vector(V), [.7]),
     "Constant": (Constant(V), [U]),
     "Linear": (Linear([1., 2.]), [U, V]),
+    "Linear @ Exp": (Linear([2.]) @ Exp(), [U]),
+    "Exp @ Linear": (Exp() @ Linear([1., -1.]), [U, V]),
     "Quadratic": (Quadratic(.3, 2.), [U, V]),
     "Exp": (Exp(), [U]),
     "Log": (Log(), [U]),
@@ -97,6 +99,7 @@ def composite():
     return {
         "Sum (attack/defence)": (attack_defence(), [A, B, H]),
         "Exp @ Sum": (Exp() @ attack_defence(), [A, B, H]),
+        "Linear @ Sum": (Linear([1.]) @ attack_defence(), [A, B, H]),
         "Collapse": (Collapse(Exp() @ attack_defence()), [A, B, H]),
         "Product": (prod, [U, V]),
         "Product of Exp": (prod_exp, [U, V]),
