@@ -563,6 +563,40 @@ class MaxLike(abc.ABC):
             raise _SingularHessian
         return step
 
+    # reciprocal condition number below which the converged (bordered)
+    # Hessian is treated as singular
+    _SINGULAR_RCOND = 1e-12
+
+    def _check_identified(self, params, lhess):
+        """
+        Once at convergence: if the bordered Hessian is singular, the
+        parameters are not identifiable (the objective is flat along some
+        direction). Uses an LU factorisation and LAPACK's condition
+        estimate, about 1.4 times the cost of one Newton solve, once per
+        fit (disable with fit(check_identifiability=False)).
+        """
+        import warnings
+        from scipy.linalg import lu_factor, LinAlgWarning
+        from scipy.linalg.lapack import dgecon
+        if not getattr(self, "_check_identifiability", True):
+            return
+        lhess = np.asarray(lhess, dtype=float)
+        if lhess.size == 0:
+            return
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", LinAlgWarning)
+            lu, _ = lu_factor(lhess, check_finite=False)
+        rcond, _ = dgecon(lu, np.abs(lhess).sum(0).max(), norm="1")
+        if rcond > self._SINGULAR_RCOND:
+            return
+        directions = self._null_directions(params, lhess)
+        if directions:
+            self.converged = False
+            raise IdentifiabilityError(
+                "the parameters are not identifiable: the objective is "
+                "flat along %s. Add a constraint (add_constraint) or fix "
+                "some values." % "; and along ".join(directions))
+
     def _newton_direction(self, params, lgrad, lhess):
         """
         Newton step for the free parameters (new = old - step). If the step
@@ -579,8 +613,15 @@ class MaxLike(abc.ABC):
             return grad.dot(d) >= -1e-10 * np.linalg.norm(grad) * \
                 np.linalg.norm(d)
 
+        flat = np.concatenate([p.compressed() for p in params]) \
+            if n_free else np.zeros(0)
+        scale = 1 + (np.abs(flat).max() if flat.size else 0.)
         try:
             step = self._solve_newton(lhess, lgrad)
+            # a numerically singular system can still be solved with a small
+            # residual, giving an absurdly large step along a flat direction
+            if np.abs(step[:n_free]).max(initial=0) > 1e6 * scale:
+                raise _SingularHessian
             if is_ascent(step):
                 return step[:n_free]
         except _SingularHessian:
@@ -689,7 +730,8 @@ class MaxLike(abc.ABC):
         step = self._newton_direction(params, lgrad, lhess)
         return step, g, lgrad, lhess
 
-    def fit(self, tol=1e-8, max_steps=20, verbose=0, method="Newton", **kwargs):
+    def fit(self, tol=1e-8, max_steps=20, verbose=0, method="Newton",
+            check_identifiability=True, **kwargs):
         """
         Run the algorithm to find the best fit.
 
@@ -712,6 +754,11 @@ class MaxLike(abc.ABC):
             * newton
             * broyden
 
+        check_identifiability: bool (optional)
+            At convergence, check that the (bordered) Hessian is not
+            singular and raise IdentifiabilityError naming the flat
+            directions otherwise. Costs about one extra Newton solve.
+
         Returns
         -------
         out : boolean
@@ -719,6 +766,7 @@ class MaxLike(abc.ABC):
             False.
         """
 
+        self._check_identifiability = check_identifiability
         dim = getattr(self, 'dim', 0)
         for k in kwargs:
             self.__dict__[k] = Tensor(kwargs[k], dim=dim)
@@ -760,6 +808,7 @@ class MaxLike(abc.ABC):
                     size = np.abs(step).max() if step.size else 0.
                     if size <= 1e-8 * (1 + np.abs(flat_params).max()):
                         params = self._reshape_params(flat_params)
+                        self._check_identified(params, hess)
                         self.params = params
                         self.flat_hess_ = hess
                         self.converged = True
@@ -771,6 +820,7 @@ class MaxLike(abc.ABC):
                         "after %d steps" % max_inner_steps, "step")
 
                 if _converged(prev_g, g, tol):
+                    self._check_identified(params, hess)
                     self.params = params
                     self.flat_hess_ = hess
                     self.converged = True
