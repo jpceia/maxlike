@@ -167,6 +167,9 @@ def _fmt_value(v):
 
 
 def _func_label(foo):
+    if hasattr(foo, "graph_label"):
+        # the function describes itself (e.g. Take, whose index is an array)
+        return foo.graph_label()
     attrs = []
     for k, v in vars(foo).items():
         if k.startswith("_") or k in _SKIP_ATTRS or callable(v):
