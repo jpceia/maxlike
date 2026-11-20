@@ -143,3 +143,12 @@ chain rule, `H = Jᵀ H_f J + Σ_k ∇f_k H_{g_k}`, on these structured objects.
 pip install -e ".[test]"
 pytest
 ```
+
+## License
+
+Copyright (C) joao ceia.
+
+MaxLike is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. See [LICENSE](LICENSE).

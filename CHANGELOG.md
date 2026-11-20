@@ -20,6 +20,7 @@
   `akaine_information_criterion` is kept as an alias.
 
 ### Packaging and CI
+- Licensed under the GNU GPL v3 or later.
 - Packaging moved to `pyproject.toml`.
 - CI moved from Travis to GitHub Actions; releases are published to PyPI
   from GitHub.
