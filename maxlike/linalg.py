@@ -135,7 +135,12 @@ class SymmetricSolver:
 
     def _factor(self, S):
         m = S.shape[0]
-        self.dense = m <= DENSE_SIZE or (
+        # a matrix that is already nearly dense is always factorised dense:
+        # LAPACK is faster there, and SuperLU on such matrices crashed
+        # intermittently (segmentation fault) with old SciPy (1.7)
+        nearly_dense = m <= DENSE_MAX_SIZE and \
+            S.nnz >= DENSE_DIRECT_DENSITY * m * m
+        self.dense = m <= DENSE_SIZE or nearly_dense or (
             m <= DENSE_MAX_SIZE and DENSE_MIN_FILL <= 1 and
             (S.nnz >= DENSE_MIN_DENSITY * m * m or
              fill_estimate(S) >= DENSE_MIN_FILL))
