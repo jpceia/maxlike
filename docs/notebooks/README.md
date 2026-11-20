@@ -11,6 +11,7 @@ already executed, so GitHub shows the charts without running anything.
 | [Football scores](football_scores.ipynb) | joint score distribution (two censored Poisson distributions), 1X2 and goal-line markets | observed against fitted scores, reliability of the 1X2 probabilities |
 | [Market calibration](football_market_calibration.ipynb) | the score model fitted to market 1X2 probabilities (Kullback–Leibler) | market against model probabilities, censored against truncated goal distributions |
 | [Tennis](tennis.ipynb) | point → game / tie-break → set recursions, one strength per player | calibration of set-win probabilities, distribution of set scores |
+| [Polymarket: blockade and ceasefire](polymarket_iran.ipynb) | two ladders of prediction-market contracts as hazard curves: a latent factor (state-space model, from the price history) and a four-state Markov chain | correlation of the two hazards as a parameter, curves without the noise, mean reversion, prediction from the other curve |
 | [Races](race.ipynb) | only the winner and the winning time are observed (`FirstOrderStatistic`), with and without a race-day factor | estimates against a known truth, held-out win probabilities |
 
 They reuse the functions of the scripts in [`docs/examples`](../examples);
