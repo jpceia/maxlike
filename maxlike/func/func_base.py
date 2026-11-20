@@ -68,34 +68,28 @@ def hess_tensor(values, params, i=0, j=0,
                   x_map=x_map, y_map=y_map)
 
 
+def as_tuple(params):
+    """Normalises the `params` argument of a Func method to a tuple"""
+    if isinstance(params, tuple):
+        return params
+    if isinstance(params, list):
+        return tuple(params)
+    if params is None:
+        return ()
+    return (params, )
+
+
 def call_wrap(f):
-    #@lru_cache(None)
     @wraps(f)
     def wrapper(obj, params=None):
-        if isinstance(params, tuple):
-            pass
-        elif isinstance(params, list):
-            params = tuple(params)
-        elif params is None:
-            params = ()
-        else:
-            params = (params, )
-        return f(obj, params)
+        return f(obj, as_tuple(params))
     return wrapper
 
 
 def vector_wrap(g):
-    #@lru_cache(None)
     @wraps(g)
     def wrapper(obj, params=None, i=None):
-        if isinstance(params, tuple):
-            pass
-        elif isinstance(params, list):
-            params = tuple(params)
-        elif params is None:
-            params = ()
-        else:
-            params = (params, )
+        params = as_tuple(params)
         if i is not None:
             return g(obj, params, i)
         return [g(obj, params, k) for k in range(len(params))]
@@ -105,14 +99,7 @@ def vector_wrap(g):
 def matrix_wrap(h):
     @wraps(h)
     def wrapper(obj, params=None, i=None, j=None):
-        if isinstance(params, tuple):
-            pass
-        elif isinstance(params, list):
-            params = tuple(params)
-        elif params is None:
-            params = ()
-        else:
-            params = (params, )
+        params = as_tuple(params)
         if i is not None and j is not None:
             return h(obj, params, i, j)
         return [[h(obj, params, k, l)
@@ -121,19 +108,8 @@ def matrix_wrap(h):
     return wrapper
 
 
-def eval_wrap(e):
-    @wraps(e)
-    def wrapper(obj, params=None):
-        if isinstance(params, tuple):
-            pass
-        elif isinstance(params, list):
-            params = tuple(params)
-        elif params is None:
-            params = ()
-        else:
-            params = (params, )
-        return e(obj, params)
-    return wrapper
+# eval takes the same arguments as __call__
+eval_wrap = call_wrap
 
 
 def not_implemented_foo(obj, *args, **kwargs):
