@@ -17,7 +17,7 @@ Notes:
   With a truncated distribution (conditional on fewer than 8 goals, what
   the unnormalised Poisson gives under Finite), strong teams could "win by
   a lot" with absurd scoring rates (over 100 goals a match) whose mass
-  piles up at the cap; that degenerate fit even has a better objective.
+  piles up at the cap, and the fit of the 1X2 probabilities is worse.
   Censoring removes it: the fit is the same as on a much wider grid.
 - The probabilities are not counts, so the standard errors of a KL fit
   are not sampling errors; they are only useful in relative terms.
