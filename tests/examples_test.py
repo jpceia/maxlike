@@ -36,12 +36,12 @@ class Test(unittest.TestCase):
 
     def test_football_scores(self):
         mle, out = run(football_scores)
-        # same fit as tests/matrix_test.py::test_poisson_matrix
+        # close to tests/matrix_test.py::test_poisson_matrix, which uses the
+        # truncated (unnormalised) Poisson instead of the censored one
         self.assertAlmostEqual(float(mle.get_params()[2]),
-                               0.27852882496320425, delta=1e-7)
-        scores = football_scores.score_model(20, normalised=True)
-        probs = mle.predict(CollapseMatrix() @ scores)
-        np.testing.assert_allclose(probs.sum(-1), 1, atol=1e-9)
+                               0.27852882496320425, delta=5e-3)
+        probs = mle.predict(CollapseMatrix() @ mle.model)
+        np.testing.assert_allclose(probs.sum(-1), 1, atol=1e-12)
 
     def test_football_market_calibration(self):
         mle, out = run(football_market_calibration)

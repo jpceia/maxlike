@@ -50,6 +50,13 @@ the tests (`python docs/examples/<name>.py`):
 
 `tests/examples_test.py` runs them all.
 
+Each example also has a notebook in [`docs/notebooks`](docs/notebooks), with
+the theory of the model, its graph, the fit and charts that check it:
+[football goals](docs/notebooks/football_goals.ipynb),
+[football scores](docs/notebooks/football_scores.ipynb),
+[market calibration](docs/notebooks/football_market_calibration.ipynb),
+[tennis](docs/notebooks/tennis.ipynb) and [races](docs/notebooks/race.ipynb).
+
 ## Installation
 
 ```bash
@@ -272,22 +279,8 @@ The graph of the example above:
 
 ![Poisson attack/defence model](docs/graphs/football_poisson.svg)
 
-Football scores as a bivariate Poisson, collapsed to win/draw/loss
-probabilities (`tests/matrix_test.py`):
-
-![Bivariate Poisson to 1X2](docs/graphs/football_bivariate_poisson_1x2.svg)
-
-Tennis: probability of winning a point → game and tie-break → set score
-(`tests/tennis_test.py`):
-
-![Tennis set model](docs/graphs/tennis_set.svg)
-
-Football goals as a Markov chain over the time steps of a match (18 here)
-(`tests/matrix_test.py`):
-
-![Markov chain of goals](docs/graphs/football_markov.svg)
-
-The Mermaid sources of all these graphs are in [`docs/graphs`](docs/graphs).
+The notebooks in [`docs/notebooks`](docs/notebooks) show the graphs of the
+other examples.
 
 ## Limitations
 

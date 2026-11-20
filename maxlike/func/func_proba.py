@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.special import factorial, gammaln
+from scipy.special import factorial, gammaln, logsumexp
 from ..tensor import Tensor
 from .func import Exp
 from .func_base import Func, grad_tensor, hess_tensor
@@ -7,12 +7,32 @@ from .func_base import Func, grad_tensor, hess_tensor
 
 class Poisson(Func):
     """
-    Non normalized
-    vector (lambda ^ x) / x!
+    Poisson distribution of a count x = 0, ..., size - 1 with mean lambda
+    (params[0]), along a distribution axis.
+
+    normalised=False (default): the unnormalised vector lambda^x / x!,
+        without exp(-lambda). Enough for the Finite likelihood, which
+        normalises over the distribution axis (the result is then the
+        distribution truncated to x < size).
+    normalised=True: probabilities. 'tail' sets what happens to the mass
+        of x >= size:
+        "censor"   (default) the last entry is P(X >= size - 1), e.g. for
+                   counts recorded as "size - 1 or more"; sums to one;
+        "truncate" the distribution conditional on X < size; sums to one;
+        "drop"     the exact pmf P(X = x); sums to P(X < size).
+
+    Derivatives use dP(x)/dlambda = P(x - 1) - P(x) and, for the censored
+    tail, d/dlambda P(X >= k) = P(X = k - 1).
     """
 
-    def __init__(self, size=10):
+    TAILS = ("censor", "truncate", "drop")
+
+    def __init__(self, size=10, normalised=False, tail="censor"):
+        if tail not in self.TAILS:
+            raise ValueError("tail must be one of %s" % (self.TAILS, ))
         self.size = size
+        self.normalised = normalised
+        self.tail = tail
 
     def _vec(self, params):
         a = np.asarray(params[0])[..., None]
@@ -24,25 +44,60 @@ class Poisson(Func):
         # d/da of (a ^ x) / x! is the same vector shifted by one position
         return np.insert(vec[..., :-1], 0, 0, -1)
 
+    def _values(self, params):
+        """value and its first two derivatives in lambda, along x"""
+        if not self.normalised:
+            u = self._vec(params)
+            du = self._shift(u)
+            return u, du, self._shift(du)
+
+        lam = np.asarray(params[0], dtype=float)[..., None]
+        x = np.arange(self.size)
+        # exact pmf, computed on the log scale
+        log_p = x * np.log(lam) - lam - gammaln(x + 1)
+
+        if self.tail == "truncate":
+            # v = p / Z, Z = P(X < size). Normalised on the log scale (p
+            # itself underflows to 0 for large lambda); dp / Z and d2p / Z
+            # follow from v, since dp = shift(p) - p is linear in p
+            v = np.exp(log_p - logsumexp(log_p, -1, keepdims=True))
+            dp = self._shift(v) - v              # dp / Z
+            d2p = self._shift(dp) - dp           # d2p / Z
+            dZ = dp.sum(-1, keepdims=True)       # dZ / Z
+            d2Z = d2p.sum(-1, keepdims=True)     # d2Z / Z
+            dv = dp - v * dZ
+            d2v = d2p - 2 * dp * dZ - v * d2Z + 2 * v * dZ ** 2
+            return v, dv, d2v
+
+        p = np.exp(log_p)
+        dp = self._shift(p) - p                  # P(x - 1) - P(x)
+        d2p = self._shift(dp) - dp
+
+        if self.tail == "drop":
+            return p, dp, d2p
+
+        # censor, last entry: P(X >= size - 1) = 1 - P(X < size - 1)
+        v, dv, d2v = p.copy(), dp.copy(), d2p.copy()
+        v[..., -1] = 1 - p[..., :-1].sum(-1)
+        dv[..., -1] = -dp[..., :-1].sum(-1)
+        d2v[..., -1] = -d2p[..., :-1].sum(-1)
+        return v, dv, d2v
+
     def __call__(self, params):
-        return Tensor(self._vec(params), dim=1)
+        return Tensor(self._values(params)[0], dim=1)
 
     def grad(self, params, i):
-        vec = self._shift(self._vec(params))
-        return grad_tensor(vec, params, i, True, dim=1)
+        return grad_tensor(self._values(params)[1], params, i, True, dim=1)
 
     def hess(self, params, i, j):
-        vec = self._shift(self._shift(self._vec(params)))
-        return hess_tensor(vec, params, i, j, True, True, dim=1)
+        return hess_tensor(self._values(params)[2], params, i, j, True, True,
+                           dim=1)
 
     def eval(self, params):
-        vec = self._vec(params)
-        val = Tensor(vec, dim=1)
-        vec = self._shift(vec)
-        grad = grad_tensor(vec, params, 0, True, dim=1)
-        vec = self._shift(vec)
-        hess = hess_tensor(vec, params, 0, 0, True, True, dim=1)
-        return val, [grad], [[hess]]
+        v, dv, d2v = self._values(params)
+        return Tensor(v, dim=1), \
+            [grad_tensor(dv, params, 0, True, dim=1)], \
+            [[hess_tensor(d2v, params, 0, 0, True, True, dim=1)]]
 
 
 class LogNegativeBinomial(Func):

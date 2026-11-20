@@ -188,6 +188,37 @@ class Test(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "scalar or have the shape"):
             Vector(np.ones(3)).grad([np.ones((2, 1))], 0)
 
+    def test_poisson_normalised(self):
+        from scipy.stats import poisson
+        lam = np.array([.4, 2.5, 6.])
+        K = 8
+        pmf = poisson.pmf(np.arange(K), lam[:, None])
+        unnormalised = Poisson(K)([lam]).values
+        censor = Poisson(K, normalised=True)([lam]).values
+        truncate = Poisson(K, normalised=True, tail="truncate")([lam]).values
+        drop = Poisson(K, normalised=True, tail="drop")([lam]).values
+        np.testing.assert_allclose(drop, pmf)
+        np.testing.assert_allclose(censor[:, :-1], pmf[:, :-1])
+        np.testing.assert_allclose(censor[:, -1], poisson.sf(K - 2, lam))
+        np.testing.assert_allclose(censor.sum(-1), 1)
+        np.testing.assert_allclose(
+            truncate, unnormalised / unnormalised.sum(-1, keepdims=True))
+        with self.assertRaises(ValueError):
+            Poisson(K, normalised=True, tail="other")
+
+    def test_poisson_truncate_large_rate(self):
+        # the pmf underflows to 0 below the cap: the truncated distribution
+        # and its derivatives stay finite, with the mass at the cap
+        foo = Poisson(8, normalised=True, tail="truncate")
+        lam = np.array([500., 2000.])
+        value, grad, hess = foo.eval([lam])
+        for t in (value, grad[0], hess[0][0]):
+            self.assertTrue(np.all(np.isfinite(t.toarray())))
+        v = value.values
+        np.testing.assert_allclose(v.sum(-1), 1)
+        # p(x - 1) / p(x) = x / lambda
+        np.testing.assert_allclose(v[:, -2] / v[:, -1], 7 / lam)
+
 
 if __name__ == "__main__":
     unittest.main()

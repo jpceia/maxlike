@@ -19,6 +19,12 @@
   only the winner and the winning value are observed (auctions, races,
   competing risks), optionally with a latent common factor per
   observation. Documented in `docs/first_order_statistic.md`.
+- `func.Poisson(size, normalised=True, tail=...)`: probabilities instead of
+  the unnormalised lambda^x / x!, with a censored ("size - 1 or more"),
+  truncated or dropped tail.
+- Notebooks in `docs/notebooks`, one per example: theory, model graph,
+  fit, predictions and charts that check the fit (`pip install
+  "maxlike[notebooks]"`), executed in CI.
 - Runnable examples in `docs/examples`: football goals, football score
   distribution and betting markets, calibration to market 1X2
   probabilities, tennis, and a race; `tests/examples_test.py` runs them.

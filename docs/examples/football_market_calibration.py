@@ -13,10 +13,12 @@ The fitted team strengths then price any function of the score: over/under
 goal lines, handicaps, ... consistently with the 1X2 market.
 
 Notes:
-- The score grid must be wide enough (12 goals here). On a grid capped at
-  8 goals, strong teams can "win by a lot" with absurd scoring rates (over
-  100 goals a match) whose mass piles up at the cap; that degenerate fit
-  even has a better objective, so the optimiser cannot avoid it.
+- The goal distributions are censored (the last count means "7 or more").
+  With a truncated distribution (conditional on fewer than 8 goals, what
+  the unnormalised Poisson gives under Finite), strong teams could "win by
+  a lot" with absurd scoring rates (over 100 goals a match) whose mass
+  piles up at the cap, and the fit of the 1X2 probabilities is worse.
+  Censoring removes it: the fit is the same as on a much wider grid.
 - The probabilities are not counts, so the standard errors of a KL fit
   are not sampling errors; they are only useful in relative terms.
 
@@ -50,7 +52,7 @@ def load(path=DATA):
 
 def fit(P, names):
     mle = maxlike.Finite()
-    mle.model = CollapseMatrix() @ score_model(size=12)
+    mle.model = CollapseMatrix() @ score_model()
     mle.add_constraint([0, 1], Linear([1, 1]))
     mle.add_param(pd.Series(0., index=names), name="attack")
     mle.add_param(pd.Series(0., index=names), name="defence")
@@ -64,7 +66,7 @@ def main():
     mle = fit(P, names)
 
     # how well the model reproduces the market 1X2 probabilities
-    fitted = mle.predict(CollapseMatrix() @ score_model(20, normalised=True))
+    fitted = mle.predict(CollapseMatrix() @ score_model())
     played = P.sum(-1) > 0
     market = P[played] / P[played].sum(-1, keepdims=True)
     err = np.abs(fitted[played] - market).max(-1)
@@ -82,7 +84,7 @@ def main():
     print("\n%s (home) v %s" % (names[i], names[j]))
     print("  market 1X2: %.3f / %.3f / %.3f" % tuple(P[i, j] / P[i, j].sum()))
     print("  model  1X2: %.3f / %.3f / %.3f" % tuple(fitted[i, j]))
-    scores = score_model(20, normalised=True)
+    scores = score_model()
     lines = {
         "over 2.5 goals": (1, 1, -2.5, 1),
         "over 1.5 goals": (1, 1, -1.5, 1),

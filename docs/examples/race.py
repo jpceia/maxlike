@@ -49,9 +49,10 @@ def simulate(n_runners=15, n_races=3000, tau=0.06, sigma=0.04, seed=0):
 def fit(runners, winning_time, winner, entrants, X, common_factor):
     """
     Model A starts from a flat guess. Model B starts from model A's fit:
-    A's dispersion approximates sqrt(sigma^2 + tau^2), so sigma and tau
-    both start at sigma_A / sqrt(2). This keeps tau away from 0, a saddle
-    point of the likelihood (it is symmetric in tau).
+    A's dispersion absorbs the common factor, so sigma and tau both start
+    at sigma_A / sqrt(2) (a starting point, not an estimate). This keeps
+    tau away from 0, a saddle point of the likelihood (it is symmetric in
+    tau).
     """
     if common_factor:
         start = fit(runners, winning_time, winner, entrants, X, False)

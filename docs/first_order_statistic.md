@@ -107,8 +107,10 @@ $N_t$, usually ones).
 **Starting values.** The likelihood is symmetric in $\tau$, so $\tau = 0$
 is a stationary point (a saddle when a common factor exists): do not start
 there. A good start for model B is the fit of model A, whose dispersion
-approximates $\sqrt{\sigma^2 + \tau^2}$: start $\sigma$ and $\tau$ at
-$\hat\sigma_A/\sqrt 2$ (as `docs/examples/race.py` does).
+absorbs the common factor (it exceeds both $\sigma$ and $\tau$): start
+$\sigma$ and $\tau$ at $\hat\sigma_A/\sqrt 2$ (as `docs/examples/race.py`
+does). It is only a starting point: $\hat\sigma_A$ is not an estimate of
+$\sqrt{\sigma^2 + \tau^2}$ (in the race example it is well above it).
 
 ## 4. Derivatives
 
