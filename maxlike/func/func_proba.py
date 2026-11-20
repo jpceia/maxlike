@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.special import factorial, gammaln
+from scipy.special import factorial, gammaln, logsumexp
 from ..tensor import Tensor
 from .func import Exp
 from .func_base import Func, grad_tensor, hess_tensor
@@ -54,29 +54,33 @@ class Poisson(Func):
         lam = np.asarray(params[0], dtype=float)[..., None]
         x = np.arange(self.size)
         # exact pmf, computed on the log scale
-        p = np.exp(x * np.log(lam) - lam - gammaln(x + 1))
+        log_p = x * np.log(lam) - lam - gammaln(x + 1)
+
+        if self.tail == "truncate":
+            # v = p / Z, Z = P(X < size). Normalised on the log scale (p
+            # itself underflows to 0 for large lambda); dp / Z and d2p / Z
+            # follow from v, since dp = shift(p) - p is linear in p
+            v = np.exp(log_p - logsumexp(log_p, -1, keepdims=True))
+            dp = self._shift(v) - v              # dp / Z
+            d2p = self._shift(dp) - dp           # d2p / Z
+            dZ = dp.sum(-1, keepdims=True)       # dZ / Z
+            d2Z = d2p.sum(-1, keepdims=True)     # d2Z / Z
+            dv = dp - v * dZ
+            d2v = d2p - 2 * dp * dZ - v * d2Z + 2 * v * dZ ** 2
+            return v, dv, d2v
+
+        p = np.exp(log_p)
         dp = self._shift(p) - p                  # P(x - 1) - P(x)
         d2p = self._shift(dp) - dp
 
         if self.tail == "drop":
             return p, dp, d2p
 
-        if self.tail == "censor":
-            # last entry: P(X >= size - 1) = 1 - P(X < size - 1)
-            v, dv, d2v = p.copy(), dp.copy(), d2p.copy()
-            v[..., -1] = 1 - p[..., :-1].sum(-1)
-            dv[..., -1] = -dp[..., :-1].sum(-1)
-            d2v[..., -1] = -d2p[..., :-1].sum(-1)
-            return v, dv, d2v
-
-        # truncate: v = p / Z, Z = P(X < size)
-        Z = p.sum(-1, keepdims=True)
-        dZ = dp.sum(-1, keepdims=True)
-        d2Z = d2p.sum(-1, keepdims=True)
-        v = p / Z
-        dv = dp / Z - p * dZ / Z ** 2
-        d2v = (d2p / Z - 2 * dp * dZ / Z ** 2 - p * d2Z / Z ** 2 +
-               2 * p * dZ ** 2 / Z ** 3)
+        # censor, last entry: P(X >= size - 1) = 1 - P(X < size - 1)
+        v, dv, d2v = p.copy(), dp.copy(), d2p.copy()
+        v[..., -1] = 1 - p[..., :-1].sum(-1)
+        dv[..., -1] = -dp[..., :-1].sum(-1)
+        d2v[..., -1] = -d2p[..., :-1].sum(-1)
         return v, dv, d2v
 
     def __call__(self, params):

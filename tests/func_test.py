@@ -206,6 +206,19 @@ class Test(unittest.TestCase):
         with self.assertRaises(ValueError):
             Poisson(K, normalised=True, tail="other")
 
+    def test_poisson_truncate_large_rate(self):
+        # the pmf underflows to 0 below the cap: the truncated distribution
+        # and its derivatives stay finite, with the mass at the cap
+        foo = Poisson(8, normalised=True, tail="truncate")
+        lam = np.array([500., 2000.])
+        value, grad, hess = foo.eval([lam])
+        for t in (value, grad[0], hess[0][0]):
+            self.assertTrue(np.all(np.isfinite(t.toarray())))
+        v = value.values
+        np.testing.assert_allclose(v.sum(-1), 1)
+        # p(x - 1) / p(x) = x / lambda
+        np.testing.assert_allclose(v[:, -2] / v[:, -1], 7 / lam)
+
 
 if __name__ == "__main__":
     unittest.main()
