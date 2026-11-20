@@ -165,3 +165,166 @@ class Set(Func):
 
         return hess_tensor(np.stack(h, axis=-1),
                            params, i, j, True, True, dim=1)
+
+
+class _Jet:
+    """
+    A value with its first and second derivatives in two variables (u, v):
+    (f, f_u, f_v, f_uu, f_uv, f_vv), for exact derivatives through the
+    recursions of ServeSet.
+    """
+
+    def __init__(self, f, fu=0., fv=0., fuu=0., fuv=0., fvv=0.):
+        self.d = [f, fu, fv, fuu, fuv, fvv]
+
+    @staticmethod
+    def var(x, k):
+        z = np.zeros_like(x)
+        return _Jet(x, *(([1. + z, z] if k == 0 else [z, 1. + z]) +
+                         [z, z, z]))
+
+    def __add__(self, o):
+        if not isinstance(o, _Jet):
+            return _Jet(self.d[0] + o, *self.d[1:])
+        return _Jet(*[a + b for a, b in zip(self.d, o.d)])
+
+    __radd__ = __add__
+
+    def __neg__(self):
+        return _Jet(*[-a for a in self.d])
+
+    def __sub__(self, o):
+        return self + (-o)
+
+    def __rsub__(self, o):
+        return (-self) + o
+
+    def __mul__(self, o):
+        if not isinstance(o, _Jet):
+            return _Jet(*[a * o for a in self.d])
+        f, fu, fv, fuu, fuv, fvv = self.d
+        g, gu, gv, guu, guv, gvv = o.d
+        return _Jet(f * g, fu * g + f * gu, fv * g + f * gv,
+                    fuu * g + 2 * fu * gu + f * guu,
+                    fuv * g + fu * gv + fv * gu + f * guv,
+                    fvv * g + 2 * fv * gv + f * gvv)
+
+    __rmul__ = __mul__
+
+    def inv(self):
+        g, gu, gv, guu, guv, gvv = self.d
+        r = 1 / g
+        return _Jet(r, -gu * r * r, -gv * r * r,
+                    (2 * gu * gu / g - guu) * r * r,
+                    (2 * gu * gv / g - guv) * r * r,
+                    (2 * gv * gv / g - gvv) * r * r)
+
+    def __truediv__(self, o):
+        return self * o.inv() if isinstance(o, _Jet) else self * (1 / o)
+
+
+def _game_jet(p):
+    """probability of winning a game on a point probability p (a _Jet)"""
+    q = 1 - p
+    p2, q2 = p * p, q * q
+    p4 = p2 * p2
+    deuce = p2 / (1 - 2 * p * q)
+    return p4 * (1 + 4 * q + 10 * q2) + 20 * (p2 * p) * (q2 * q) * deuce
+
+
+def _tiebreak_jet(ps, pr, first_serves):
+    """
+    probability that player i wins a tie-break: i wins a point with ps on
+    its serve and pr on the other's; i serves the first point if
+    first_serves, then the serve alternates every two points
+    """
+    P = {(0, 0): 1.}
+    win = 0.
+    for total in range(12):                     # up to 6-6
+        for x in range(total + 1):
+            y = total - x
+            if (x, y) not in P or x > 6 or y > 6:
+                continue
+            m = total + 1                       # number of the next point
+            i_serves = ((m // 2) % 2 == 0) == first_serves
+            w = ps if i_serves else pr
+            prob = P.pop((x, y))
+            nxt = [((x + 1, y), prob * w), ((x, y + 1), prob * (1 - w))]
+            for (a, b), v in nxt:
+                if a == 7 and b <= 5:
+                    win = win + v
+                elif b == 7 and a <= 5:
+                    continue
+                else:
+                    P[(a, b)] = P.get((a, b), 0.) + v
+    # from 6-6 each pair of points has one serve of each player
+    both = ps * pr
+    return win + P[(6, 6)] * both / (both + (1 - ps) * (1 - pr))
+
+
+def _serve_set_jet(ps, pr):
+    """
+    probabilities that i wins the set 6-0, ..., 6-4, 7-5, 7-6, averaged
+    over who serves the first game (1/2 each)
+    """
+    hold, brk = _game_jet(ps), _game_jet(pr)
+    out = None
+    for first in (True, False):
+        P = {(0, 0): 1.}
+        res = {}
+        for total in range(12):
+            for x in range(total + 1):
+                y = total - x
+                if (x, y) not in P:
+                    continue
+                n = total + 1                   # number of the next game
+                i_serves = (n % 2 == 1) == first
+                w = hold if i_serves else brk
+                prob = P.pop((x, y))
+                for (a, b), v in (((x + 1, y), prob * w),
+                                  ((x, y + 1), prob * (1 - w))):
+                    if (a == 6 and b <= 4) or (a == 7 and b == 5):
+                        res[(a, b)] = v
+                    elif (b == 6 and a <= 4) or (b == 7 and a == 5):
+                        continue
+                    else:
+                        P[(a, b)] = P.get((a, b), 0.) + v
+        # game 13 (the tie-break) is served by the first server
+        tb = _tiebreak_jet(ps, pr, first)
+        scores = [res[(6, k)] for k in range(5)] + [res[(7, 5)],
+                                                    P[(6, 6)] * tb]
+        scores = [s * .5 for s in scores]
+        out = scores if out is None else [a + b for a, b in zip(out, scores)]
+    return out
+
+
+class ServeSet(Func):
+    """
+    Probabilities that a player wins a (tennis) set with each score (6-0,
+    ..., 6-4, 7-5, 7-6), given the probabilities of winning a point on
+    their own serve (ps) and on the opponent's serve (pr). Games alternate
+    serve, the tie-break serve alternates every two points, and who serves
+    first is unknown: the result is the average over the two cases.
+
+    With ps = pr this is Set() @ [Collapse(Game(), False),
+    Collapse(TieBreak(), False)].
+    """
+
+    def _eval(self, params):
+        ps = np.clip(np.asarray(params[0], dtype=float), 1e-10, 1 - 1e-10)
+        pr = np.clip(np.asarray(params[1], dtype=float), 1e-10, 1 - 1e-10)
+        ps, pr = np.broadcast_arrays(ps, pr)
+        jets = _serve_set_jet(_Jet.var(ps, 0), _Jet.var(pr, 1))
+        return [np.stack([np.broadcast_to(j.d[k], ps.shape) for j in jets],
+                         axis=-1) for k in range(6)]
+
+    def __call__(self, params):
+        return Tensor(self._eval(params)[0], dim=1)
+
+    def grad(self, params, i):
+        return grad_tensor(self._eval(params)[1 + i], params, i, True, dim=1)
+
+    def hess(self, params, i, j):
+        d = self._eval(params)
+        k = {(0, 0): 3, (1, 0): 4, (0, 1): 4, (1, 1): 5}[(i, j)]
+        return hess_tensor(d[k], params, i, j, True, True, dim=1)
