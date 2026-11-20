@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- `MaxLike.graph()` and `Func.graph()` build the computation graph of a
+  model. Export it as Graphviz DOT or Mermaid text, or render it with the
+  optional extra `pip install "maxlike[graph]"`.
+
+### Performance
+- Likelihood intermediates are cached within a Newton step, and tensor
+  contractions use einsum. Large models run 1.3x to 2.9x faster; results
+  are unchanged.
+
 ## 2.4.0
 
 ### Compatibility
