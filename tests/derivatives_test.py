@@ -178,6 +178,10 @@ ELEMENTARY = {
     "Logistic": (Sigmoid("logistic"), [U]),
     "ArcTan": (Sigmoid("arctan"), [U]),
     "Poisson": (Poisson(size=6), [U]),
+    "Poisson (censor)": (Poisson(size=6, normalised=True), [U]),
+    "Poisson (truncate)": (
+        Poisson(size=6, normalised=True, tail="truncate"), [U]),
+    "Poisson (drop)": (Poisson(size=6, normalised=True, tail="drop"), [U]),
     "LogNegativeBinomial": (LogNegativeBinomial(size=6, r=2.), [U]),
     "NegativeBinomial": (NegativeBinomial(size=6, r=2.), [U]),
     "Affine": (2. * Exp() + 1., [U]),
@@ -217,6 +221,9 @@ def composite():
         "Product of Exp": (prod_exp, [U, V]),
         "Poisson @ Exp @ Sum": (
             Poisson(6) @ Exp() @ attack_defence(), [A, B, H]),
+        "Poisson (censor) @ Exp @ Sum": (
+            Poisson(6, normalised=True) @ Exp() @ attack_defence(),
+            [A, B, H]),
         "same param, two axes": (same_param_two_axes(), [A]),
         "Exp @ same param": (Exp() @ same_param_two_axes(), [A]),
         "Logistic @ same param": (

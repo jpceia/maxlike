@@ -188,6 +188,24 @@ class Test(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "scalar or have the shape"):
             Vector(np.ones(3)).grad([np.ones((2, 1))], 0)
 
+    def test_poisson_normalised(self):
+        from scipy.stats import poisson
+        lam = np.array([.4, 2.5, 6.])
+        K = 8
+        pmf = poisson.pmf(np.arange(K), lam[:, None])
+        unnormalised = Poisson(K)([lam]).values
+        censor = Poisson(K, normalised=True)([lam]).values
+        truncate = Poisson(K, normalised=True, tail="truncate")([lam]).values
+        drop = Poisson(K, normalised=True, tail="drop")([lam]).values
+        np.testing.assert_allclose(drop, pmf)
+        np.testing.assert_allclose(censor[:, :-1], pmf[:, :-1])
+        np.testing.assert_allclose(censor[:, -1], poisson.sf(K - 2, lam))
+        np.testing.assert_allclose(censor.sum(-1), 1)
+        np.testing.assert_allclose(
+            truncate, unnormalised / unnormalised.sum(-1, keepdims=True))
+        with self.assertRaises(ValueError):
+            Poisson(K, normalised=True, tail="other")
+
 
 if __name__ == "__main__":
     unittest.main()
