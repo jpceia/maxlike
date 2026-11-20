@@ -104,6 +104,11 @@ def arr_swapaxes_cross(arr, p, map1, map2):
     return arr
 
 
+def _is_zero(t):
+    """True if `t` is a Tensor holding the scalar 0 (the null tensor)."""
+    return isinstance(t, Tensor) and t.values.ndim == 0 and t.values == 0
+
+
 class TensorOp(Enum):
     # wrap with enum.member so partial objects remain Enum members
     # (Python 3.13+ treats them as method descriptors otherwise)
@@ -686,6 +691,13 @@ class Tensor(BaseTensor):
         - N Y M E
           *
         """
+        # a scalar zero on either side (e.g. the gradient of an inner
+        # function with respect to a parameter it does not depend on)
+        # makes the whole contraction vanish; without this shortcut the
+        # shapes below would not be coherent.
+        if _is_zero(self) or _is_zero(other):
+            return Tensor(0)
+
         dim = max(self.dim, other.dim)
 
         if (self.x_dim != other.n) & (self.y_dim == other.n):

@@ -89,6 +89,39 @@ class Test(unittest.TestCase):
         foo = Affine(Affine(X(), 2, 1), 1, 2)
         self.check_comm_run(foo)
 
+    def test_compose_multi_input_outer(self):
+        # Outer function with several vector inputs, each inner function
+        # depending on a different parameter: the gradient of g_k with
+        # respect to the other parameter is the null tensor.
+        g1 = Sum(1)
+        g1.add(Exp(), 0, 0)
+        g2 = Sum(1)
+        g2.add(Sigmoid("Logistic"), 1, 0)
+        f = Product(1)
+        f.add(X(), 0, 0)
+        f.add(X(), 1, 0)
+        foo = f @ [g1, g2]
+        params = [np.array([.1, -.2, .3]), np.array([.2, .4, -.1])]
+        self.check_comm(foo, params)
+
+        # finite differences: value -> grad and grad -> hess
+        e = 1e-6
+        val, grad, hess = foo.eval(params)
+        for i in range(2):
+            for k in range(3):
+                up = [p.copy() for p in params]
+                dn = [p.copy() for p in params]
+                up[i][k] += e
+                dn[i][k] -= e
+                num = (foo(up).toarray() - foo(dn).toarray()) / (2 * e)
+                self.assertTrue(np.allclose(
+                    grad[i].toarray()[k], num, atol=1e-6))
+                for j in range(i + 1):
+                    num = (foo.grad(up, j).toarray() -
+                           foo.grad(dn, j).toarray()) / (2 * e)
+                    self.assertTrue(np.allclose(
+                        hess[i][j].toarray()[k], num, atol=1e-6))
+
 
 if __name__ == "__main__":
     unittest.main()
