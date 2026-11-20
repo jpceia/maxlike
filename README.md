@@ -290,9 +290,8 @@ The Mermaid sources of all these graphs are in [`docs/graphs`](docs/graphs).
   LU.
 - `error_matrix()` and `fisher_matrix()` are dense, (number of
   parameters)²; `std_error()` computes only the diagonal.
-- `fit(method="broyden")` needs the dense Hessian: set
-  `mle.sparse_hess = False` for an observation-indexed model with 500 or
-  more parameters.
+- `fit(method="broyden")` keeps a dense inverse Hessian, so it is meant
+  for moderate numbers of parameters.
 - The built-in scores assume the objective is a sum over the cells of `y`
   (`Finite` additionally normalises along the distribution axes).
 

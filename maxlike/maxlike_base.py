@@ -750,15 +750,29 @@ class MaxLike(abc.ABC):
         from scipy.linalg.lapack import dgecon
         if not getattr(self, "_check_identifiability", True):
             return
-        lhess = np.asarray(lhess, dtype=float)
-        if lhess.size == 0:
+        if lhess.shape[0] == 0:
             return
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", LinAlgWarning)
-            lu, _ = lu_factor(lhess, check_finite=False)
-        rcond, _ = dgecon(lu, np.abs(lhess).sum(0).max(), norm="1")
-        if rcond > self._SINGULAR_RCOND:
-            return
+        anorm = abs(lhess).sum(0).max()
+        if sp.issparse(lhess):
+            # one solve with the sparse factorisation for a random right-hand
+            # side: near a singular matrix the solution blows up along the
+            # flat direction, and |K| |x| / |b| estimates 1 / rcond
+            b = np.random.default_rng(0).standard_normal(lhess.shape[0])
+            try:
+                x = self._sparse_solver(lhess).solve(b)
+                rcond = np.abs(b).max() / (anorm * np.abs(x).max())
+            except SingularMatrix:
+                rcond = 0.
+            if np.isfinite(rcond) and rcond > self._SINGULAR_RCOND:
+                return
+        else:
+            lhess = np.asarray(lhess, dtype=float)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", LinAlgWarning)
+                lu, _ = lu_factor(lhess, check_finite=False)
+            rcond, _ = dgecon(lu, anorm, norm="1")
+            if rcond > self._SINGULAR_RCOND:
+                return
         directions = self._null_directions(params, lhess)
         if directions:
             self.converged = False
@@ -1026,7 +1040,11 @@ class MaxLike(abc.ABC):
                 if not (self.converged and
                         hasattr(self, 'flat_hess_') and
                         self.flat_hess_.shape[0] == grad.shape[0]):
-                    self.flat_hess_ = self.flat_hess(params, y, der, hess).data
+                    h = self.flat_hess(params, y, der, hess)
+                    # Broyden updates a dense inverse: densify a sparse
+                    # Hessian
+                    self.flat_hess_ = h.toarray() if sp.issparse(h) \
+                        else np.asarray(h)
 
                 J = pinvh(self.flat_hess_)
                 

@@ -324,6 +324,35 @@ class Test(unittest.TestCase):
             self.assertEqual(
                 mle.identifiability(),
                 ["all of 'param 0' (+1) + all of 'param 1' (+1)"])
+            # fit itself explains it, on the dense and the sparse path
+            with self.assertRaisesRegex(maxlike.IdentifiabilityError,
+                                        "all of 'param 0'"):
+                mle.fit(N=np.ones(goals.size), X=goals)
+
+    def test_broyden_with_sparse_hessian(self):
+        n = 30
+        att, dfn, venue, goals = football_data(n, 300, seed=12)
+        fits = {}
+        for method in ("newton", "broyden"):
+            mle = football(maxlike.Poisson(), indexed_model(att, dfn, venue),
+                           n)
+            mle.sparse_hess = True
+            self.assertTrue(mle.fit(N=np.ones(goals.size), X=goals,
+                                    method=method, max_steps=200,
+                                    tol=1e-14))
+            fits[method] = np.concatenate(
+                [np.ravel(np.ma.getdata(p)) for p in mle.get_params()])
+        np.testing.assert_allclose(fits["newton"], fits["broyden"],
+                                   atol=1e-6)
+
+    def test_predict_guard_before_densifying(self):
+        # 2001 free parameters x 30 000 observations: refuse before
+        # allocating the dense Jacobian
+        n = 1000
+        att, dfn, venue, goals = football_data(n, 15000, seed=13)
+        mle = football(maxlike.Poisson(), indexed_model(att, dfn, venue), n)
+        with self.assertRaisesRegex(ValueError, "Jacobian is too large"):
+            mle.predict(se=True)
 
     def test_solver(self):
         rng = np.random.RandomState(9)

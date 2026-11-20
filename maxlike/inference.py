@@ -136,16 +136,24 @@ def predict(mle, model=None, params=None, se=False):
 
     value, grad, _ = model.eval(params)
     value = _dense(value)
+    # check the size of the dense Jacobian before building it
+    n_free = sum(int(p.count()) for p in params)
+    n_values = max(int(value.size), 1)
+    for d in grad:
+        if hasattr(d, "_full_shape"):        # observation-indexed derivative
+            n_values = max(n_values, int(np.prod(d._full_shape())))
+        elif hasattr(d, "values"):
+            p_dim = d.x_dim + d.y_dim
+            n_values = max(n_values, int(np.prod(d.values.shape[p_dim:])))
+    if n_free * n_values > _MAX_JACOBIAN_SIZE:
+        raise ValueError(
+            "the prediction has %d values and the model %d free parameters: "
+            "the Jacobian is too large; pass a model that computes only the "
+            "quantities of interest" % (n_values, n_free))
     blocks = [_dense(d) for d in grad]
     shape = np.broadcast_shapes(value.shape, *[
         b.shape[np.ndim(p):] for b, p in zip(blocks, params)])
     value = np.broadcast_to(value, shape)
-    n_free = sum(int(p.count()) for p in params)
-    if n_free * max(int(np.prod(shape)), 1) > _MAX_JACOBIAN_SIZE:
-        raise ValueError(
-            "the prediction has %d values and the model %d free parameters: "
-            "the Jacobian is too large; pass a model that computes only the "
-            "quantities of interest" % (np.prod(shape), n_free))
 
     rows = []
     for p, b in zip(params, blocks):
