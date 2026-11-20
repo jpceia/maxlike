@@ -19,6 +19,9 @@
   only the winner and the winning value are observed (auctions, races,
   competing risks), optionally with a latent common factor per
   observation. Documented in `docs/first_order_statistic.md`.
+- Runnable examples in `docs/examples`: football goals, football score
+  distribution and betting markets, calibration to market 1X2
+  probabilities, tennis, and a race; `tests/examples_test.py` runs them.
 - Observation-indexed models: `func.Take(index)` gathers one parameter
   entry per observation, so data listed one row per observation need no
   grid of all the feature combinations. It works with every likelihood,

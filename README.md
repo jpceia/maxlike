@@ -35,6 +35,21 @@ compilation):
 
 Both reach the same estimates.
 
+## Examples
+
+Runnable scripts in [`docs/examples`](docs/examples), on the data used by
+the tests (`python docs/examples/<name>.py`):
+
+| Example | Model | What it shows |
+|---|---|---|
+| [`football_goals.py`](docs/examples/football_goals.py) | Poisson, attack/defence, one row per team and match (`Take`) | team table with standard errors, expected goals of a match |
+| [`football_scores.py`](docs/examples/football_scores.py) | bivariate Poisson score matrix, `Finite` likelihood | win/draw/loss, over/under and most likely score of a match, with standard errors |
+| [`football_market_calibration.py`](docs/examples/football_market_calibration.py) | the score model fitted to market 1X2 probabilities (KL divergence) | prices of markets that are not in the data (goal lines, handicaps) |
+| [`tennis.py`](docs/examples/tennis.py) | point → game / tie-break → set recursions | player ranking, probability of winning a set and its score distribution |
+| [`race.py`](docs/examples/race.py) | `FirstOrderStatistic`: only the winner and the winning time are observed | recovering each runner's level, with and without a race-day common factor |
+
+`tests/examples_test.py` runs them all.
+
 ## Installation
 
 ```bash
