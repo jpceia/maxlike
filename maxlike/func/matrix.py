@@ -56,7 +56,69 @@ class CollapseMatrix(Func):
         return Tensor(val[idx], x_dim=x_dim, dim=1, x_map=x_map)
 
 
+def _markov_chain(s1, s2, steps, gen1, gen2, start, derivatives=True):
+    """
+    Distribution of a two-counter Markov chain after 'steps' steps, and
+    its first and second derivatives with respect to s1 and s2.
+
+    Each step is the linear map L(Z) = Z + s1 * gen1(Z) + s2 * gen2(Z),
+    where gen1 / gen2 are the generators of an event of each team (moving
+    probability mass one state, the last state being absorbing). The
+    derivatives follow from differentiating the recursion:
+
+        D1'  = L(D1) + gen1(M)            D2'  = L(D2) + gen2(M)
+        H11' = L(H11) + 2 gen1(D1)        H22' = L(H22) + 2 gen2(D2)
+        H12' = L(H12) + gen1(D2) + gen2(D1)
+
+    All six arrays are stacked so each step is a few vectorised operations.
+    """
+    s1 = s1[(...,) + (None,) * (start.ndim)]
+    s2 = s2[(...,) + (None,) * (start.ndim)]
+    shape = np.broadcast_shapes(s1.shape[:-start.ndim], s2.shape[:-start.ndim])
+    if not derivatives:
+        M = np.broadcast_to(start, shape + start.shape).copy()
+        flow, G1, G2 = (np.empty_like(M) for _ in range(3))
+        for _ in range(steps):
+            gen1(M, flow, G1)
+            gen2(M, flow, G2)
+            G1 *= s1
+            G2 *= s2
+            M += G1
+            M += G2
+        return M
+
+    # stack: M, D1, D2, H11, H12, H22 (buffers reused across steps)
+    Z = np.zeros((6, ) + shape + start.shape)
+    Z[0] = start
+    flow, G1, G2 = (np.empty_like(Z) for _ in range(3))
+    for _ in range(steps):
+        gen1(Z, flow, G1)
+        gen2(Z, flow, G2)
+        # source terms use the generators of M, D1, D2 at the step start
+        src3 = 2 * G1[1]
+        src4 = G1[2] + G2[1]
+        src5 = 2 * G2[2]
+        src1 = G1[0].copy()
+        src2 = G2[0].copy()
+        G1 *= s1
+        G2 *= s2
+        Z += G1
+        Z += G2
+        Z[1] += src1
+        Z[2] += src2
+        Z[3] += src3
+        Z[4] += src4
+        Z[5] += src5
+    return Z
+
+
 class MarkovMatrix(Func):
+    """
+    Joint distribution of the scores (x, y) of two teams after 'steps'
+    periods, each team scoring with probability s1 = params[0] / steps
+    (resp. s2) per period, scaled by skew[x, y] (resp. skew[y, x]). Scores
+    are capped at size - 1.
+    """
 
     def __init__(self, size=8, steps=18, skew=None):
         self.size = size
@@ -65,31 +127,46 @@ class MarkovMatrix(Func):
             skew = np.ones((size, size))
         self.skew = skew
 
-    def __call__(self, params):
+    def _generators(self):
+        F1 = np.asarray(self.skew, dtype=float)
+        F2 = F1.T
+
+        def gen1(Z, flow, out):
+            # team 1 scores: mass moves from (x, y) to (min(x + 1, cap), y)
+            np.multiply(F1, Z, out=flow)
+            np.negative(flow, out=out)
+            out[..., 1:, :] += flow[..., :-1, :]
+            out[..., -1, :] += flow[..., -1, :]
+            return out
+
+        def gen2(Z, flow, out):
+            np.multiply(F2, Z, out=flow)
+            np.negative(flow, out=out)
+            out[..., :, 1:] += flow[..., :, :-1]
+            out[..., :, -1] += flow[..., :, -1]
+            return out
+
+        return gen1, gen2
+
+    def _start(self):
+        start = np.zeros((self.size, self.size))
+        start[0, 0] = 1.0
+        return start
+
+    def _rates(self, params):
         s1 = np.asarray(params[0] / self.steps)
         s2 = np.asarray(params[1] / self.steps)
         assert s1.shape == s2.shape
         assert np.all(s1 > 0)
         assert np.all(s2 > 0)
         assert np.all(s1 + s2 < 1)
-        M = np.zeros(s1.shape + (self.size, self.size))
+        return s1, s2
 
-        M[..., 0, 0] = 1.0
-        for step in range(self.steps):
-            for idx in range(self.size):
-                x = self.size - idx - 1
-                x_ = min(x + 1, self.size - 1)
-                for jdx in range(self.size):
-                    y = self.size - jdx - 1
-                    y_ = min(y + 1, self.size - 1)
-                    f1 = self.skew[x, y]
-                    f2 = self.skew[y, x]
-                    m = M[..., x, y].copy()
-
-                    M[..., x_, y] += s1 * f1 * m
-                    M[..., x, y_] += s2 * f2 * m
-                    M[..., x, y]  -= (s1 * f1 + s2 * f2) * m
-
+    def __call__(self, params):
+        s1, s2 = self._rates(params)
+        gen1, gen2 = self._generators()
+        M = _markov_chain(s1, s2, self.steps, gen1, gen2, self._start(),
+                          derivatives=False)
         return Tensor(M, dim=2)
 
     def grad(self, params, i):
@@ -99,77 +176,33 @@ class MarkovMatrix(Func):
         return self.eval(params)[2][i][j]
 
     def eval(self, params):
-        s1 = np.asarray(params[0] / self.steps)
-        s2 = np.asarray(params[1] / self.steps)
-        assert s1.shape == s2.shape
-        assert np.all(s1 > 0)
-        assert np.all(s2 > 0)
-        assert np.all(s1 + s2 < 1)
-        M = np.zeros(s1.shape + (self.size, self.size))
-        D1 = np.zeros_like(M)
-        D2 = np.zeros_like(M)
-        H11 = np.zeros_like(M)
-        H12 = np.zeros_like(M)
-        H22 = np.zeros_like(M)
-
-        M[..., 0, 0] = 1.0
-        for step in range(self.steps):
-            for idx in range(self.size):
-                x = self.size - idx - 1
-                x_ = min(x + 1, self.size - 1)
-                for jdx in range(self.size):
-                    y = self.size - jdx - 1
-                    y_ = min(y + 1, self.size - 1)
-                    f1 = self.skew[x, y]
-                    f2 = self.skew[y, x]
-                    m = M[..., x, y].copy()
-
-                    dm1 = D1[..., x, y].copy()
-                    dm2 = D2[..., x, y].copy()
-
-                    hm11 = H11[..., x, y].copy()
-                    hm12 = H12[..., x, y].copy()
-                    hm22 = H22[..., x, y].copy()
-
-                    H11[..., x_, y] += s1 * f1 * hm11 + 2 * f1 * dm1
-                    H11[..., x, y_] += s2 * f2 * hm11
-                    H11[..., x, y]  -= 2 * f1 * dm1 + (s1 * f1 + s2 * f2) * hm11
-
-                    H12[..., x_, y] += s1 * f1 * hm12 + f1 * dm2
-                    H12[..., x, y_] += s2 * f2 * hm12 + f2 * dm1
-                    H12[..., x, y]  -= f1 * dm1 + f2 * dm2 + (s1 * f1 + s2 * f2) * hm12
-
-                    H22[..., x_, y] += s1 * f1 * hm22
-                    H22[..., x, y_] += s2 * f2 * hm22 + 2 * f2 * dm2
-                    H22[..., x, y]  -= 2 * f2 * dm2 + (s1 * f1 + s2 * f2) * hm22
-
-                    D1[..., x_, y] += s1 * f1 * dm1 + f1 * m
-                    D1[..., x, y_] += s2 * f2 * dm1
-                    D1[..., x, y]  -= f1 * m + (s1 * f1 + s2 * f2) * dm1
-
-                    D2[..., x_, y] += s1 * f1 * dm2
-                    D2[..., x, y_] += s2 * f2 * dm2 + f2 * m
-                    D2[..., x, y]  -= f2 * m + (s1 * f1 + s2 * f2) * dm2
-
-                    M[..., x_, y] += s1 * f1 * m
-                    M[..., x, y_] += s2 * f2 * m
-                    M[..., x, y]  -= (s1 * f1 + s2 * f2) * m
-
-        D1 /= self.steps
-        D2 /= self.steps
-        H11 /= self.steps * self.steps
-        H12 /= self.steps * self.steps
-        H22 /= self.steps * self.steps
-
-        return Tensor(M, dim=2), \
-               [grad_tensor(D1, params, 0, True, dim=2),
-                grad_tensor(D2, params, 1, True, dim=2)], \
-               [[hess_tensor(H11, params, 0, 0, True, True, dim=2)],
-                [hess_tensor(H12, params, 0, 1, True, True, dim=2),
-                 hess_tensor(H22, params, 1, 1, True, True, dim=2)]]
+        s1, s2 = self._rates(params)
+        gen1, gen2 = self._generators()
+        M, D1, D2, H11, H12, H22 = _markov_chain(
+            s1, s2, self.steps, gen1, gen2, self._start())
+        return _markov_tensors(self.steps, params, 2, M, D1, D2, H11, H12, H22)
 
 
-class MarkovVector(Func):
+def _markov_tensors(steps, params, dim, M, D1, D2, H11, H12, H22):
+    # derivatives were taken with respect to s = param / steps
+    D1, D2 = D1 / steps, D2 / steps
+    k = steps * steps
+    H11, H12, H22 = H11 / k, H12 / k, H22 / k
+    return Tensor(M, dim=dim), \
+        [grad_tensor(D1, params, 0, True, dim=dim),
+         grad_tensor(D2, params, 1, True, dim=dim)], \
+        [[hess_tensor(H11, params, 0, 0, True, True, dim=dim)],
+         [hess_tensor(H12, params, 0, 1, True, True, dim=dim),
+          hess_tensor(H22, params, 1, 1, True, True, dim=dim)]]
+
+
+class MarkovVector(MarkovMatrix):
+    """
+    Distribution of the goal difference after 'steps' periods (states
+    -(size - 1) .. size - 1, the extremes absorbing), each team scoring
+    with probability s1 = params[0] / steps (resp. s2) per period, scaled
+    by skew[x] (resp. skew[2 * size - 2 - x]) in state x.
+    """
 
     def __init__(self, size=8, steps=18, skew=None):
         assert size > 0
@@ -179,30 +212,40 @@ class MarkovVector(Func):
             skew = np.ones((2 * size - 1,))
         self.skew = skew
 
-    def __call__(self, params):
-        s1 = np.asarray(params[0] / self.steps)
-        s2 = np.asarray(params[1] / self.steps)
-        assert s1.shape == s2.shape
-        assert np.all(s1 > 0)
-        assert np.all(s2 > 0)
-        assert np.all(s1 + s2 < 1)
-        M = np.zeros(s1.shape + (2 * self.size - 1,))
-        M[..., self.size - 1] = 1
-        for step in range(self.steps):
-            e = 0
-            for x in range(2 * self.size - 1):
-                x_ = max(x - 1, 0)
-                f1 = self.skew[x]
-                f2 = self.skew[2 * self.size - 2 - x]
-                m = M[..., x].copy()
-                M[..., x_] += m * s2 * f2
-                M[..., x]  -= m * (s1 * f1 + s2 * f2)
-                M[..., x]  += e # from prev item
-                e = m * s1 * f1
-            M[..., -1] += e
+    def _generators(self):
+        F1 = np.asarray(self.skew, dtype=float)
+        F2 = F1[::-1]
 
+        def gen1(Z, flow, out):
+            # team 1 scores: the difference moves up (capped)
+            np.multiply(F1, Z, out=flow)
+            np.negative(flow, out=out)
+            out[..., 1:] += flow[..., :-1]
+            out[..., -1] += flow[..., -1]
+            return out
+
+        def gen2(Z, flow, out):
+            np.multiply(F2, Z, out=flow)
+            np.negative(flow, out=out)
+            out[..., :-1] += flow[..., 1:]
+            out[..., 0] += flow[..., 0]
+            return out
+
+        return gen1, gen2
+
+    def _start(self):
+        start = np.zeros(2 * self.size - 1)
+        start[self.size - 1] = 1.0
+        return start
+
+    def __call__(self, params):
+        s1, s2 = self._rates(params)
+        gen1, gen2 = self._generators()
+        M = _markov_chain(s1, s2, self.steps, gen1, gen2, self._start(),
+                          derivatives=False)
         return Tensor(M, dim=1)
 
+    # FuncMeta only wraps grad/hess defined in the class body itself
     def grad(self, params, i):
         return self.eval(params)[1][i]
 
@@ -210,86 +253,8 @@ class MarkovVector(Func):
         return self.eval(params)[2][i][j]
 
     def eval(self, params):
-        s1 = np.asarray(params[0] / self.steps)
-        s2 = np.asarray(params[1] / self.steps)
-        assert s1.shape == s2.shape
-        assert np.all(s1 > 0)
-        assert np.all(s2 > 0)
-        assert np.all(s1 + s2 < 1)
-        M = np.zeros(s1.shape + (2 * self.size - 1, ))
-
-        D1 = np.zeros_like(M)
-        D2 = np.zeros_like(M)
-        H11 = np.zeros_like(M)
-        H12 = np.zeros_like(M)
-        H22 = np.zeros_like(M)
-
-        M[..., self.size - 1] = 1
-        for step in range(self.steps):
-            e = 0
-            e1 = 0
-            e2 = 0
-            e11 = 0
-            e12 = 0
-            e22 = 0
-            for x in range(2 * self.size - 1):
-                x_ = max(x - 1, 0)
-                f1 = self.skew[x]
-                f2 = self.skew[2 * self.size - 2 - x]
-
-                m = M[..., x].copy()
-                d1 = D1[..., x].copy()
-                d2 = D2[..., x].copy()
-                h11 = H11[..., x].copy()
-                h22 = H22[..., x].copy()
-                h12 = H12[..., x].copy()
-
-                M[..., x_] += m * s2 * f2
-                M[..., x]  -= m * (s1 * f1 + s2 * f2)
-                M[..., x]  += e # from prev item
-                e = m * s1 * f1
-
-                D1[..., x_] += d1 * s2 * f2
-                D1[..., x]  -= d1 * (s1 * f1 + s2 * f2) + m * f1
-                D1[..., x]  += e1
-                e1 = (m + d1 * s1) * f1
-
-                D2[..., x_] += (m + d2 * s2) * f2
-                D2[..., x]  -= d2 * (s1 * f1 + s2 * f2) + m * f2
-                D2[..., x]  += e2
-                e2 = d2 * s1 * f1
-
-                H11[..., x_] += h11 * s2 * f2
-                H11[..., x]  -= h11 * (s1 * f1 + s2 * f2) + 2 * d1 * f1
-                H11[..., x]  += e11
-                e11 = (2 * d1 + h11 * s1) * f1
-
-                H12[..., x_] += h12 * s2 * f2 + d1 * f2
-                H12[..., x]  -= h12 * (s1 * f1 + s2 * f2) + d2 * f1 + d1 * f2
-                H12[..., x]  += e12
-                e12 = (d2 + h12 * s1) * f1
-
-                H22[..., x_] += (2 * d2 + h22 * s2) * f2
-                H22[..., x]  -= h22 * (s1 * f1 + s2 * f2) + 2 * d2 * f2
-                H22[..., x]  += e22
-                e22 = h22 * s1 * f1
-
-            M[..., -1] += e
-            D1[..., -1] += e1
-            D2[..., -1] += e2
-            H11[..., -1] += e11
-            H12[..., -1] += e12
-            H22[..., -1] += e22
-
-        D1 /= self.steps
-        D2 /= self.steps
-        H11 /= self.steps * self.steps
-        H12 /= self.steps * self.steps
-        H22 /= self.steps * self.steps
-
-        return Tensor(M, dim=1), \
-               [grad_tensor(D1, params, 0, True, dim=1),
-                grad_tensor(D2, params, 1, True, dim=1)], \
-               [[hess_tensor(H11, params, 0, 0, True, True, dim=1)],
-                [hess_tensor(H12, params, 0, 1, True, True, dim=1),
-                 hess_tensor(H22, params, 1, 1, True, True, dim=1)]]
+        s1, s2 = self._rates(params)
+        gen1, gen2 = self._generators()
+        M, D1, D2, H11, H12, H22 = _markov_chain(
+            s1, s2, self.steps, gen1, gen2, self._start())
+        return _markov_tensors(self.steps, params, 1, M, D1, D2, H11, H12, H22)

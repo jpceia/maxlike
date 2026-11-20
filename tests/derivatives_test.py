@@ -82,6 +82,15 @@ ELEMENTARY = {
     "Affine": (2. * Exp() + 1., [U]),
     "MarkovMatrix": (MarkovMatrix(size=5), [U, V]),
     "MarkovVector": (MarkovVector(size=5), [U, V]),
+    # non-uniform skew: the cross derivative H12 used to be wrong
+    "MarkovMatrix (skew)": (
+        MarkovMatrix(size=4, steps=6,
+                     skew=np.random.RandomState(1).uniform(.5, 1.5, (4, 4))),
+        [U, V]),
+    "MarkovVector (skew)": (
+        MarkovVector(size=4, steps=6,
+                     skew=np.random.RandomState(2).uniform(.5, 1.5, 7)),
+        [U, V]),
 }
 
 
