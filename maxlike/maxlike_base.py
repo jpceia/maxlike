@@ -7,6 +7,21 @@ from random import getrandbits
 from .tensor import Tensor
 
 
+def _dense_block(t, shape):
+    """
+    Values of a (gradient / hessian) block as an array with the given shape.
+    A null derivative (Tensor(0), returned for parameters a function does not
+    depend on) becomes an array of zeros.
+    """
+    values = np.asarray(getattr(t, "values", t))
+    return np.broadcast_to(values, shape)
+
+
+def _is_null(t):
+    values = np.asarray(getattr(t, "values", t))
+    return values.ndim == 0 and values == 0
+
+
 class ConvergenceError(Exception):
     def __init__(self, message, type=0):
         super(ConvergenceError, self).__init__(message)
@@ -336,7 +351,8 @@ class MaxLike(abc.ABC):
             for i, idx in enumerate(param_map):
                 grad[idx] -= grad_h[i]
 
-        grad = [d.values[~p.mask] for d, p in zip(grad, params)] + grad[n:]
+        grad = [_dense_block(d, p.shape)[~p.mask]
+                for d, p in zip(grad, params)] + grad[n:]
         grad = np.concatenate(grad)
 
         return grad
@@ -387,7 +403,7 @@ class MaxLike(abc.ABC):
         #
         # then hess[i][j].shape = shape[j] x shape[i]
 
-        hess = [[hess[i][j].values[
+        hess = [[_dense_block(hess[i][j], p_i.shape + params[j].shape)[
                      np.multiply.outer(~p_i.mask, ~params[j].mask)].
                      reshape((p_i.count(), params[j].count()))
                  for j in range(i + 1)]
@@ -414,9 +430,25 @@ class MaxLike(abc.ABC):
 
         return hess
      
+    def _check_params_used(self, params, der):
+        """
+        Raises a ValueError if a parameter with free values does not affect
+        the objective: the model does not depend on it and no regularization
+        applies to it, so it cannot be estimated.
+        """
+        regularized = {k for param_map, _ in self.reg for k in param_map}
+        unused = [i for i, (p, d) in enumerate(zip(params, der))
+                  if p.count() > 0 and _is_null(d) and i not in regularized]
+        if unused:
+            raise ValueError(
+                "parameter(s) %s are not used by the model nor by any "
+                "regularization, so they cannot be estimated; fix all their "
+                "values or remove them" % ", ".join(map(str, unused)))
+
     def newton_step(self, params):
         
         y, der, hess = self.model.eval(params)
+        self._check_params_used(params, der)
 
         g = self.g(params, y)
         lgrad = self.flat_grad(params, y, der)
@@ -514,6 +546,7 @@ class MaxLike(abc.ABC):
 
             try:
                 y, der, hess = self.model.eval(params)
+                self._check_params_used(params, der)
                 grad = self.flat_grad(params, y, der)
 
                 if not (self.converged and
