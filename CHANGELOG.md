@@ -22,6 +22,9 @@
 - `func.Poisson(size, normalised=True, tail=...)`: probabilities instead of
   the unnormalised lambda^x / x!, with a censored ("size - 1 or more"),
   truncated or dropped tail.
+- `func.tennis.ServeSet`: set score probabilities with a serve advantage
+  (separate point probabilities on serve and on return, serve alternating
+  between games and in the tie-break, averaged over who serves first).
 - Notebooks in `docs/notebooks`, one per example: theory, model graph,
   fit, predictions and charts that check the fit (`pip install
   "maxlike[notebooks]"`), executed in CI.

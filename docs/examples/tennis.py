@@ -15,8 +15,8 @@ import os
 import numpy as np
 import pandas as pd
 import maxlike
-from maxlike.func import X, Sum, Linear, Logistic, Collapse
-from maxlike.func.tennis import Game, TieBreak, Set
+from maxlike.func import X, Sum, Scalar, Linear, Logistic, Collapse
+from maxlike.func.tennis import Game, TieBreak, Set, ServeSet
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                     "..", "..", "tests", "data", "data_tennis.csv")
@@ -45,6 +45,32 @@ def model():
     # P(i wins the set with each score), from the point probability
     return Set() @ [Collapse(Game(), False), Collapse(TieBreak(), False)] \
         @ Logistic() @ point
+
+
+def serve_model():
+    """
+    With a serve advantage delta (one parameter for every player): player i
+    wins a point on its serve with logistic(strength[i] - strength[j] +
+    delta) and on the opponent's with logistic(strength[i] - strength[j] -
+    delta). Who serves first is unknown: ServeSet averages both cases.
+    """
+    def logit(sign):
+        f = Sum(2)
+        f.add(X(), 0, 0)
+        f.add(-X(), 0, 1)
+        f.add(sign * Scalar(), 1, [])
+        return f
+    return ServeSet() @ [Logistic() @ logit(1.), Logistic() @ logit(-1.)]
+
+
+def fit_serve(N, players):
+    mle = maxlike.NormalizedFinite()
+    mle.model = serve_model()
+    mle.add_constraint(0, Linear([1]))
+    mle.add_param(pd.Series(0., index=players), name="strength")
+    mle.add_param(0.5, name="serve")
+    mle.fit(N=N)
+    return mle
 
 
 def fit(N, players):

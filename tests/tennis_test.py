@@ -1,5 +1,5 @@
-from maxlike.func.tennis import Game, TieBreak, Set
-from maxlike.func import Collapse, X, Sum, Linear, Logistic
+from maxlike.func.tennis import Game, TieBreak, Set, ServeSet
+from maxlike.func import Collapse, X, Sum, Linear, Logistic, Scalar
 from scipy.special import logit
 import maxlike
 import numpy as np
@@ -106,6 +106,47 @@ class Test(unittest.TestCase):
         for use_eval in (True, False):
             self.assertEqual(
                 derivative_errors(model, [a], use_eval=use_eval), [])
+
+    def test_serve_set(self):
+        p = np.array([.3, .5, .62, .7])
+        F = Sum(1)
+        F.add(X(), 0, 0)
+        old = Set() @ [Collapse(Game(), False),
+                       Collapse(TieBreak(), False)] @ F
+        # no serve advantage: the same as the model without serve
+        np.testing.assert_allclose(ServeSet()([p, p]).values,
+                                   old([p]).values, atol=1e-14)
+        # the 14 outcomes between two players sum to one, whoever serves
+        ps, pr = np.array([.66, .6]), np.array([.36, .3])
+        both = ServeSet()([ps, pr]).values.sum(-1) + \
+            ServeSet()([1 - pr, 1 - ps]).values.sum(-1)
+        np.testing.assert_allclose(both, 1)
+        # a serve advantage makes sets closer: more tie-breaks
+        self.assertGreater(ServeSet()([np.array([.7]), np.array([.4])]
+                                      ).values[0, -1],
+                           ServeSet()([np.array([.55]), np.array([.55])]
+                                      ).values[0, -1])
+
+    def test_serve_set_derivatives(self):
+        ps = np.array([[.5, .63, .7], [.6, .55, .66], [.58, .7, .5]])
+        pr = np.array([[.5, .33, .4], [.36, .45, .31], [.42, .35, .5]])
+        for use_eval in (True, False):
+            self.assertEqual(derivative_errors(
+                ServeSet(), [ps, pr], use_eval=use_eval), [])
+
+        def logit_model(sign):
+            f = Sum(2)
+            f.add(X(), 0, 0)
+            f.add(-X(), 0, 1)
+            f.add(sign * Scalar(), 1, [])
+            return f
+
+        model = ServeSet() @ [Logistic() @ logit_model(1.),
+                              Logistic() @ logit_model(-1.)]
+        a = np.array([.3, -.1, -.2])
+        for use_eval in (True, False):
+            self.assertEqual(derivative_errors(
+                model, [a, .45], use_eval=use_eval), [])
 
 
 if __name__ == "__main__":
