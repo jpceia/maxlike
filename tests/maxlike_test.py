@@ -12,11 +12,18 @@ from maxlike.func import (
     Poisson, NegativeBinomial, Sum, Product)
 
 
-np.seterr(all='raise', under='ignore')
 data_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 
 class Test(unittest.TestCase):
+
+    def setUp(self):
+        # raise on floating point errors, restoring the state afterwards
+        # so other test modules are not affected
+        self._np_err = np.seterr(all='raise', under='ignore')
+
+    def tearDown(self):
+        np.seterr(**self._np_err)
 
     verbose = 0
 
@@ -54,7 +61,7 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
         np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
-        aic = mle.akaine_information_criterion()
+        aic = mle.akaike_information_criterion()
         bic = mle.bayesian_information_criterion()
         self.assertAlmostEqual(aic, 3.426092788838951, delta=tol)
         self.assertAlmostEqual(bic, 3.590817107890838, delta=tol)
@@ -98,10 +105,10 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(r[~(a.mask|b.mask)],
                                    df.loc[~(a.mask|b.mask), 'r_ab'], atol=tol)
 
-        aic = mle.akaine_information_criterion()
+        aic = mle.akaike_information_criterion()
         bic = mle.bayesian_information_criterion()
-        self.assertAlmostEqual(aic, 3.6204860853956444, delta=tol)
-        self.assertAlmostEqual(bic, 3.7852104044475317, delta=tol)
+        self.assertAlmostEqual(aic, 3.6169964234833927, delta=tol)
+        self.assertAlmostEqual(bic, 3.773592954344472, delta=tol)
 
     def test_poisson2(self):
         mle = maxlike.Poisson()
@@ -210,7 +217,7 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
         np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
-        aic = mle.akaine_information_criterion()
+        aic = mle.akaike_information_criterion()
         bic = mle.bayesian_information_criterion()
         self.assertAlmostEqual(aic, 3.4249498108457352, delta=tol)
         self.assertAlmostEqual(bic, 3.5937335954880614, delta=tol)
@@ -284,7 +291,7 @@ class Test(unittest.TestCase):
         np.testing.assert_allclose(s_b, df['s_b'], atol=tol)
         np.testing.assert_allclose(r, df['r_ab'], atol=tol)
 
-        aic = mle.akaine_information_criterion(1)
+        aic = mle.akaike_information_criterion(1)
         bic = mle.bayesian_information_criterion(1)
         self.assertAlmostEqual(aic, 3.488466590286007, delta=tol)
         self.assertAlmostEqual(bic, 3.657250374928333, delta=tol)

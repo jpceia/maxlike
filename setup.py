@@ -1,5 +1,4 @@
 import os
-import numpy as np
 from setuptools import setup
 
 
@@ -27,14 +26,15 @@ setup(
     long_description=__doc__,
     long_description_content_type="text/markdown",
     install_requires=required,
-    tests_require=["nose", "coverage"],
-    test_suite="nose.collector",
+    python_requires=">=3.10",
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering :: Mathematics',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7'
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13'
     ]
 )

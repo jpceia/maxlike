@@ -19,7 +19,7 @@ class Param(object):
     def __init__(self, values, mask=None):
         
         if mask is None or mask is False:
-            mask = np.zeros_like(values, dtype=np.bool)
+            mask = np.zeros_like(values, dtype=bool)
         else:
             assert mask.shape == values.shape
 
@@ -156,7 +156,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
 
         self.reg.append((param_map, h))
 
-    def akaine_information_criterion(self, nb_extra_params=0):
+    def akaike_information_criterion(self, nb_extra_params=0):
         """
         Akaike information criterion (AIC)
 
@@ -180,12 +180,15 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         l : mean log likelihood  (1/n) * log L
 
         """
-        k = sum(map(np.ma.count, self.params))
+        k = sum(p.count() for p in self.params)  # free params only
         k += nb_extra_params
         k -= len(self.constraint)
         n = self.N.sum(sum_val=True, sum_dim=True).values
         l = self.g(self.params)
         return 2 * k / (n - k - 1) - 2 * l
+
+    # backward-compatible alias for the former (misspelled) name
+    akaine_information_criterion = akaike_information_criterion
 
     def bayesian_information_criterion(self, nb_extra_params=0):
         """
@@ -203,7 +206,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         l : mean log likelihood  (1/n) * log L
         
         """
-        k = sum(map(np.ma.count, self.params))
+        k = sum(p.count() for p in self.params)  # free params only
         k += nb_extra_params
         k -= len(self.constraint)
         n = self.N.sum(sum_val=True, sum_dim=True).values
@@ -310,13 +313,10 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
         """
         Standard Deviation Array.
         """
-        cut = len(self.constraint)
-        if cut == 0:
-            cut = None
-        return [p.as_masked() for p in
-            self._reshape_array(np.sqrt(np.diag(-np.linalg.inv(
-            self.flat_hess_))[:-cut]))
-        ]
+        var = np.diag(-np.linalg.inv(self.flat_hess_))
+        # drop the entries of the Lagrange multipliers (constraints)
+        var = var[:var.size - len(self.constraint)]
+        return [p.as_masked() for p in self._reshape_array(np.sqrt(var))]
 
     def flat_grad(self, params, *args, **kwargs):
 
@@ -503,6 +503,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
                 if abs(prev_g / g - 1) < tol:
                     self.params = params
                     self.flat_hess_ = hess
+                    self.converged = True
                     return True
 
         elif method == "broyden":
@@ -536,7 +537,7 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
                     g = self.g(params)
 
                     if verbose > 0:
-                        print(k + 1, new_g)
+                        print(k + 1, g)
 
                     if abs(prev_g / g - 1) < tol:
                         self.params = params
@@ -558,5 +559,5 @@ class MaxLike(with_metaclass(abc.ABCMeta)):
             raise ValueError("Invalid Method")
 
         self.converged = False
-        raise ConvergenceError("Error: the objective function did not" +
+        raise ConvergenceError("Error: the objective function did not " +
                                "converge after %d steps" % max_steps)

@@ -40,6 +40,22 @@ class Test(unittest.TestCase):
         xy_static = pd.read_csv(self._path("gaussian")).values
         np.testing.assert_allclose(f_xy, xy_static)
 
+    def test_gauss_bivar(self):
+        from maxlike.func.copula import gauss_bivar
+        from scipy.stats import multivariate_normal
+        # P(X <= 0, Y <= 0) = 1/4 + arcsin(rho) / (2 pi)
+        for rho in [-.9, -.5, .3, .8]:
+            self.assertAlmostEqual(
+                float(gauss_bivar(0, 0, rho)),
+                .25 + np.arcsin(rho) / (2 * np.pi), delta=1e-14)
+        rng = np.random.RandomState(0)
+        hk = rng.normal(0, 2, (50, 2))
+        for rho in [-.7, 0, .4, .95]:
+            mvn = multivariate_normal(mean=[0, 0], cov=[[1, rho], [rho, 1]])
+            expected = [mvn.cdf(row) for row in hk]
+            np.testing.assert_allclose(
+                gauss_bivar(hk[:, 0], hk[:, 1], rho), expected, atol=1e-7)
+
     def test_clayton(self):
         f_xy = copula.Clayton(rho=1.0)([self.f_x, self.f_y]).values
         self.check_is_copula(f_xy)

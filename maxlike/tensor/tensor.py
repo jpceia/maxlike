@@ -6,6 +6,13 @@ from six import with_metaclass
 from functools import partial
 from enum import Enum
 
+try:
+    from enum import member
+except ImportError:  # pragma: no cover
+    # Python < 3.11: callables assigned in an Enum body are already members
+    def member(x):
+        return x
+
 
 TENSOR_DTYPE = np.float64
 
@@ -99,9 +106,11 @@ def arr_swapaxes_cross(arr, p, map1, map2):
 
 
 class TensorOp(Enum):
-    ID = partial(lambda x: x)
-    RSUB = partial(lambda x, y: np.subtract(y, x))
-    RDIV = partial(lambda x, y: np.divide(y, x))
+    # wrap with enum.member so partial objects remain Enum members
+    # (Python 3.13+ treats them as method descriptors otherwise)
+    ID = member(partial(lambda x: x))
+    RSUB = member(partial(lambda x, y: np.subtract(y, x)))
+    RDIV = member(partial(lambda x, y: np.divide(y, x)))
     ADD = np.add
     SUB = np.subtract
     MUL = np.multiply
@@ -253,8 +262,8 @@ class GenericTensor(BaseTensor):
         if sum_dim is True:
             idx += (self.n + np.arange(self.dim)).tolist()
 
-        shape_n = np.ones(len(idx), dtype=np.int)
-        el_sizes = np.empty(len(self.elements), dtype=np.int)
+        shape_n = np.ones(len(idx), dtype=int)
+        el_sizes = np.empty(len(self.elements), dtype=int)
         for k, el in enumerate(self.elements):
             p = el.x_dim + el.y_dim
             shape = np.array(el.values.shape)[(p + np.array(idx)).tolist()]
