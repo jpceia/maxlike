@@ -1,7 +1,6 @@
 from ..tensor import Tensor
 from .func_base import Func, Affine, null_method, isnull
 from functools import reduce
-from types import MethodType
 
 
 class IndexMap(list):
@@ -45,21 +44,7 @@ class FuncWrap(Func):
             self.grad = null_method(self)
 
         if isnull(foo.hess):
-            def eval(obj, params):
-                foo_val, foo_grad, foo_hess = foo.eval(obj.param_map(params))
-                val = obj._expand(foo_val)
-                n = len(params)
-                grad = []
-                hess = [[Tensor(0)] * (i + 1) for i in range(n)]
-                for i in range(n):
-                    try:
-                        grad.append(obj._expand(foo_grad[obj.param_map.index(i)]))
-                    except ValueError:
-                        grad.append(Tensor(0))
-                return val, grad, hess
-
             self.hess = null_method(self)
-            self.eval = MethodType(eval, self)
 
     def _expand(self, x):
         return x.expand(self.feat_map, self.n_feat).flip(self.feat_flip).\
