@@ -741,38 +741,30 @@ class MaxLike(abc.ABC):
         """
         Once at convergence: if the bordered Hessian is singular, the
         parameters are not identifiable (the objective is flat along some
-        direction). Uses an LU factorisation and LAPACK's condition
-        estimate, about 1.4 times the cost of one Newton solve, once per
-        fit (disable with fit(check_identifiability=False)).
+        direction). Costs one Newton solve per fit (disable with
+        fit(check_identifiability=False)).
         """
-        import warnings
-        from scipy.linalg import lu_factor, LinAlgWarning
-        from scipy.linalg.lapack import dgecon
         if not getattr(self, "_check_identifiability", True):
             return
         if lhess.shape[0] == 0:
             return
+        # one solve for a random right-hand side: near a singular matrix the
+        # solution blows up along the flat direction, and |K| |x| / |b|
+        # estimates 1 / rcond. Uses the same solver as the Newton steps (the
+        # sparse factorisation, or numpy's LAPACK: calling scipy's separate
+        # BLAS here would leave its threads competing with numpy's)
         anorm = abs(lhess).sum(0).max()
-        if sp.issparse(lhess):
-            # one solve with the sparse factorisation for a random right-hand
-            # side: near a singular matrix the solution blows up along the
-            # flat direction, and |K| |x| / |b| estimates 1 / rcond
-            b = np.random.default_rng(0).standard_normal(lhess.shape[0])
-            try:
+        b = np.random.default_rng(0).standard_normal(lhess.shape[0])
+        try:
+            if sp.issparse(lhess):
                 x = self._sparse_solver(lhess).solve(b)
-                rcond = np.abs(b).max() / (anorm * np.abs(x).max())
-            except SingularMatrix:
-                rcond = 0.
-            if np.isfinite(rcond) and rcond > self._SINGULAR_RCOND:
-                return
-        else:
-            lhess = np.asarray(lhess, dtype=float)
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", LinAlgWarning)
-                lu, _ = lu_factor(lhess, check_finite=False)
-            rcond, _ = dgecon(lu, anorm, norm="1")
-            if rcond > self._SINGULAR_RCOND:
-                return
+            else:
+                x = np.linalg.solve(np.asarray(lhess, dtype=float), b)
+            rcond = np.abs(b).max() / (anorm * np.abs(x).max())
+        except (SingularMatrix, np.linalg.LinAlgError):
+            rcond = 0.
+        if np.isfinite(rcond) and rcond > self._SINGULAR_RCOND:
+            return
         directions = self._null_directions(params, lhess)
         if directions:
             self.converged = False
