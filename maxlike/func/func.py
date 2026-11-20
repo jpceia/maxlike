@@ -32,14 +32,113 @@ class Linear(Func):
     hess = null_func
 
 
-class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
+class QuadraticForm(Func):
+    """
+    QuadraticForm(Q, u)(p_0, ..., p_k) = 1/2 * z' Q z,
+        z = concatenation of the flattened p_i - u_i
+
+    A scalar function (no feature axes), mostly used as a regularization:
+    a Gaussian prior with precision matrix Q (minus its log density, up to a
+    constant). Q can couple entries of one parameter (e.g. neighbours in
+    time or space) and different parameters (e.g. the attack and the
+    defence of the same team).
+
+    Parameters
+    ----------
+    Q : array or scipy.sparse matrix, symmetric
+        Precision matrix over the concatenation of the flattened
+        parameters, in the order of the param_map they are given with.
+    u : float, array, or list with one of them per parameter
+        Centre, broadcast against each parameter.
+
+    The Hessian is Q. It is kept sparse, and when Q is diagonal it is
+    passed to the solver as a diagonal, as cheap as an L2 penalty.
+    Subclasses build Q from the shapes of the parameters instead (see
+    Quadratic and RandomWalk), by overriding _build(shapes); it is built
+    once per set of shapes.
+    """
+
+    def __init__(self, Q=None, u=0.):
+        self._Q = None if Q is None else sp.csr_matrix(Q)
+        self.u = u
+        self._cache = {}
+
+    def _build(self, shapes):
+        """Precision matrix for parameters of the given shapes."""
+        size = sum(int(np.prod(sh)) for sh in shapes)
+        if self._Q is None or self._Q.shape != (size, size):
+            raise ValueError(
+                "QuadraticForm: Q must be %d x %d for parameters of shapes "
+                "%s" % (size, size, shapes))
+        return self._Q
+
+    def _form(self, params):
+        # (Q as CSR, diagonal of Q or None, offset of each parameter)
+        shapes = tuple(np.shape(p) for p in params)
+        if shapes not in self._cache:
+            Q = sp.csr_matrix(self._build(shapes))
+            diag = Q.diagonal()
+            is_diag = Q.nnz == np.count_nonzero(diag) and \
+                (sp.triu(Q, 1).nnz + sp.tril(Q, -1).nnz) == 0
+            sizes = [int(np.prod(sh)) for sh in shapes]
+            self._cache[shapes] = (Q, diag if is_diag else None,
+                                   np.concatenate([[0], np.cumsum(sizes)]))
+        return self._cache[shapes]
+
+    def _z(self, params):
+        u = self.u if isinstance(self.u, (list, tuple)) else \
+            [self.u] * len(params)
+        return np.concatenate([
+            (np.asarray(p, dtype=float) - np.asarray(c, dtype=float)).ravel()
+            for p, c in zip(params, u)])
+
+    def __call__(self, params):
+        Q, diag, _ = self._form(params)
+        z = self._z(params)
+        Qz = diag * z if diag is not None else Q @ z
+        return Tensor(.5 * z @ Qz)
+
+    def grad(self, params, i):
+        Q, diag, off = self._form(params)
+        z = self._z(params)
+        sl = slice(off[i], off[i + 1])
+        g = diag[sl] * z[sl] if diag is not None else Q[sl] @ z
+        return grad_tensor(g.reshape(np.shape(params[i])), params, i)
+
+    def hess(self, params, i, j):
+        Q, diag, off = self._form(params)
+        shape_i, shape_j = np.shape(params[i]), np.shape(params[j])
+        if diag is not None:
+            if i != j:
+                return Tensor(0)
+            # diagonal: stored as such, summed over the (mapped) axes
+            return hess_tensor(diag[off[i]:off[i + 1]].reshape(shape_i),
+                               params, i, j, True, True).sum()
+        block = Q[off[i]:off[i + 1], off[j]:off[j + 1]]
+        if block.nnz == 0:
+            return Tensor(0)
+        return hess_tensor(block.toarray().reshape(shape_i + shape_j),
+                           params, i, j)
+
+    def hess_sparse(self, params, i, j):
+        """
+        The same as hess, as a scipy.sparse matrix over the flattened
+        parameters (None if null). Used when the Hessian of the problem is
+        assembled as a sparse matrix, where a dense block would not fit.
+        """
+        Q, _, off = self._form(params)
+        block = Q[off[i]:off[i + 1], off[j]:off[j + 1]]
+        return block if block.nnz else None
+
+
+class Quadratic(QuadraticForm):
     """
     Quadratic(u, s)(p_0, ..., p_k) = sum_i sum(((p_i - u) / s) ** 2)
 
-    A scalar function (no feature axes), mostly used as a regularization:
-    it pulls every entry of the parameters towards u, with a scale s (a
-    Gaussian prior with mean u and standard deviation s / sqrt(2), up to a
-    constant).
+    An L2 penalty: pulls every entry of the parameters towards u, with a
+    scale s (a Gaussian prior with mean u and standard deviation
+    s / sqrt(2), up to a constant). A QuadraticForm with the diagonal
+    precision Q = 2 / s^2.
 
     Parameters
     ----------
@@ -50,41 +149,16 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
     """
 
     def __init__(self, u=0, s=1):
-        self.u = u
+        super().__init__(u=u)
         self.s = s
 
-    def __call__(self, params):
-        val = 0
-        for p in params:
-            z = (np.asarray(p) - self.u) / self.s
-            val += (z * z).sum()
-        return Tensor(val)
-
-    def grad(self, params, i):
-        z = (np.asarray(params[i]) - self.u) / self.s
-        return grad_tensor(2 * z / self.s, params, i, True).sum()
-
-    def hess(self, params, i, j):
-        if i != j:
-            return Tensor(0)
-        return hess_tensor(
-            2 * np.ones_like(params[i]) / self.s / self.s,
-            params, i, j, True, True).sum()
-
-    def hess_sparse(self, params, i, j):
-        """
-        The same as hess, as a scipy.sparse matrix over the flattened
-        parameters (None if null). Used when the Hessian of the problem is
-        assembled as a sparse matrix, where the dense diagonal block
-        returned by hess would not fit.
-        """
-        if i != j:
-            return None
-        size = np.asarray(params[i]).size
-        return sp.diags(np.broadcast_to(2. / self.s / self.s, (size, )))
+    def _build(self, shapes):
+        return sp.diags(np.concatenate([
+            np.broadcast_to(2. / np.square(self.s), sh).ravel()
+            for sh in shapes]))
 
 
-class RandomWalk(Func):
+class RandomWalk(QuadraticForm):
     """
     RandomWalk(s, axis)(p_0, ..., p_k) =
         1/2 * sum_i sum_t ((p_i[..., t] - p_i[..., t - 1]) / s[t]) ** 2
@@ -96,6 +170,9 @@ class RandomWalk(Func):
     size s. A small s tends to a constant parameter (a static model), a
     large s to independent fits per period.
 
+    A QuadraticForm with Q = D' W D, D the differences along `axis` and W
+    the diagonal of 1 / s^2: a sparse second-difference matrix.
+
     Parameters
     ----------
     s : float or array
@@ -104,64 +181,32 @@ class RandomWalk(Func):
         periods, use s = sigma * sqrt(gap).
     axis : int
         Time axis of the parameters.
-
-    A scalar function (no feature axes). The Hessian is constant, a
-    second-difference matrix along `axis`.
     """
 
     def __init__(self, s=1., axis=-1):
+        super().__init__()
         self.s = s
         self.axis = axis
 
-    def _weights(self, shape):
-        # 1 / s^2 for every difference, with time moved to the last axis
-        shape = list(shape)
-        shape[self.axis] -= 1
-        w = np.broadcast_to(np.asarray(self.s, dtype=float) ** -2.,
-                            tuple(shape))
-        return np.moveaxis(w, self.axis, -1)
-
-    def _diff(self, p):
-        return np.diff(np.moveaxis(np.asarray(p, dtype=float),
-                                   self.axis, -1), axis=-1)
-
-    def __call__(self, params):
-        return Tensor(sum(.5 * (self._weights(np.shape(p)) *
-                                self._diff(p) ** 2).sum() for p in params))
-
-    def grad(self, params, i):
-        p = np.asarray(params[i], dtype=float)
-        wd = self._weights(p.shape) * self._diff(p)
-        # transpose of the difference operator
-        g = np.zeros(wd.shape[:-1] + (wd.shape[-1] + 1, ))
-        g[..., 1:] += wd
-        g[..., :-1] -= wd
-        return grad_tensor(np.moveaxis(g, -1, self.axis), params, i)
-
-    def _matrix(self, shape):
-        # D' W D over the flattened parameter, as a scipy.sparse matrix
+    def _block(self, shape):
+        # D' W D over one flattened parameter
         size = int(np.prod(shape))
         pos = np.moveaxis(np.arange(size).reshape(shape), self.axis, -1)
+        steps = list(shape)
+        steps[self.axis] -= 1
+        w = np.moveaxis(np.broadcast_to(
+            np.asarray(self.s, dtype=float) ** -2., tuple(steps)),
+            self.axis, -1)
         rows = np.arange(pos[..., 1:].size)
         d = sp.csr_matrix(
             (np.concatenate([np.ones(rows.size), -np.ones(rows.size)]),
              (np.concatenate([rows, rows]),
               np.concatenate([pos[..., 1:].ravel(), pos[..., :-1].ravel()]))),
             shape=(rows.size, size))
-        return (d.T @ sp.diags(self._weights(shape).ravel()) @ d).tocsr()
+        return d.T @ sp.diags(w.ravel()) @ d
 
-    def hess(self, params, i, j):
-        if i != j:
-            return Tensor(0)
-        shape = np.shape(params[i])
-        return hess_tensor(self._matrix(shape).toarray().reshape(shape * 2),
-                           params, i, j)
-
-    def hess_sparse(self, params, i, j):
-        """The same as hess, as a scipy.sparse matrix (see Quadratic)."""
-        if i != j:
-            return None
-        return self._matrix(np.shape(params[i]))
+    def _build(self, shapes):
+        return sp.block_diag([self._block(sh) for sh in shapes])
 
 
 class X(Func):

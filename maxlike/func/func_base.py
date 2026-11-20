@@ -127,26 +127,32 @@ class FuncMeta(type):
     """
 
     def __new__(cls, name, bases, attrs, **kwargs):
-        call = call_wrap(attrs['__call__'])
-        if 'grad' in attrs:
-            grad = vector_wrap(attrs['grad'])
-        else:
-            grad = not_implemented_foo
-        if 'hess' in attrs:
-            hess = matrix_wrap(attrs['hess'])
-        else:
-            hess = not_implemented_foo
-        if 'eval' not in attrs:
-            def eval_func(obj, params):
-                return attrs['__call__'](obj, params), \
-                       attrs['grad'](obj, params), \
-                       attrs['hess'](obj, params)
-            attrs['eval'] = eval_wrap(eval_func)
-        else:
+        # a method that a subclass of a concrete Func does not define is
+        # inherited (already wrapped) from its bases
+        def inherited(key):
+            for base in bases:
+                if isinstance(base, FuncMeta) and hasattr(base, key):
+                    return getattr(base, key)
+            return None
+
+        own = {key: key in attrs for key in ('__call__', 'grad', 'hess')}
+        if own['__call__']:
+            attrs['__call__'] = call_wrap(attrs['__call__'])
+        if own['grad']:
+            attrs['grad'] = vector_wrap(attrs['grad'])
+        elif inherited('grad') is None:
+            attrs['grad'] = not_implemented_foo
+        if own['hess']:
+            attrs['hess'] = matrix_wrap(attrs['hess'])
+        elif inherited('hess') is None:
+            attrs['hess'] = not_implemented_foo
+        if 'eval' in attrs:
             attrs['eval'] = eval_wrap(attrs['eval'])
-        attrs['__call__'] = call
-        attrs['grad'] = grad
-        attrs['hess'] = hess
+        elif any(own.values()) or inherited('eval') is None:
+            # value, gradients and Hessian from the (wrapped) methods
+            def eval_func(obj, params):
+                return obj(params), obj.grad(params), obj.hess(params)
+            attrs['eval'] = eval_wrap(eval_func)
         return type.__new__(cls, name, bases, attrs, **kwargs)
 
 

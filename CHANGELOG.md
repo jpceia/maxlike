@@ -28,9 +28,14 @@
 - Notebooks in `docs/notebooks`, one per example: theory, model graph,
   fit, predictions and charts that check the fit (`pip install
   "maxlike[notebooks]"`), executed in CI.
+- `func.QuadraticForm(Q, u)`: Gaussian prior `1/2 (p - u)' Q (p - u)`
+  with any precision matrix `Q`, coupling entries of one parameter or of
+  several, with an exact sparse (or diagonal) Hessian. `Quadratic` is now
+  the diagonal case.
 - `func.RandomWalk(s, axis)`: Gaussian random-walk penalty along a time
-  axis, for parameters that change over time (dynamic team strengths),
-  with a sparse Hessian.
+  axis (a `QuadraticForm` with a second-difference `Q`), for parameters
+  that change over time (dynamic team strengths).
+
 - Example and notebook on dynamic football strengths
   (`docs/examples/football_dynamic.py`): attack and defence per team and
   round, the step size chosen by one-round-ahead forecasts.
@@ -50,6 +55,10 @@
   `std_error()` computes only the diagonal of the inverse. Attack/defence
   model with 5 000 teams and 100 000 rows on one thread: 10 s and 0.3 GB,
   against 130 s and 4.6 GB on the grid.
+
+### Changed
+- A subclass of a concrete `Func` inherits the methods it does not
+  define (`grad`, `hess`, ...), instead of getting unimplemented ones.
 
 ### Fixed
 - The convergence test no longer divides by the objective; refitting from
