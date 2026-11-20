@@ -38,7 +38,7 @@ Both reach the same estimates.
 ## Installation
 
 ```bash
-pip install git+https://github.com/jpceia/maxlike.git
+pip install maxlike
 ```
 
 Requires Python 3.10+, NumPy, SciPy and pandas.

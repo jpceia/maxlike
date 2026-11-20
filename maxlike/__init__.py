@@ -1,4 +1,4 @@
-__version__ = "2.3.6"
+__version__ = "2.4.0"
 
 from . import func
 from . import skellam
