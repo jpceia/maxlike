@@ -17,12 +17,12 @@ For "largest value wins" (e.g. highest-bid auctions), pass the negated
 values.
 
 The implementation is in [`maxlike/func/order_statistic.py`](../maxlike/func/order_statistic.py);
-a worked example on synthetic procurement data is in
-[`docs/examples/procurement_auction.py`](examples/procurement_auction.py).
+a worked example on synthetic race data is in
+[`docs/examples/race.py`](examples/race.py).
 
 ## 1. Model of the latent values
 
-For observation $t$ (a tender) and participant $j$ (a firm), the latent value
+For observation $t$ (a race) and participant $j$ (a runner), the latent value
 is
 
 $$
@@ -30,14 +30,14 @@ v_{tj} = c_t + \mu_j + \sigma\,\varepsilon_{tj},
 \qquad \varepsilon_{tj} \sim \mathcal N(0, 1) \text{ i.i.d.}
 $$
 
-- $\mu_j$: **location of participant $j$**, e.g. the log markup of a firm
-  (lower = more aggressive).
+- $\mu_j$: **location of participant $j$**, e.g. the level of a runner
+  (lower = faster).
 - $\sigma$: **dispersion** of each participant's values around its location
   (parametrised as $\log\sigma$).
 - $c_t$: **common factor of observation $t$**, shared by all participants,
-  e.g. the cost of executing the tender. A costly tender raises every bid
-  together, so the values of an observation are **not independent**; they
-  are independent **given** $c_t$.
+  e.g. the course and the conditions of the day in a race. Wind or heat slow
+  every runner together, so the values of an observation are **not
+  independent**; they are independent **given** $c_t$.
 
 Two specifications of the common factor:
 
@@ -46,8 +46,8 @@ Two specifications of the common factor:
 | **A. independent given covariates** (`common_factor=False`) | $c_t = x_t^\top\beta$ | $\mu, \log\sigma, \beta$ |
 | **B. latent common factor** (`common_factor=True`) | $c_t = x_t^\top\beta + \tau\,u_t,\ u_t \sim \mathcal N(0,1)$ | $\mu, \log\sigma, \beta, \tau$ |
 
-$x_t$ are covariates of the observation (include a column of ones for an
-intercept). $\tau$ measures how much the values of an observation move
+$x_t$ are covariates of the observation, e.g. how hilly the course is
+(include a column of ones for an intercept). $\tau$ measures how much the values of an observation move
 together **beyond** what the covariates explain. Model A is model B with
 $\tau = 0$.
 
@@ -76,8 +76,8 @@ $$
 $$
 
 The participants that lost contribute only through **survival
-probabilities**: this is what lets the model learn about firms that rarely
-win.
+probabilities**: this is what lets the model learn about runners that
+rarely win.
 
 **Model A** uses $\ell_t = \ell_t(x_t^\top\beta)$ directly.
 
@@ -103,6 +103,12 @@ $$
 `FirstOrderStatistic` returns $\log L_t$ for every observation, and
 `maxlike.LogLikelihood` maximises $\sum_t N_t \log L_t$ (with weights
 $N_t$, usually ones).
+
+**Starting values.** The likelihood is symmetric in $\tau$, so $\tau = 0$
+is a stationary point (a saddle when a common factor exists): do not start
+there. A good start for model B is the fit of model A, whose dispersion
+approximates $\sqrt{\sigma^2 + \tau^2}$: start $\sigma$ and $\tau$ at
+$\hat\sigma_A/\sqrt 2$ (as `docs/examples/race.py` does).
 
 ## 4. Derivatives
 
@@ -216,41 +222,41 @@ import numpy as np
 import maxlike
 from maxlike.func import FirstOrderStatistic, Linear
 
-# values: (T,) winning log price relative to the base price
-# winner: (T,) index of the winning firm
-# participants: (T, J) True for the firms that bid
-# X: (T, Q) covariates, first column of ones
+# winning_time: (T,) log winning time relative to a reference time
+# winner: (T,) index of the winning runner
+# entrants: (T, J) True for the runners in each race
+# X: (T, Q) race covariates, first column of ones
 mle = maxlike.LogLikelihood()
-mle.model = FirstOrderStatistic(values, winner, participants, X,
+mle.model = FirstOrderStatistic(winning_time, winner, entrants, X,
                                 common_factor=True)
 mle.add_constraint(0, Linear([1]))          # sum(mu) = 0
-mle.add_param(np.zeros(J), name="mu", labels=[firm_names])
-mle.add_param(np.log(.2), name="log_sigma")
-mle.add_param(np.r_[values.mean(), np.zeros(Q - 1)], name="beta")
-mle.add_param(.05, name="tau")             # start away from 0
-mle.fit(N=np.ones(len(values)))
+mle.add_param(np.zeros(J), name="mu", labels=[runner_names])
+mle.add_param(np.log(.1), name="log_sigma")
+mle.add_param(np.r_[winning_time.mean(), np.zeros(Q - 1)], name="beta")
+mle.add_param(.07, name="tau")             # start away from 0
+mle.fit(N=np.ones(len(winning_time)))
 mle.summary()
 ```
 
 ## 7. Validation on synthetic data
 
-From `docs/examples/procurement_auction.py`: 15 firms, 3000 tenders with 2
-to 6 bidders each, only the winner and the winning price observed; true
-$\sigma = 0.10$, intercept $-0.15$.
+From `docs/examples/race.py`: 15 runners, 3000 races with 2 or more
+runners each, only the winner and the winning time observed (log time
+relative to a reference); true $\sigma = 0.04$, intercept $0.10$, effect of
+the course elevation $0.03$.
 
-| True data | Model | $\mu$: RMSE vs truth | $\mu$ within 2 SE | $\hat\sigma$ | intercept | $\hat\tau$ | hold-out log-lik. per tender |
+| True data | Model | $\mu$: RMSE vs truth | $\mu$ within 2 SE | $\hat\sigma$ | intercept | $\hat\tau$ | hold-out log-lik. per race |
 |---|---|---|---|---|---|---|---|
-| common factor, $\tau = 0.12$ | A. independent | 0.037 | 47% | 0.192 | −0.031 | — | −0.801 |
-| | **B. common factor** | **0.009** | **93%** | **0.109** | **−0.136** | **0.114** | **−0.759** |
-| no common factor, $\tau = 0$ | A. independent | 0.006 | 100% | 0.100 | −0.152 | — | −0.053 |
-| | B. common factor | 0.006 | 100% | 0.100 | −0.152 | 0.000 | −0.053 |
+| race-day factor, $\tau = 0.06$ | A. independent | 0.030 | 27% | 0.093 | 0.179 | — | −0.016 |
+| | **B. common factor** | **0.003** | **93%** | **0.040** | **0.102** | **0.060** | **0.052** |
+| no race-day factor, $\tau = 0$ | A. independent | 0.003 | 100% | 0.040 | 0.101 | — | 0.823 |
+| | B. common factor | 0.003 | 100% | 0.040 | 0.101 | 0.001 | 0.823 |
 
 Ignoring a common factor that exists (model A on the first data set)
-misattributes the shared variation to the firms: the dispersion is almost
-doubled, the firm markups are biased and their standard errors are too
-small. Model B recovers the truth, and when there is no common factor it
-reduces to model A. Across four further data sets the estimates of model B
-were within −0.7 to +1.2 standard errors of the truth.
+misattributes the shared variation to the runners: the dispersion is more
+than doubled, the runners' levels and the intercept are biased, and the
+standard errors are far too small (27% coverage). Model B recovers the
+truth, and when there is no common factor it reduces to model A.
 
 ## 8. Limitations
 
@@ -260,6 +266,7 @@ were within −0.7 to +1.2 standard errors of the truth.
   is known, an anonymous "fringe" participant type would be needed.
 - Dense participants × participants Hessian blocks per observation: fine
   for tens to a few hundred participants.
-- Participation is taken as given: firms that choose to bid when their
-  markup is low (endogenous entry) or collusion break conditional
+- Participation is taken as given: participants who choose to enter when
+  they expect to do well (endogenous entry), or coordination between
+  participants (e.g. collusion in auctions), break conditional
   independence.

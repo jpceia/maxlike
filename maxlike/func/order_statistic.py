@@ -3,16 +3,16 @@ First order statistic of conditionally independent latent values: the
 smallest value "wins", and only the winner and the winning value are
 observed.
 
-Examples: auctions where the lowest bid wins (public procurement), races
-where the fastest time wins, competing risks where the first event is
-observed. For "largest value wins" pass the negated values.
+Examples: races where the fastest time wins, auctions where the lowest bid
+wins, competing risks where the first event is observed. For "largest value wins" pass the negated values.
 
 Each participant j in each observation t draws a latent value
 
     v[t, j] = c[t] + mu[j] + sigma * eps[t, j],   eps ~ N(0, 1)
 
-c[t] is an observation-level common factor (e.g. the cost of a tender) and
-mu[j] the location of participant j (e.g. the log markup of a firm). Given
+c[t] is an observation-level common factor (e.g. the course and the
+conditions of the day in a race) and mu[j] the location of participant j
+(e.g. the level of a runner). Given
 c[t] the values are independent, so the likelihood of "j = w wins with
 value v" is
 

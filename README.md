@@ -117,17 +117,18 @@ non-concave start) are damped automatically.
 
 `FirstOrderStatistic` covers observations where several participants
 draw latent values, the smallest wins, and only the winner and the
-winning value are observed: the lowest bid in a public tender, the
-fastest time in a race, the first event among competing risks. Losing
-participants contribute through the probability that they drew more, so
-each participant's distribution is recovered from winners only. A latent
-common factor per observation (e.g. the cost of a tender, which moves all
-bids together) is integrated out. Fit it with `maxlike.LogLikelihood`.
+winning value are observed: the fastest time in a race, the lowest bid in
+an auction, the first event among competing risks. Losing participants
+contribute through the probability that they drew more, so each
+participant's distribution is recovered from winners only. A latent
+common factor per observation (e.g. the conditions of a race day, which
+slow every runner together) is integrated out. Fit it with
+`maxlike.LogLikelihood`.
 
 See [docs/first_order_statistic.md](docs/first_order_statistic.md) for
-the formulas, and
-[docs/examples/procurement_auction.py](docs/examples/procurement_auction.py)
-for a worked example.
+the formulas, and [docs/examples/race.py](docs/examples/race.py) for a
+worked example.
+
 ### Large sparse data: one row per observation
 
 The example above stores `N` and `goals` on the grid of all the
