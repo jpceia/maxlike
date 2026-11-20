@@ -11,7 +11,8 @@ import scipy.sparse as sp
 import maxlike
 from maxlike import linalg
 from maxlike.func import (
-    X, Take, Vector, Sum, Linear, Quadratic, RandomWalk, Exp, Poisson)
+    X, Take, Vector, Sum, Linear, Quadratic, QuadraticForm, RandomWalk, Exp,
+    Poisson)
 from maxlike.preprocessing import prepare_index, prepare_observations
 
 
@@ -206,6 +207,36 @@ class Test(unittest.TestCase):
         a = np.ma.getdata(reference.get_params()[0])
         self.assertGreater(np.ptp(a, axis=1).max(), 1e-3)   # it moves
         self.both_assemblies(build, reference)
+
+    def test_quadratic_form(self):
+        # prior coupling the attack and the defence of the same team
+        n = 10
+        att, dfn, venue, goals = football_data(n, 80, seed=5)
+        ones = np.ones(goals.size)
+        Q = sp.kron(np.array([[1., -.6], [-.6, 1.]]), sp.eye(n)) / .3 ** 2
+
+        def problem(model):
+            mle = maxlike.Poisson()
+            mle.model = model
+            mle.add_regularization([0, 1], QuadraticForm(Q))
+            mle.add_param(np.zeros(n))
+            mle.add_param(np.zeros(n))
+            mle.add_param(0.)
+            return mle
+
+        grid = problem(grid_model())
+        grid.fit(N=to_grid((n, n, 2), (att, dfn, venue), ones),
+                 X=to_grid((n, n, 2), (att, dfn, venue), goals))
+
+        def build():
+            mle = problem(indexed_model(att, dfn, venue))
+            mle.fit(N=ones, X=goals)
+            return mle
+
+        self.both_assemblies(build, grid)
+        # the coupling pulls attack and defence of a team together
+        a, d = [np.ma.getdata(p) for p in grid.get_params()[:2]]
+        self.assertGreater(np.corrcoef(a, d)[0, 1], 0)
 
     def test_negative_binomial(self):
         n = 9

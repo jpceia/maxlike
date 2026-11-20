@@ -6,7 +6,8 @@ through both foo.eval (used by MaxLike.fit) and foo.grad / foo.hess.
 import unittest
 import numpy as np
 from maxlike.func import (
-    X, Take, Scalar, Vector, Constant, Linear, Quadratic, RandomWalk, Exp,
+    X, Take, Scalar, Vector, Constant, Linear, QuadraticForm, Quadratic,
+    RandomWalk, Exp,
     Log, Sigmoid, Logistic, Poisson, LogNegativeBinomial, NegativeBinomial,
     Sum, Product, Collapse, MarkovMatrix, MarkovVector, CollapseMatrix)
 from .numdiff import derivative_errors
@@ -18,6 +19,12 @@ V = rng.uniform(.5, 1.5, 3)
 A = rng.normal(0, .2, 3)
 B = rng.normal(0, .2, 3)
 H = .3
+
+
+def _spd(n, seed=5):
+    """A random symmetric positive definite matrix."""
+    a = np.random.RandomState(seed).normal(size=(n, n))
+    return a @ a.T + n * np.eye(n)
 
 
 def attack_defence():
@@ -173,6 +180,11 @@ ELEMENTARY = {
     "Linear @ Exp": (Linear([2.]) @ Exp(), [U]),
     "Exp @ Linear": (Exp() @ Linear([1., -1.]), [U, V]),
     "Quadratic": (Quadratic(.3, 2.), [U, V]),
+    "Quadratic (s per entry)": (Quadratic(.3, np.array([1., 2., .5])), [U]),
+    # dense precision coupling two parameters of different shapes (3 + 2x3)
+    "QuadraticForm (cross terms)": (
+        QuadraticForm(_spd(9), [.2, np.array([.1, -.1, 0.])]),
+        [U, np.outer(V[:2], U)]),
     "RandomWalk": (RandomWalk(.7), [U, V]),
     "RandomWalk (2 axes, axis 0, s per step)": (
         RandomWalk(np.array([[.5], [2.]]), axis=0),

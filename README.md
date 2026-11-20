@@ -158,6 +158,21 @@ Periods after the last observation are forecasts (the last value carried
 forward). See [docs/examples/football_dynamic.py](docs/examples/football_dynamic.py),
 which chooses `s` by forecasting the next round.
 
+`RandomWalk` and the L2 penalty `Quadratic(u, s)` are both cases of
+`QuadraticForm(Q, u)`, the Gaussian prior `1/2 (p - u)' Q (p - u)` with
+any symmetric precision matrix `Q` over the parameters it is given (dense
+or `scipy.sparse`). `Q` can couple different parameters, e.g. the attack
+and the defence of the same team:
+
+```python
+Q = sp.kron([[1., -.6], [-.6, 1.]], sp.eye(n_teams)) / .3 ** 2
+mle.add_regularization([0, 1], QuadraticForm(Q))
+```
+
+Its Hessian is `Q` itself, passed to the solver as a sparse matrix (or as
+a diagonal when `Q` is diagonal), so a prior adds no cost beyond its
+non-zeros.
+
 ### Who wins, and with what value
 
 `FirstOrderStatistic` covers observations where several participants
