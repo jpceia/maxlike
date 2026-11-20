@@ -160,8 +160,12 @@ Tennis: probability of winning a point → game and tie-break → set score
 
 ![Tennis set model](docs/graphs/tennis_set.svg)
 
-More examples, including a Markov chain of goals, are in
-[`docs/graphs`](docs/graphs).
+Football goals as a Markov chain over the minutes of a match
+(`tests/matrix_test.py`):
+
+![Markov chain of goals](docs/graphs/football_markov.svg)
+
+The Mermaid sources of all these graphs are in [`docs/graphs`](docs/graphs).
 
 ## Limitations
 
