@@ -68,34 +68,28 @@ def hess_tensor(values, params, i=0, j=0,
                   x_map=x_map, y_map=y_map)
 
 
+def as_tuple(params):
+    """Normalises the `params` argument of a Func method to a tuple"""
+    if isinstance(params, tuple):
+        return params
+    if isinstance(params, list):
+        return tuple(params)
+    if params is None:
+        return ()
+    return (params, )
+
+
 def call_wrap(f):
-    #@lru_cache(None)
     @wraps(f)
     def wrapper(obj, params=None):
-        if isinstance(params, tuple):
-            pass
-        elif isinstance(params, list):
-            params = tuple(params)
-        elif params is None:
-            params = ()
-        else:
-            params = (params, )
-        return f(obj, params)
+        return f(obj, as_tuple(params))
     return wrapper
 
 
 def vector_wrap(g):
-    #@lru_cache(None)
     @wraps(g)
     def wrapper(obj, params=None, i=None):
-        if isinstance(params, tuple):
-            pass
-        elif isinstance(params, list):
-            params = tuple(params)
-        elif params is None:
-            params = ()
-        else:
-            params = (params, )
+        params = as_tuple(params)
         if i is not None:
             return g(obj, params, i)
         return [g(obj, params, k) for k in range(len(params))]
@@ -105,14 +99,7 @@ def vector_wrap(g):
 def matrix_wrap(h):
     @wraps(h)
     def wrapper(obj, params=None, i=None, j=None):
-        if isinstance(params, tuple):
-            pass
-        elif isinstance(params, list):
-            params = tuple(params)
-        elif params is None:
-            params = ()
-        else:
-            params = (params, )
+        params = as_tuple(params)
         if i is not None and j is not None:
             return h(obj, params, i, j)
         return [[h(obj, params, k, l)
@@ -121,19 +108,8 @@ def matrix_wrap(h):
     return wrapper
 
 
-def eval_wrap(e):
-    @wraps(e)
-    def wrapper(obj, params=None):
-        if isinstance(params, tuple):
-            pass
-        elif isinstance(params, list):
-            params = tuple(params)
-        elif params is None:
-            params = ()
-        else:
-            params = (params, )
-        return e(obj, params)
-    return wrapper
+# eval takes the same arguments as __call__
+eval_wrap = call_wrap
 
 
 def not_implemented_foo(obj, *args, **kwargs):
@@ -257,30 +233,6 @@ class Compose(Func):
             self.grad = null_method(self)
             self.hess = null_method(self)
 
-        elif isnull(f.hess):
-            def hess(obj, params, i, j):
-                g_val = [g(params) for g in obj.g_list]
-                h_val = sum((obj.f.grad(g_val, k).dot_right(
-                             g.hess(params, i, j).drop_dim())
-                             for k, g in enumerate(obj.g_list)))
-                return h_val
-
-            def eval(obj, params):
-                n = len(params)
-                g_val, g_grad, g_hess = zip(*(g.eval(params) for g in obj.g_list))
-                g_grad = [[d.drop_dim() for d in grad] for grad in g_grad]
-                val, f_grad, f_hess = obj.f.eval(g_val)
-                grad = [sum((f_grad[k].dot_left(d_k[i])
-                             for k, d_k in enumerate(g_grad)))
-                        for i in range(n)]
-                hess = [[sum((f_grad[k].dot_right(h_k[i][j].drop_dim())
-                              for k, h_k in enumerate(g_hess)))
-                         for j in range(i + 1)] for i in range(n)]
-                return val, grad, hess
-            
-            self.hess = MethodType(matrix_wrap(hess), self)
-            self.eval = MethodType(eval, self)
-
     def __call__(self, params):
         g_val = [g(params) for g in self.g_list]
         return self.f(g_val)
@@ -326,21 +278,27 @@ class Compose(Func):
         val, f_grad, f_hess = self.f.eval(g_val)
         grad, hess = [], []
 
+        def f_hess_kl(k, l):
+            return f_hess[l][k].transpose() if l > k else f_hess[k][l]
+
         for i in range(len(params)):
 
             grad.append(sum((
                 f_grad[k].dot_left(d_k[i])
                 for k, d_k in enumerate(g_grad))))
 
+            # first contraction of H_f, shared by the whole row of blocks
+            hf_i = [[f_hess_kl(k, l).dot_left(d_k[i]).transpose()
+                     for l in range(len(g_grad))]
+                    for k, d_k in enumerate(g_grad)]
+
             hess_line = []
             for j in range(i + 1):
                 hess_ij = Tensor(0)
-                for k, (d_k, h_k) in enumerate(zip(g_grad, g_hess)):
+                for k, h_k in enumerate(g_hess):
                     hess_ij += f_grad[k].dot_right(h_k[i][j].drop_dim())
                     for l, d_l in enumerate(g_grad):
-                        h = f_hess[l][k].transpose() if l > k else f_hess[k][l]
-                        hess_ij += h.dot_left(d_k[i]).transpose().\
-                                     dot_left(d_l[j]).transpose()
+                        hess_ij += hf_i[k][l].dot_left(d_l[j]).transpose()
                 hess_line.append(hess_ij)
             hess.append(hess_line)
         return val, grad, hess

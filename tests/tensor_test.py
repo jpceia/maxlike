@@ -542,6 +542,93 @@ class Test(unittest.TestCase):
         m2 = array_dot_right(d, h)
         self.assertTrue(np.allclose(m1, m2), msg.format(m1, m2))
 
+    def test_transpose(self):
+        # dense parameter axes, with x_dim != y_dim and x_dim, y_dim > 1
+        for x_dim, y_dim in [(1, 1), (2, 1), (1, 2), (2, 2), (2, 0)]:
+            shape = (2, 3, 4, 5)[:x_dim] + (6, 7)[:y_dim] + (2, )
+            arr = np.arange(np.prod(shape)).reshape(shape)
+            t = Tensor(arr, x_dim=x_dim, y_dim=y_dim).transpose()
+            self.assertEqual((t.x_dim, t.y_dim), (y_dim, x_dim))
+            expected = np.moveaxis(
+                arr, range(x_dim, x_dim + y_dim), range(y_dim))
+            self.assertEqual(t.values.shape, expected.shape)
+            self.assertTrue(np.array_equal(t.values, expected))
+
+        # mapped (diagonal) axes are transposed together with their maps
+        t = self.a12.transpose()
+        self.assertTrue(np.array_equal(
+            t.toarray(), self.a12.toarray().swapaxes(0, 1)))
+
+    def test_dot_dense_jacobian(self):
+        # self: Jacobian [N, M] of f, other: derivative of g with a diagonal
+        # parameter axis. Whatever the storage of the Jacobian (dense, with
+        # an all-unmapped map, or diagonal), the contraction is the same.
+        n = 3
+        rs = np.random.RandomState(0)
+        jac = rs.rand(n, n)
+        diag = rs.rand(n)
+        dense_jac = Tensor(jac, x_dim=1)
+        unmapped_jac = Tensor(jac, x_dim=1, x_map=array('b', [-1]))
+        diag_jac = Tensor(diag[None, :], x_dim=1, x_map=array('b', [0]))
+        self.assertFalse(unmapped_jac.x_map)
+
+        # dot_left: [X, N] . [N, M] -> [X, M]
+        d = Tensor(rs.rand(1, n), x_dim=1, x_map=array('b', [0]))
+        for j in (dense_jac, unmapped_jac, diag_jac):
+            self.assertTrue(np.allclose(
+                j.dot_left(d).toarray(),
+                np.einsum('xn,nm->xm', d.toarray(), j.toarray())))
+
+        # dot_right: [X, Y, N] . [N, M] -> [X, Y, M]
+        for x_map, y_map in [([0], [0]), ([0], None), (None, [0]),
+                             (None, None)]:
+            shape = (1 if x_map else n, 1 if y_map else n, n)
+            h = Tensor(rs.rand(*shape), x_dim=1, y_dim=1,
+                       x_map=x_map and array('b', x_map),
+                       y_map=y_map and array('b', y_map))
+            for j in (dense_jac, unmapped_jac, diag_jac):
+                self.assertTrue(np.allclose(
+                    j.dot_right(h).toarray(),
+                    np.einsum('xyn,nm->xym', h.toarray(), j.toarray())))
+
+        # self diagonal along one input axis and dense along the other
+        j = Tensor(rs.rand(n, 1, n), x_dim=2, x_map=array('b', [-1, 0]))
+        d = Tensor(rs.rand(1, n, n), x_dim=1, x_map=array('b', [0]))
+        self.assertTrue(np.allclose(
+            j.dot_left(d).toarray(),
+            np.einsum('xab,abm->xm', d.toarray(), j.toarray())))
+
+    def test_mul_cross_diag(self):
+        # both operands diagonal, along different feature axes, with
+        # extra-dimensional axes after the feature axes
+        n = 3
+        rs = np.random.RandomState(0)
+        t1 = Tensor(rs.rand(1, n, n, 2), x_dim=1, dim=1,
+                    x_map=array('b', [0]))
+        t2 = Tensor(rs.rand(1, n, n, 2), x_dim=1, dim=1,
+                    x_map=array('b', [1]))
+        self.check_comm(lambda x, y: x * y, t1, t2)
+
+    def test_mul_take_diag(self):
+        # diagonal * dense along the same parameter axis, in the y space
+        # and with extra-dimensional axes
+        n = 3
+        rs = np.random.RandomState(0)
+        t1 = Tensor(rs.rand(n, 1, n, n, 2), x_dim=1, y_dim=1, dim=1,
+                    y_map=array('b', [0]))
+        t2 = Tensor(rs.rand(n, n, n, n, 2), x_dim=1, y_dim=1, dim=1)
+        self.check_comm(lambda x, y: x * y, t1, t2)
+        self.check_comm(lambda x, y: x * y, t2, t1)
+
+    def test_generic_toarray(self):
+        # elements of a GenericTensor that lack a space broadcast along it
+        n = 3
+        rs = np.random.RandomState(0)
+        t1 = Tensor(rs.rand(1, n, 2), y_dim=1, dim=1, y_map=array('b', [0]))
+        t2 = Tensor(rs.rand(n, n), y_dim=1)
+        self.assertTrue(np.allclose(
+            (t1 + t2).toarray(), t1.toarray() + t2.toarray()[..., None]))
+
 
 if __name__ == "__main__":
     unittest.main()

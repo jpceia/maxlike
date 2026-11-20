@@ -1,6 +1,5 @@
 import abc
 import numpy as np
-from random import getrandbits
 from array import array
 from functools import partial
 from enum import Enum
@@ -53,55 +52,40 @@ def arr_take_diag(arr, q, p, mapping):
     for k, f in enumerate(mapping):
         if f < 0:
             continue
-        arr = np.diagonal(arr, 0, q + k, p + f)  # np.diagonal
-        arr = arr.swapaxes(-1, p + f - 1)
-        arr = np.expand_dims(arr, k)
+        # np.diagonal drops both axes and appends the diagonal at the end
+        arr = np.diagonal(arr, 0, q + k, p + f)
+        arr = np.moveaxis(arr, -1, p + f - 1)
+        arr = np.expand_dims(arr, q + k)
     return arr
 
 
+def arr_eye(ndim, n, ax1, ax2):
+    """Identity of size n laid along axes ax1 and ax2 of an ndim array"""
+    shape = [1] * ndim
+    shape[ax1] = n
+    shape[ax2] = n
+    return np.eye(n).reshape(shape)
+
+
 def arr_expand_diag(arr, q, p, mapping):
-    idx = np.ones(arr.ndim, dtype=np.int32)
     for k, f in enumerate(mapping):
         if f < 0:
             continue
-        n = arr.shape[p + f]
-        idx[q + k] = n
-        idx[p + f] = n
-        arr = arr * np.eye(n).reshape(idx)
-        idx[q + k] = 1
-        idx[p + f] = 1
+        arr = arr * arr_eye(arr.ndim, arr.shape[p + f], q + k, p + f)
     return arr
 
 
 def arr_expand_cross_diag(arr, p, map1, map2):
-    idx = np.ones(arr.ndim, dtype=np.int32)
     for i, j in zip(map1, map2):
         if i == j:
             continue
-        n = arr.shape[p + i]
-        idx[p + i] = n
-        idx[p + j] = n
-        arr = arr * np.broadcast_to(np.eye(n), idx)
-        idx[p + i] = 1
-        idx[p + j] = 1
+        arr = arr * arr_eye(arr.ndim, arr.shape[p + i], p + i, p + j)
     return arr
 
 
-def arr_swapaxes_cross(arr, p, map1, map2):
-    idx = np.ones(arr.ndim, dtype=np.int32)
-    for k, f in enumerate(map2):
-        for l, g in enumerate(map1):
-            if g == f:
-                n = arr.shape[k]
-                idx[l] = n
-                idx[p + k] = n
-                arr = arr * np.broadcast_to(np.eye(n), idx)
-                idx[l] = 1
-                idx[p + k] = 1
-                break
-        else:
-            arr = arr.swapaxes(p + k, p + f)
-    return arr
+def _is_zero(t):
+    """True if `t` is a Tensor holding the scalar 0 (the null tensor)."""
+    return isinstance(t, Tensor) and t.values.ndim == 0 and t.values == 0
 
 
 class TensorOp(Enum):
@@ -232,10 +216,18 @@ class GenericTensor(BaseTensor):
         if elements is None:
             elements = ()
 
-        object.__setattr__(self, 'elements', tuple(elements))
+        # plain scalars / arrays are stored as Tensors; null tensors carry
+        # no shape information and contribute nothing
+        elements = (el if isinstance(el, Tensor) else Tensor(el)
+                    for el in elements)
+        object.__setattr__(self, 'elements', tuple(
+            el for el in elements if not _is_zero(el)))
 
     def toarray(self):
-        return sum([el.toarray() if isinstance(el, Tensor) else el
+        # elements may lack some of the spaces (e.g. x_dim == 0), in which
+        # case they broadcast along them
+        shape = (self.x_dim, self.y_dim, self.n, self.dim)
+        return sum([el.toarray()[el._reshape_idx(*shape)]
                     for el in self.elements])
 
     def sum(self, sum_val=True, sum_dim=True):
@@ -243,31 +235,50 @@ class GenericTensor(BaseTensor):
         if not sum_val and not sum_dim:
             return self
 
+        if not self.elements:
+            return Tensor(0)
+
         if sum_val is False:
             idx = []
         elif sum_val is True:
             idx = np.arange(self.n).tolist()
         else:
             if isinstance(sum_val, int):
-                idx = [sum_val]
-            elif isinstance(sum_val, (tuple, list)):
-                idx = list(sum_val)
-            else:
+                sum_val = [sum_val]
+            elif not isinstance(sum_val, (tuple, list)):
                 raise ValueError
 
+            idx = list(sum_val)
             if len(idx) == self.n:
                 sum_val = True
 
         if sum_dim is True:
             idx += (self.n + np.arange(self.dim)).tolist()
 
+        def summed_shape(el):
+            # sizes of the summed axes in el.values. An element has either all
+            # or none of the feature (resp. distribution) axes; missing axes
+            # broadcast, i.e. count as size 1
+            p = el.x_dim + el.y_dim
+            shape = []
+            for k in idx:
+                if k < self.n:
+                    shape.append(el.values.shape[p + k] if el.n else 1)
+                else:
+                    shape.append(el.values.shape[p + el.n + k - self.n]
+                                 if el.dim else 1)
+            return np.array(shape, dtype=int)
+
         shape_n = np.ones(len(idx), dtype=int)
         el_sizes = np.empty(len(self.elements), dtype=int)
         for k, el in enumerate(self.elements):
-            p = el.x_dim + el.y_dim
-            shape = np.array(el.values.shape)[(p + np.array(idx)).tolist()]
+            shape = summed_shape(el)
             shape_n = np.maximum(shape_n, shape)
-            el_sizes[k] = np.array(shape).prod()
+            el_sizes[k] = shape.prod()
+
+        def el_sum(el):
+            # an element without feature axes has nothing to sum over them
+            return el.sum(sum_val if el.n else False, sum_dim)
 
         size = shape_n.prod()
 
@@ -278,16 +289,18 @@ class GenericTensor(BaseTensor):
                 idx += [None] * (self.x_dim - el.x_dim) + [slice(None)] * el.x_dim
                 idx += [None] * (self.y_dim - el.y_dim) + [slice(None)] * el.y_dim
                 idx += [...]
-                values = values + el.sum(sum_val, sum_dim).\
-                    values[tuple(idx)] * (size / el_size)
+                values = values + el_sum(el).values[tuple(idx)] * \
+                    (size / el_size)
 
             dim = 0 if sum_dim is True else self.dim
             return Tensor(values, x_dim=self.x_dim, y_dim=self.y_dim, dim=dim)
 
-        # else:
-        new_elements = [el.sum(False, sum_dim) * (size / el_size)
+        # else: some of the feature axes remain
+        n = self.n if sum_val is False else self.n - len(sum_val)
+        dim = 0 if sum_dim is True else self.dim
+        new_elements = [el_sum(el) * (size / el_size)
                         for el, el_size in zip(self.elements, el_sizes)]
-        return GenericTensor(self.x_dim, self.y_dim, self.n, 0, new_elements)
+        return GenericTensor(self.x_dim, self.y_dim, n, dim, new_elements)
 
     def expand(self, where, newsize, dim=False):
         new_n = self.n if dim else newsize
@@ -311,50 +324,29 @@ class GenericTensor(BaseTensor):
             self.x_dim, self.y_dim, self.n + self.dim, 0,
             [el.drop_dim() for el in self.elements])
 
-    def dot(self, other):
-        if isinstance(other, Tensor):
-            gt = GenericTensor()
-            for el in self.elements:
-                gt = gt + el.dot(other)
-            return gt
-
+    def _distribute(self, method, other):
+        # the dot products are bilinear: apply them element by element
         if isinstance(other, GenericTensor):
-            gt = GenericTensor()
-            for el in other.elements:
-                gt = gt + self.dot(el)
-            return gt
+            others = other.elements
+        elif isinstance(other, Tensor):
+            others = (other, )
+        else:
+            raise ValueError
 
-        raise ValueError
+        gt = GenericTensor()
+        for other_el in others:
+            for el in self.elements:
+                gt = gt + getattr(el, method)(other_el)
+        return gt
+
+    def dot(self, other):
+        return self._distribute('dot', other)
 
     def dot_left(self, other):
-        if isinstance(other, Tensor):
-            gt = GenericTensor()
-            for el in self.elements:
-                gt = gt + el.dot_left(other)
-            return gt
-
-        if isinstance(other, GenericTensor):
-            gt = GenericTensor()
-            for el in other.elements:
-                gt = gt + self.dot_left(el)
-            return gt
-
-        raise ValueError
+        return self._distribute('dot_left', other)
 
     def dot_right(self, other):
-        if isinstance(other, Tensor):
-            gt = GenericTensor()
-            for el in self.elements:
-                gt = gt + el.dot_right(other)
-            return gt
-
-        if isinstance(other, GenericTensor):
-            gt = GenericTensor()
-            for el in other.elements:
-                gt = gt + self.dot_right(el)
-            return gt
-
-        raise ValueError
+        return self._distribute('dot_right', other)
 
     def __neg__(self):
         return GenericTensor(
@@ -479,6 +471,12 @@ class Tensor(BaseTensor):
         else:
             y_map = array('b')
 
+        # a map without any diagonal axis is the same as no map at all
+        if x_map and max(x_map) < 0:
+            x_map = array('b')
+        if y_map and max(y_map) < 0:
+            y_map = array('b')
+
         object.__setattr__(self, 'x_map', x_map)
         object.__setattr__(self, 'y_map', y_map)
 
@@ -534,12 +532,18 @@ class Tensor(BaseTensor):
 
         # applying cross_map
         for k, f in cross_map.items():
-            idx = [None] * val.ndim
-            idx[k] = slice(None)
-            idx[self.x_dim + f] = slice(None)
-            val = val * np.eye(val.shape[k])[tuple(idx)]
+            val = val * arr_eye(val.ndim, val.shape[k], k, self.x_dim + f)
 
-        return Tensor(val, self.x_dim, self.y_dim, dim)
+        # the remaining feature axes are renumbered; parameter axes that
+        # were diagonal along them stay diagonal
+        def new_map(mapping):
+            return array('b', [
+                -1 if (f < 0 or f in sum_val) else
+                f - sum(1 for g in sum_val if g < f)
+                for f in mapping])
+
+        return Tensor(val, self.x_dim, self.y_dim, dim,
+                      new_map(self.x_map), new_map(self.y_map))
 
     def expand(self, where, newsize, dim=False):
         """
@@ -623,10 +627,10 @@ class Tensor(BaseTensor):
             y_map=self.y_map)
 
     def transpose(self):
-        val = self.values
-        if (self.x_dim > 0) & (self.y_dim > 0):
-            for k in range(0, self.x_dim):
-                val = np.moveaxis(val, self.x_dim, k)
+        # [X, Y, ...] -> [Y, X, ...]
+        val = np.moveaxis(
+            self.values,
+            range(self.x_dim, self.x_dim + self.y_dim), range(self.y_dim))
         return Tensor(val, self.y_dim,  self.x_dim, self.dim,
                       self.y_map, self.x_map)
 
@@ -686,6 +690,13 @@ class Tensor(BaseTensor):
         - N Y M E
           *
         """
+        # a scalar zero on either side (e.g. the gradient of an inner
+        # function with respect to a parameter it does not depend on)
+        # makes the whole contraction vanish; without this shortcut the
+        # shapes below would not be coherent.
+        if _is_zero(self) or _is_zero(other):
+            return Tensor(0)
+
         dim = max(self.dim, other.dim)
 
         if (self.x_dim != other.n) & (self.y_dim == other.n):
@@ -708,11 +719,16 @@ class Tensor(BaseTensor):
         val = arr_swapaxes(val, 0, p, self.x_map)
         val = np.multiply(other.values[tuple(l_idx)], val[tuple(r_idx)])
         val = arr_swapaxes(val, other.x_dim, other.x_dim + p, self.x_map)
-        if self.x_map:
-            x_map = compose_mappings(self.x_map, other.x_map)
-        else:
-            x_map = array('b')
-            val = arr_swapaxes(val, 0, other.x_dim, other.x_map)
+
+        # A diagonal axis of `other` (X_k == N_f) stays diagonal if self is
+        # diagonal along N_f too (N_f == M_g, hence X_k == M_g). Otherwise
+        # it is made explicit by moving the N_f axis to X_k.
+        x_map = array('b')
+        for k, f in enumerate(other.x_map):
+            g = self.x_map[f] if (f >= 0 and self.x_map) else -1
+            if f >= 0 and g < 0:
+                val = val.swapaxes(k, other.x_dim + f)
+            x_map.append(g)
 
         val = val.sum(tuple(other.x_dim + np.arange(other.n)))
         return Tensor(val, x_dim=other.x_dim, y_dim=self.y_dim, dim=dim,
@@ -759,13 +775,28 @@ class Tensor(BaseTensor):
         val = arr_swapaxes(val, 0, self.x_dim, self.x_map)
         val = other.values[tuple(l_idx)] * val[tuple(r_idx)]
         val = arr_swapaxes(val, p, p + self.x_dim, self.x_map)
-        if not self.x_map:
-            val = arr_swapaxes(val, 0, p, other.x_map)
-            val = arr_swapaxes_cross(val, other.x_dim,                      # NOT COVERED
-                                     other.x_map, other.y_map)
 
-        x_map = compose_mappings(self.x_map, other.x_map)
-        y_map = compose_mappings(self.x_map, other.y_map)
+        # Same rule as in dot_left, for both parameter spaces of `other`.
+        x_map = array('b')
+        for k, f in enumerate(other.x_map):
+            g = self.x_map[f] if (f >= 0 and self.x_map) else -1
+            if f >= 0 and g < 0:
+                val = val.swapaxes(k, p + f)
+            x_map.append(g)
+
+        y_map = array('b')
+        for k, f in enumerate(other.y_map):
+            g = self.x_map[f] if (f >= 0 and self.x_map) else -1
+            if f >= 0 and g < 0:
+                if f in other.x_map:
+                    # N_f was already moved to an X axis: Y_k == X_l
+                    l = other.x_map.index(f)
+                    val = val * arr_eye(
+                        val.ndim, val.shape[l], l, other.x_dim + k)
+                else:
+                    val = val.swapaxes(other.x_dim + k, p + f)
+            y_map.append(g)
+
         val = val.sum(tuple(p + np.arange(other.n)))
         return Tensor(val,
                       x_dim=other.x_dim, y_dim=other.y_dim, dim=dim,
@@ -842,6 +873,22 @@ class Tensor(BaseTensor):
                 raise InvalidOperation
 
         if self.values.ndim == 0:
+            # special case: the null tensor on the left. Avoids allocating
+            # (and later summing) a dense array of zeros shaped like `other`
+            if self.values == 0:
+                if op_type in [TensorOp.ADD, TensorOp.RSUB]:
+                    return other
+                elif op_type == TensorOp.SUB:
+                    return -other
+                elif op_type == TensorOp.MUL:
+                    return Tensor(0)
+
+            if op_type in [TensorOp.ADD, TensorOp.SUB, TensorOp.RSUB]:
+                # a scalar added to a mapped tensor fills the off-diagonal
+                # entries too: densify (same as a scalar on the right)
+                return Tensor(
+                    op_type.value(self.values, other.toarray()),
+                    other.x_dim, other.y_dim, other.dim)
             return Tensor(
                 op_type.value(self.values, other.values),
                 other.x_dim, other.y_dim, other.dim, other.x_map, other.y_map)
@@ -868,8 +915,8 @@ class Tensor(BaseTensor):
         l_values = self.values
         r_values = other.values
 
-        l_idx = self.__reshape_idx(x_dim, y_dim, n, dim)
-        r_idx = other.__reshape_idx(x_dim, y_dim, n, dim)
+        l_idx = self._reshape_idx(x_dim, y_dim, n, dim)
+        r_idx = other._reshape_idx(x_dim, y_dim, n, dim)
 
         # --------------------------------------------------------------------
         # Addition and Subtraction
@@ -970,27 +1017,10 @@ class Tensor(BaseTensor):
             raise InvalidOperation('Invalid ufunc:', name)
         return self.bin_op(inputs[0], op_type)
 
-    def __reshape_idx(self, x_dim, y_dim, n, dim):
+    def _reshape_idx(self, x_dim, y_dim, n, dim):
+        # index that pads the spaces this tensor lacks with broadcast axes
         idx = []
-        if self.x_dim > 0:
-            # assert self.x_dim == x_dim
-            idx += [slice(None)] * x_dim
-        elif self.x_dim == 0:
-            idx += [None] * x_dim
-        if self.y_dim > 0:
-            # assert self.y_dim == y_dim
-            idx += [slice(None)] * y_dim
-        elif self.y_dim == 0:
-            idx += [None] * y_dim
-        if self.n > 0:
-            # assert self.n == n
-            idx += [slice(None)] * n
-        elif self.n == 0:
-            idx += [None] * n
-        if self.dim > 0:
-            # assert self.dim == dim
-            idx += [slice(None)] * dim
-        elif self.dim == 0:
-            idx += [None] * dim
-
+        for size, new_size in ((self.x_dim, x_dim), (self.y_dim, y_dim),
+                               (self.n, n), (self.dim, dim)):
+            idx += [slice(None) if size > 0 else None] * new_size
         return tuple(idx)

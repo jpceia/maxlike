@@ -100,3 +100,6 @@ build/
 dist/
 .pytest_cache/
 .coverage
+
+# Claude Code agent worktrees
+.claude/worktrees/

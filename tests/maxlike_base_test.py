@@ -74,3 +74,36 @@ class Test(unittest.TestCase):
         mle.fit(**kwargs)
         self.assertEqual(mle.akaike_information_criterion(),
                          mle.akaine_information_criterion())
+
+
+def model_with_extra_param(n=6, seed=0):
+    """poisson_model plus a 4th parameter that the model does not use."""
+    mle, kwargs = poisson_model(n=n, seed=seed)
+    mle.add_param(np.zeros(2))
+    return mle, kwargs
+
+
+class TestUnusedParams(unittest.TestCase):
+
+    def test_unused_param_raises_clear_error(self):
+        for method in ("newton", "broyden"):
+            mle, kwargs = model_with_extra_param()
+            with self.assertRaisesRegex(ValueError, r"parameter\(s\) 3 "):
+                mle.fit(method=method, **kwargs)
+
+    def test_unused_but_fixed_param(self):
+        mle, kwargs = poisson_model()
+        mle.add_param(np.zeros(2), np.ones(2, dtype=bool))  # all fixed
+        self.assertTrue(mle.fit(**kwargs))
+
+    def test_regularized_only_param(self):
+        # estimated by the regularization alone: minimises (x - 1)^2 / 4
+        from maxlike.func import Quadratic
+        mle, kwargs = model_with_extra_param()
+        mle.add_regularization(3, Quadratic(u=1, s=2))
+        ref, _ = poisson_model()
+        ref.fit(**kwargs)
+        self.assertTrue(mle.fit(**kwargs))
+        np.testing.assert_allclose(mle.get_params()[3], [1, 1], atol=1e-6)
+        for p, q in zip(mle.get_params()[:3], ref.get_params()):
+            np.testing.assert_allclose(p, q, atol=1e-6)

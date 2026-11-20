@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import os
 import unittest
+from .numdiff import derivative_errors
 
 
 class Test(unittest.TestCase):
@@ -77,6 +78,34 @@ class Test(unittest.TestCase):
             index_col=[0])
         np.testing.assert_allclose(a,   df['a'],    atol=tol)
         np.testing.assert_allclose(s_a, df['s_a'],  atol=tol)
+
+    def test_derivatives_2d(self):
+        # p[i, j]: probability that player i wins a point against player j;
+        # the output must stay aligned with (i, j) (regression: the stacking
+        # used to transpose the player axes)
+        p = np.array([[.5, .3, .6], [.7, .5, .45], [.4, .55, .5]])
+        t = np.array([[.5, .2, .65], [.8, .5, .4], [.35, .6, .5]])
+        for foo, params in [(Game(), [p]), (TieBreak(), [p]),
+                            (Set(), [p, t])]:
+            val = np.asarray(foo(params).values)
+            for i, j in [(0, 1), (1, 0), (2, 1)]:
+                single = [np.array([q[i, j]]) for q in params]
+                np.testing.assert_allclose(val[i, j], foo(single).values[0])
+            for use_eval in (True, False):
+                self.assertEqual(
+                    derivative_errors(foo, params, use_eval=use_eval), [])
+
+    def test_derivatives_model(self):
+        F = Sum(2)
+        F.add(X(), 0, 0)
+        F.add(-X(), 0, 1)
+        model = Set() @ [
+            Collapse(Game(), False),
+            Collapse(TieBreak(), False)] @ Logistic() @ F
+        a = np.array([.3, -.1, -.2])
+        for use_eval in (True, False):
+            self.assertEqual(
+                derivative_errors(model, [a], use_eval=use_eval), [])
 
 
 if __name__ == "__main__":
