@@ -972,7 +972,9 @@ class MaxLike(abc.ABC):
     
         if method == "newton":
 
-            max_inner_steps = 5
+            # halvings of the Newton step in the line search; only used when
+            # the full step does not increase the objective
+            max_inner_steps = 30
             for k in range(max_steps):
                 step, g, grad, hess = self.newton_step(params)
                 prev_g = g
