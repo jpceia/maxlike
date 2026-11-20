@@ -504,7 +504,7 @@ class GenericTensor(BaseTensor):
         # the dot products are bilinear: apply them element by element
         if isinstance(other, GenericTensor):
             others = other.elements
-        elif isinstance(other, Tensor):
+        elif isinstance(other, BaseTensor):
             others = (other, )
         else:
             raise ValueError
@@ -596,6 +596,10 @@ class GenericTensor(BaseTensor):
                 return gt
             else:
                 raise InvalidOperation
+
+        if hasattr(other, '_rbin_op'):
+            # tensors with their own structure (see indexed.py)
+            return other._rbin_op(self, op_type)
 
         raise ValueError
 
@@ -878,10 +882,13 @@ class Tensor(BaseTensor):
         if (self.x_dim != other.n) & (self.y_dim == other.n):
             return self.transpose().dot_left(other)
 
-        if isinstance(other, GenericTensor):
-            return GenericTensor(
-                other.x_dim, self.y_dim, self.n, dim,
-                [self.dot_left(el) for el in other.elements])
+        if not isinstance(other, Tensor):
+            if isinstance(other, GenericTensor):
+                return GenericTensor(
+                    other.x_dim, self.y_dim, self.n, dim,
+                    [self.dot_left(el) for el in other.elements])
+            # observation-indexed derivative (see indexed.py)
+            return other._contract_into(self)
 
         return _contract(other, self)
 
@@ -909,10 +916,13 @@ class Tensor(BaseTensor):
         assert self.y_dim == 0
         assert self.x_dim == other.n
 
-        if isinstance(other, GenericTensor):
-            return GenericTensor(
-                other.x_dim, other.y_dim, self.n, dim,
-                [self.dot_right(el) for el in other.elements])
+        if not isinstance(other, Tensor):
+            if isinstance(other, GenericTensor):
+                return GenericTensor(
+                    other.x_dim, other.y_dim, self.n, dim,
+                    [self.dot_right(el) for el in other.elements])
+            # observation-indexed derivative (see indexed.py)
+            return other._contract_into(self)
 
         return _contract(other, self)
 
@@ -951,6 +961,9 @@ class Tensor(BaseTensor):
             if other.values.ndim == 0:
                 is_scalar = True
                 other = other.values
+        elif hasattr(other, '_rbin_op'):
+            # tensors with their own structure (see indexed.py)
+            return other._rbin_op(self, op_type)
         else:
             raise ValueError
 

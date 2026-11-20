@@ -6,7 +6,7 @@ through both foo.eval (used by MaxLike.fit) and foo.grad / foo.hess.
 import unittest
 import numpy as np
 from maxlike.func import (
-    X, Scalar, Vector, Constant, Linear, Quadratic, Exp, Log, Sigmoid,
+    X, Take, Scalar, Vector, Constant, Linear, Quadratic, Exp, Log, Sigmoid,
     Logistic, Poisson, LogNegativeBinomial, NegativeBinomial,
     Sum, Product, Collapse, MarkovMatrix, MarkovVector, CollapseMatrix)
 from .numdiff import derivative_errors
@@ -59,6 +59,107 @@ def product_of_poissons():
     F.add(Poisson(4) @ Exp() @ f1, [0, 1, 2], [0, 1], 1)
     F.add(Poisson(4) @ Exp() @ f2, [0, 1, 2], [1, 0], 0)
     return F
+
+
+# observation-indexed models: 9 observations of 3 teams / players
+HOME = np.array([0, 1, 2, 0, 1, 2, 0, 2, 1])
+AWAY = np.array([1, 2, 0, 2, 0, 1, 1, 0, 2])
+VENUE = rng.normal(0, 1, 9)
+W = rng.uniform(.5, 1.5, 9)
+P = rng.normal(0, .2, 9)
+M = rng.normal(0, .2, (3, 2))
+ROW = np.array([0, 1, 2, 2, 1, 0, 0, 1, 2])
+COL = np.array([0, 0, 0, 1, 1, 1, 0, 1, 0])
+
+
+def take_attack_defence():
+    # y[o] = a[home[o]] - b[away[o]] + h * venue[o]
+    f = Sum(1)
+    f.add(Take(HOME), 0, 0)
+    f.add(-Take(AWAY), 1, 0)
+    f.add(Vector(VENUE), 2, 0)
+    return f
+
+
+def take_same_param():
+    # y[o] = a[home[o]] - a[away[o]]: the same parameter gathered twice
+    f = Sum(1)
+    f.add(Take(HOME), 0, 0)
+    f.add(-Take(AWAY), 0, 0)
+    return f
+
+
+def take_and_grid():
+    # an indexed effect plus one parameter per observation
+    f = Sum(1)
+    f.add(Take(HOME), 0, 0)
+    f.add(X(), 1, 0)
+    return f
+
+
+def take_product():
+    f = Product(1)
+    f.add(Take(HOME), 0, 0)
+    f.add(Exp() @ Take(AWAY, W), 1, 0)
+    return f
+
+
+def take_two_axes():
+    # two indexed effects on different feature axes: y[o, k]
+    f = Sum(2)
+    f.add(Take(HOME), 0, 0)
+    f.add(-Take(COL[:4]), 1, 1)
+    return f
+
+
+def indexed():
+    return {
+        "Take": (Take(HOME), [U]),
+        "Take (weight)": (Take(HOME, W), [U]),
+        "Take (negative index)": (Take(HOME - 3), [U]),
+        "Take (2 axes)": (Take((ROW, COL)), [M]),
+        "Take (index on a grid)": (Take(HOME.reshape(3, 3)), [U]),
+        "Affine @ Take": (2. * Take(HOME) + 1., [U]),
+        "Sum of Take": (take_attack_defence(), [A, B, H]),
+        "Exp @ Sum of Take": (Exp() @ take_attack_defence(), [A, B, H]),
+        "Logistic @ Sum of Take": (
+            Logistic() @ take_attack_defence(), [A, B, H]),
+        "Poisson @ Exp @ Sum of Take": (
+            Poisson(6) @ Exp() @ take_attack_defence(), [A, B, H]),
+        "NegativeBinomial @ Exp @ Sum of Take": (
+            NegativeBinomial(5, 2.) @ Exp() @ take_attack_defence(),
+            [A, B, H]),
+        "Take, same param": (take_same_param(), [A]),
+        "Exp @ Take, same param": (Exp() @ take_same_param(), [A]),
+        "Logistic @ Take, same param": (
+            Logistic() @ take_same_param(), [A]),
+        "Poisson @ Exp @ Take, same param": (
+            Poisson(4) @ Exp() @ take_same_param(), [A]),
+        "Product of Take": (take_product(), [A, B]),
+        "Exp @ Product of Take": (Exp() @ take_product(), [A, B]),
+        "Take on two feature axes": (take_two_axes(), [A, V[:2]]),
+        "Exp @ Take on two feature axes": (
+            Exp() @ take_two_axes(), [A, V[:2]]),
+        "Take and X": (take_and_grid(), [A, P]),
+        "Poisson @ Exp @ (Take and X)": (
+            Poisson(4) @ Exp() @ take_and_grid(), [A, P]),
+        "Collapse of Take": (
+            Collapse(Exp() @ take_attack_defence()), [A, B, H]),
+        "Collapse of Take (dist axes)": (
+            Collapse(Poisson(4) @ Exp() @ take_attack_defence(),
+                     False, True), [A, B, H]),
+        "Collapse of Take (feature axes)": (
+            Collapse(Poisson(4) @ Exp() @ take_attack_defence(),
+                     True, False), [A, B, H]),
+        "Linear @ Exp @ Sum of Take": (
+            Linear([1.]) @ Exp() @ take_attack_defence(), [A, B, H]),
+        "Take @ Exp (gather from a grid)": (
+            Exp() @ Take(HOME) @ Exp() @ X(), [A]),
+        "MarkovMatrix of Take": (
+            MarkovMatrix(steps=6, size=3) @
+            [Exp() @ take_attack_defence(), Exp() @ take_same_param()],
+            [A, B, H]),
+    }
 
 
 ELEMENTARY = {
@@ -155,6 +256,9 @@ class Test(unittest.TestCase):
 
     def test_composite(self):
         self.check(composite())
+
+    def test_indexed(self):
+        self.check(indexed())
 
 
 if __name__ == "__main__":

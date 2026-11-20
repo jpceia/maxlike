@@ -1,5 +1,6 @@
 import numpy as np
-from ..tensor import Tensor
+import scipy.sparse as sp
+from ..tensor import Tensor, IndexedTensor
 from .func_base import Func, grad_tensor, hess_tensor, null_func
 
 
@@ -55,6 +56,18 @@ class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
             2 * np.ones_like(params[i]) / self.s / self.s,
             params, i, j, True, True).sum()
 
+    def hess_sparse(self, params, i, j):
+        """
+        The same as hess, as a scipy.sparse matrix over the flattened
+        parameters (None if null). Used when the Hessian of the problem is
+        assembled as a sparse matrix, where the dense diagonal block
+        returned by hess would not fit.
+        """
+        if i != j:
+            return None
+        size = np.asarray(params[i]).size
+        return sp.diags(np.broadcast_to(2. / self.s / self.s, (size, )))
+
 
 class X(Func):
 
@@ -65,6 +78,91 @@ class X(Func):
         return grad_tensor(np.ones_like(params[0]), params, i, True)
 
     hess = null_func
+
+
+class Take(Func):
+    """
+    Take(index)(p) = p[index]            (times `weight`, if given)
+
+    Gathers one parameter entry per observation: index[o] is the entry of p
+    that observation o depends on (a team, a player, a student, ...). It is
+    the observation-indexed counterpart of X(): the data are listed one
+    observation per row instead of on the grid of all the combinations of
+    the features, so the size of the problem follows the number of
+    observations.
+
+    Parameters
+    ----------
+    index : int array, or tuple of int arrays
+        Entry of the parameter for each observation. For a parameter with
+        several axes, a tuple with one array per axis (as in p[i, j]).
+    weight : array (optional)
+        Per-observation factor (a covariate), broadcast against index.
+
+    The derivative is an incidence matrix with one non-zero per observation,
+    stored as an IndexedTensor.
+    """
+
+    def __init__(self, index, weight=None):
+        if isinstance(index, tuple):
+            index = tuple(np.broadcast_arrays(*index))
+        else:
+            index = (np.asarray(index), )
+        for arr in index:
+            if arr.dtype.kind not in "iu":
+                raise TypeError("Take: the index must be an integer array")
+        self.index = index
+        self.weight = None if weight is None else \
+            np.broadcast_to(np.asarray(weight, dtype=float), index[0].shape)
+        self._flat = (None, None)    # (parameter shape, flat index)
+
+    def _flat_index(self, shape):
+        # position of every observation in the flattened parameter
+        if self._flat[0] == shape:
+            return self._flat[1]
+        if len(shape) != len(self.index):
+            raise ValueError(
+                "Take: %d index array(s) for a parameter with %d axes" %
+                (len(self.index), len(shape)))
+        coords = []
+        for arr, size in zip(self.index, shape):
+            arr = np.where(arr < 0, arr + size, arr)
+            if arr.size and (arr.min() < 0 or arr.max() >= size):
+                raise IndexError(
+                    "Take: index out of bounds for an axis of size %d" % size)
+            coords.append(arr)
+        flat = np.asarray(np.ravel_multi_index(coords, shape), dtype=np.intp)
+        flat.flags["WRITEABLE"] = False
+        self._flat = (shape, flat)
+        return flat
+
+    def __call__(self, params):
+        p = np.asarray(params[0])
+        val = p.reshape(-1)[self._flat_index(p.shape)]
+        if self.weight is not None:
+            val = val * self.weight
+        return Tensor(val)
+
+    def grad(self, params, i):
+        shape = np.shape(np.asarray(params[i]))
+        idx = self._flat_index(shape)
+        vals = self.weight
+        if vals is None:
+            vals = np.broadcast_to(1.0, idx.shape)
+        return IndexedTensor([(idx, None, vals)], x_shape=shape, n=idx.ndim)
+
+    hess = null_func
+
+    def graph_label(self):
+        # label of this function in a model graph (see maxlike.graph)
+        size = self._flat[0]
+        if size is None:
+            size = tuple(int(arr.max()) + 1 if arr.size else 0
+                         for arr in self.index)
+        return "Take(n_obs=%s, size=%s%s)" % (
+            "x".join(map(str, self.index[0].shape)),
+            "x".join(map(str, size)),
+            "" if self.weight is None else ", weighted")
 
 
 class Constant(Func):
