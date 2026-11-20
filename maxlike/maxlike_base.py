@@ -187,6 +187,15 @@ class MaxLike(abc.ABC):
 
         self.reg.append((param_map, h))
 
+    def graph(self, param_names=None):
+        """
+        Computation graph of the problem: parameters, model, likelihood,
+        constraints and regularizations (see maxlike.graph). Export it with
+        .to_dot(), .to_mermaid() or .render(path).
+        """
+        from .graph import maxlike_graph
+        return maxlike_graph(self, param_names)
+
     def akaike_information_criterion(self, nb_extra_params=0):
         """
         Akaike information criterion (AIC)
