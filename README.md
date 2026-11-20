@@ -113,6 +113,22 @@ player who always wins) gives a warning instead of silently returning
 diverging estimates. Newton steps that would decrease the objective (a
 non-concave start) are damped automatically.
 
+### Who wins, and with what value
+
+`FirstOrderStatistic` covers observations where several participants
+draw latent values, the smallest wins, and only the winner and the
+winning value are observed: the lowest bid in a public tender, the
+fastest time in a race, the first event among competing risks. Losing
+participants contribute through the probability that they drew more, so
+each participant's distribution is recovered from winners only. A latent
+common factor per observation (e.g. the cost of a tender, which moves all
+bids together) is integrated out. Fit it with `maxlike.LogLikelihood`.
+
+See [docs/first_order_statistic.md](docs/first_order_statistic.md) for
+the formulas, and
+[docs/examples/procurement_auction.py](docs/examples/procurement_auction.py)
+for a worked example.
+
 ## How it works
 
 A problem has three independent parts.

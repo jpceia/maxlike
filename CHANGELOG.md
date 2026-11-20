@@ -13,12 +13,23 @@
 - `IdentifiabilityError` and `identifiability()`: name the parameters along
   which the objective is flat when a constraint is missing.
 - A warning for separated data in logistic models.
+- `LogLikelihood`: fit models that return the log-likelihood of each
+  observation.
+- `FirstOrderStatistic`: the smallest of several latent values wins and
+  only the winner and the winning value are observed (auctions, races,
+  competing risks), optionally with a latent common factor per
+  observation. Documented in `docs/first_order_statistic.md`.
 
 ### Fixed
 - The convergence test no longer divides by the objective; refitting from
   the optimum no longer raises a ConvergenceError.
 - Newton steps that would decrease the objective (Hessian not negative
   definite) are damped Levenberg-Marquardt style.
+- The cross second derivative of `MarkovMatrix` with a non-uniform `skew`
+  was wrong.
+
+### Performance
+- `MarkovMatrix` and `MarkovVector` are vectorised (2x to 4x faster).
 - `MaxLike.graph()` and `Func.graph()` build the computation graph of a
   model. Export it as Graphviz DOT or Mermaid text, or render it with the
   optional extra `pip install "maxlike[graph]"`.
