@@ -53,9 +53,10 @@ def arr_take_diag(arr, q, p, mapping):
     for k, f in enumerate(mapping):
         if f < 0:
             continue
-        arr = np.diagonal(arr, 0, q + k, p + f)  # np.diagonal
-        arr = arr.swapaxes(-1, p + f - 1)
-        arr = np.expand_dims(arr, k)
+        # np.diagonal drops both axes and appends the diagonal at the end
+        arr = np.diagonal(arr, 0, q + k, p + f)
+        arr = np.moveaxis(arr, -1, p + f - 1)
+        arr = np.expand_dims(arr, q + k)
     return arr
 
 
@@ -216,12 +217,18 @@ class GenericTensor(BaseTensor):
         if elements is None:
             elements = ()
 
-        # null tensors carry no shape information and contribute nothing
+        # plain scalars / arrays are stored as Tensors; null tensors carry
+        # no shape information and contribute nothing
+        elements = (el if isinstance(el, Tensor) else Tensor(el)
+                    for el in elements)
         object.__setattr__(self, 'elements', tuple(
             el for el in elements if not _is_zero(el)))
 
     def toarray(self):
-        return sum([el.toarray() if isinstance(el, Tensor) else el
+        # elements may lack some of the spaces (e.g. x_dim == 0), in which
+        # case they broadcast along them
+        shape = (self.x_dim, self.y_dim, self.n, self.dim)
+        return sum([el.toarray()[el._reshape_idx(*shape)]
                     for el in self.elements])
 
     def sum(self, sum_val=True, sum_dim=True):
@@ -897,8 +904,8 @@ class Tensor(BaseTensor):
         l_values = self.values
         r_values = other.values
 
-        l_idx = self.__reshape_idx(x_dim, y_dim, n, dim)
-        r_idx = other.__reshape_idx(x_dim, y_dim, n, dim)
+        l_idx = self._reshape_idx(x_dim, y_dim, n, dim)
+        r_idx = other._reshape_idx(x_dim, y_dim, n, dim)
 
         # --------------------------------------------------------------------
         # Addition and Subtraction
@@ -999,7 +1006,7 @@ class Tensor(BaseTensor):
             raise InvalidOperation('Invalid ufunc:', name)
         return self.bin_op(inputs[0], op_type)
 
-    def __reshape_idx(self, x_dim, y_dim, n, dim):
+    def _reshape_idx(self, x_dim, y_dim, n, dim):
         idx = []
         if self.x_dim > 0:
             # assert self.x_dim == x_dim

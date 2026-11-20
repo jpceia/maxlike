@@ -609,6 +609,26 @@ class Test(unittest.TestCase):
                     x_map=array('b', [1]))
         self.check_comm(lambda x, y: x * y, t1, t2)
 
+    def test_mul_take_diag(self):
+        # diagonal * dense along the same parameter axis, in the y space
+        # and with extra-dimensional axes
+        n = 3
+        rs = np.random.RandomState(0)
+        t1 = Tensor(rs.rand(n, 1, n, n, 2), x_dim=1, y_dim=1, dim=1,
+                    y_map=array('b', [0]))
+        t2 = Tensor(rs.rand(n, n, n, n, 2), x_dim=1, y_dim=1, dim=1)
+        self.check_comm(lambda x, y: x * y, t1, t2)
+        self.check_comm(lambda x, y: x * y, t2, t1)
+
+    def test_generic_toarray(self):
+        # elements of a GenericTensor that lack a space broadcast along it
+        n = 3
+        rs = np.random.RandomState(0)
+        t1 = Tensor(rs.rand(1, n, 2), y_dim=1, dim=1, y_map=array('b', [0]))
+        t2 = Tensor(rs.rand(n, n), y_dim=1)
+        self.assertTrue(np.allclose(
+            (t1 + t2).toarray(), t1.toarray() + t2.toarray()[..., None]))
+
 
 if __name__ == "__main__":
     unittest.main()
