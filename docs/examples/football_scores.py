@@ -7,7 +7,7 @@ Home and away goals are Poisson with rates
     exp(attack[away] - defence[home] - home / 2)
 and the model is the joint distribution of the score (x, y), fitted to the
 observed scores with a Finite (multinomial) likelihood over the 8 x 8
-score grid (scores capped at 7). Win/draw/loss and over/under 2.5 goals
+score grid (7 goals meaning "7 or more"). Win/draw/loss and over/under 2.5 goals
 are then functions of the score matrix (CollapseMatrix), predicted with
 delta-method standard errors.
 
@@ -39,23 +39,21 @@ def rates():
     return home_rate, away_rate
 
 
-def score_model(size=MAX_GOALS, normalised=False):
+def score_model(size=MAX_GOALS):
     """
     P(home scores x, away scores y) on the (home, away, x, y) grid.
 
-    maxlike's Poisson is lambda^x / x! (without exp(-lambda)): enough to fit
-    a Finite likelihood, which normalises over the grid. normalised=True
-    adds the exp(-lambda) factors, for actual probabilities.
+    Poisson(normalised=True) gives probabilities; its default 'censor' tail
+    makes the last goal count mean "size - 1 or more", like the data, where
+    scores above 7 are recorded as 7.
     """
     home_rate, away_rate = rates()
+    goals = Poisson(size, normalised=True)
     score = Product(2, 2)
     # home goals: teams in (home, away) order, distribution axis 0 (x)
-    score.add(Poisson(size) @ Exp() @ home_rate, [0, 1, 2], [0, 1], 0)
+    score.add(goals @ Exp() @ home_rate, [0, 1, 2], [0, 1], 0)
     # away goals: teams swapped, distribution axis 1 (y)
-    score.add(Poisson(size) @ Exp() @ away_rate, [0, 1, 2], [1, 0], 1)
-    if normalised:
-        score.add(Exp() @ (-1. * (Exp() @ home_rate)), [0, 1, 2], [0, 1])
-        score.add(Exp() @ (-1. * (Exp() @ away_rate)), [0, 1, 2], [1, 0])
+    score.add(goals @ Exp() @ away_rate, [0, 1, 2], [1, 0], 1)
     return score
 
 
@@ -84,10 +82,8 @@ def main():
     home, away = strength.idxmax(), strength.sort_values().index[len(teams) // 2]
     i, j = teams.index(home), teams.index(away)
 
-    # probabilities on a larger grid (scores up to 19), so that no
-    # mass is lost; markets are functions of the score matrix, predicted
-    # with standard errors
-    scores = score_model(size=20, normalised=True)
+    # markets are functions of the score matrix, predicted with standard
+    # errors
     markets = {
         "1X2": (CollapseMatrix(), ["home win", "draw", "away win"]),
         "goals": (CollapseMatrix([(1, 1, -2.5, 1), (1, 1, -2.5, -1)]),
@@ -95,15 +91,15 @@ def main():
     }
     print("%s (home) v %s" % (home, away))
     for name, (collapse, labels) in markets.items():
-        value, se = mle.predict(collapse @ scores, se=True)
+        value, se = mle.predict(collapse @ mle.model, se=True)
         for k, label in enumerate(labels):
             print("  %-10s %.3f +/- %.3f" % (label, value[i, j, k],
                                            se[i, j, k]))
 
-    probs = mle.predict(scores)[i, j]
+    probs = mle.predict()[i, j]
     x, y = np.unravel_index(np.argmax(probs), probs.shape)
-    print("  most likely score %d-%d (probability %.3f); total mass %.6f" % (
-        x, y, probs[x, y], probs.sum()))
+    print("  most likely score %d-%d (probability %.3f)" % (
+        x, y, probs[x, y]))
     return mle
 
 
