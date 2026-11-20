@@ -183,6 +183,11 @@ class Test(unittest.TestCase):
             self.check_fd(
                 Collapse(Exp() @ s, sum_val=sum_val), [a, a + .1])
 
+    def test_vector_shape_error(self):
+        from maxlike.func import Vector
+        with self.assertRaisesRegex(ValueError, "scalar or have the shape"):
+            Vector(np.ones(3)).grad([np.ones((2, 1))], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

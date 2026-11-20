@@ -65,6 +65,8 @@ ELEMENTARY = {
     "X": (X(), [U]),
     "Scalar": (Scalar(), [.7]),
     "Vector": (Vector(V), [.7]),
+    "Vector (element-wise)": (Vector(V), [U]),
+    "Vector (broadcast v)": (Vector(V), [np.outer(U, V)]),
     "Constant": (Constant(V), [U]),
     "Linear": (Linear([1., 2.]), [U, V]),
     "Linear @ Exp": (Linear([2.]) @ Exp(), [U]),

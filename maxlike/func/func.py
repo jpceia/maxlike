@@ -91,6 +91,12 @@ class Scalar(Func):
 
 
 class Vector(Func):
+    """
+    Vector(v)(p) = p * v
+
+    p is either a scalar (the output is v scaled by p) or an array with the
+    shape of the output (element-wise product, v broadcast against p).
+    """
 
     def __init__(self, vector):
         self.vector = np.asarray(vector)
@@ -99,7 +105,17 @@ class Vector(Func):
         return Tensor(np.asarray(params[0]) * self.vector)
 
     def grad(self, params, i):
-        return grad_tensor(self.vector, params, i, None)
+        p = np.asarray(params[i])
+        if p.ndim == 0:
+            return grad_tensor(self.vector, params, i, None)
+        shape = np.broadcast_shapes(p.shape, self.vector.shape)
+        if p.shape != shape:
+            raise ValueError(
+                "Vector: the parameter must be a scalar or have the shape "
+                "of the output %s, got %s" % (shape, p.shape))
+        # element-wise product: the derivative is diagonal, equal to v
+        return grad_tensor(np.broadcast_to(self.vector, shape),
+                           params, i, True)
 
     hess = null_func
 
