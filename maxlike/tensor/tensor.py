@@ -1,6 +1,5 @@
 import abc
 import numpy as np
-from random import getrandbits
 from array import array
 from functools import partial
 from enum import Enum
@@ -308,50 +307,29 @@ class GenericTensor(BaseTensor):
             self.x_dim, self.y_dim, self.n + self.dim, 0,
             [el.drop_dim() for el in self.elements])
 
-    def dot(self, other):
-        if isinstance(other, Tensor):
-            gt = GenericTensor()
-            for el in self.elements:
-                gt = gt + el.dot(other)
-            return gt
-
+    def _distribute(self, method, other):
+        # the dot products are bilinear: apply them element by element
         if isinstance(other, GenericTensor):
-            gt = GenericTensor()
-            for el in other.elements:
-                gt = gt + self.dot(el)
-            return gt
+            others = other.elements
+        elif isinstance(other, Tensor):
+            others = (other, )
+        else:
+            raise ValueError
 
-        raise ValueError
+        gt = GenericTensor()
+        for other_el in others:
+            for el in self.elements:
+                gt = gt + getattr(el, method)(other_el)
+        return gt
+
+    def dot(self, other):
+        return self._distribute('dot', other)
 
     def dot_left(self, other):
-        if isinstance(other, Tensor):
-            gt = GenericTensor()
-            for el in self.elements:
-                gt = gt + el.dot_left(other)
-            return gt
-
-        if isinstance(other, GenericTensor):
-            gt = GenericTensor()
-            for el in other.elements:
-                gt = gt + self.dot_left(el)
-            return gt
-
-        raise ValueError
+        return self._distribute('dot_left', other)
 
     def dot_right(self, other):
-        if isinstance(other, Tensor):
-            gt = GenericTensor()
-            for el in self.elements:
-                gt = gt + el.dot_right(other)
-            return gt
-
-        if isinstance(other, GenericTensor):
-            gt = GenericTensor()
-            for el in other.elements:
-                gt = gt + self.dot_right(el)
-            return gt
-
-        raise ValueError
+        return self._distribute('dot_right', other)
 
     def __neg__(self):
         return GenericTensor(
@@ -1017,26 +995,9 @@ class Tensor(BaseTensor):
         return self.bin_op(inputs[0], op_type)
 
     def _reshape_idx(self, x_dim, y_dim, n, dim):
+        # index that pads the spaces this tensor lacks with broadcast axes
         idx = []
-        if self.x_dim > 0:
-            # assert self.x_dim == x_dim
-            idx += [slice(None)] * x_dim
-        elif self.x_dim == 0:
-            idx += [None] * x_dim
-        if self.y_dim > 0:
-            # assert self.y_dim == y_dim
-            idx += [slice(None)] * y_dim
-        elif self.y_dim == 0:
-            idx += [None] * y_dim
-        if self.n > 0:
-            # assert self.n == n
-            idx += [slice(None)] * n
-        elif self.n == 0:
-            idx += [None] * n
-        if self.dim > 0:
-            # assert self.dim == dim
-            idx += [slice(None)] * dim
-        elif self.dim == 0:
-            idx += [None] * dim
-
+        for size, new_size in ((self.x_dim, x_dim), (self.y_dim, y_dim),
+                               (self.n, n), (self.dim, dim)):
+            idx += [slice(None) if size > 0 else None] * new_size
         return tuple(idx)
