@@ -1,3 +1,5 @@
+__version__ = "2.4.0"
+
 from . import func
 from . import skellam
 from . import preprocessing

@@ -1,6 +1,6 @@
 from ..tensor import Tensor
 from .func_base import Func, Affine, null_method, isnull
-from six.moves import reduce
+from functools import reduce
 from types import MethodType
 
 

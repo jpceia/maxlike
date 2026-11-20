@@ -1,5 +1,4 @@
 import numpy as np
-from six import with_metaclass
 from types import MethodType
 from array import array
 from functools import wraps
@@ -167,7 +166,7 @@ class FuncMeta(type):
         return type.__new__(cls, name, bases, attrs, **kwargs)
 
 
-class Func(with_metaclass(FuncMeta, object)):
+class Func(metaclass=FuncMeta):
 
     def __call__(self, params):
         raise NotImplementedError
