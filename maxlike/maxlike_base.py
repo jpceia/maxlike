@@ -542,29 +542,26 @@ class MaxLike(abc.ABC):
                 "regularization, so they cannot be estimated; fix all their "
                 "values or remove them" % ", ".join(map(str, unused)))
 
-    # rcond below which the Newton system is treated as singular
-    _SINGULAR_RCOND = 1e-13
+    # relative residual above which a solution of the Newton system is
+    # considered unreliable (numerically singular system)
+    _SINGULAR_RESIDUAL = 1e-6
 
     def _solve_newton(self, lhess, lgrad):
         """
         Solves the (bordered) Newton system. Raises _SingularHessian when it
-        is numerically singular. Uses the same LAPACK routines as
-        np.linalg.solve (getrf/getrs) plus a cheap condition estimate.
+        is singular: exactly (LAPACK reports it) or numerically (non-finite
+        solution or large residual, a cheap matrix-vector check).
         """
-        from scipy.linalg import lu_factor, lu_solve, LinAlgWarning
-        from scipy.linalg.lapack import dgecon
-        import warnings
-        lhess = np.asarray(lhess, dtype=float)
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", LinAlgWarning)
-            try:
-                lu, piv = lu_factor(lhess, check_finite=False)
-            except (LinAlgWarning, np.linalg.LinAlgError):
-                raise _SingularHessian
-        rcond, _ = dgecon(lu, np.abs(lhess).sum(0).max(), norm="1")
-        if not rcond > self._SINGULAR_RCOND:
+        try:
+            step = np.linalg.solve(lhess, lgrad)
+        except np.linalg.LinAlgError:
             raise _SingularHessian
-        return lu_solve((lu, piv), lgrad, check_finite=False)
+        if not np.all(np.isfinite(step)):
+            raise _SingularHessian
+        residual = np.abs(lhess.dot(step) - lgrad).max()
+        if residual > self._SINGULAR_RESIDUAL * max(np.abs(lgrad).max(), 1e-300):
+            raise _SingularHessian
+        return step
 
     def _newton_direction(self, params, lgrad, lhess):
         """
