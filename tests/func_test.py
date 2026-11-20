@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 from maxlike.func import (
-    Exp, Sigmoid, Scalar, Sum, Product, Affine, X,
+    Exp, Sigmoid, Scalar, Sum, Product, Affine, X, Quadratic,
     MarkovMatrix, Poisson, LogNegativeBinomial)
 
 
@@ -21,6 +21,39 @@ class Test(unittest.TestCase):
                     h.toarray(),
                     foo.hess(params, i, j).toarray()))
 
+
+    def check_fd(self, foo, params, e=1e-6, atol=1e-6):
+        """
+        Central finite differences: value -> grad and grad -> hess
+        (hess[i][j] has the axes of params[i] first, then params[j])
+        """
+        def dense(t):
+            return np.asarray(t.toarray(), dtype=float)
+
+        def num_jac(fun, i):
+            jac = []
+            for k in range(params[i].size):
+                bump = np.zeros(params[i].size)
+                bump[k] = e
+                bump = bump.reshape(params[i].shape)
+                up = [p + bump if l == i else p
+                      for l, p in enumerate(params)]
+                dn = [p - bump if l == i else p
+                      for l, p in enumerate(params)]
+                jac.append((dense(fun(up)) - dense(fun(dn))) / (2 * e))
+            jac = np.stack(jac)
+            return jac.reshape(params[i].shape + jac.shape[1:])
+
+        def assert_close(a, b):
+            a, b = np.broadcast_arrays(dense(a), b)
+            self.assertTrue(np.allclose(a, b, atol=atol))
+
+        val, grad, hess = foo.eval(params)
+        for i in range(len(params)):
+            assert_close(grad[i], num_jac(foo, i))
+            for j in range(i + 1):
+                assert_close(
+                    hess[i][j], num_jac(lambda q: foo.grad(q, j), i))
 
     def check_comm_run(self, foo, n=1, params_list=None):
         if n == 1:
@@ -104,23 +137,29 @@ class Test(unittest.TestCase):
         params = [np.array([.1, -.2, .3]), np.array([.2, .4, -.1])]
         self.check_comm(foo, params)
 
-        # finite differences: value -> grad and grad -> hess
-        e = 1e-6
-        val, grad, hess = foo.eval(params)
-        for i in range(2):
-            for k in range(3):
-                up = [p.copy() for p in params]
-                dn = [p.copy() for p in params]
-                up[i][k] += e
-                dn[i][k] -= e
-                num = (foo(up).toarray() - foo(dn).toarray()) / (2 * e)
-                self.assertTrue(np.allclose(
-                    grad[i].toarray()[k], num, atol=1e-6))
-                for j in range(i + 1):
-                    num = (foo.grad(up, j).toarray() -
-                           foo.grad(dn, j).toarray()) / (2 * e)
-                    self.assertTrue(np.allclose(
-                        hess[i][j].toarray()[k], num, atol=1e-6))
+        self.check_fd(foo, params)
+
+    def test_compose_dense_outer(self):
+        # Outer function whose gradient is dense (no diagonal axes) while
+        # the inner derivatives are diagonal: the diagonals have to be made
+        # explicit by the chain rule.
+        a = np.array([.1, -.2, .3])
+        b = np.array([.2, .4, -.1, .5])
+        m = np.arange(6.).reshape((3, 2)) / 10
+        foo = Quadratic(.1, 2.) @ Exp()
+        self.check_fd(foo, [a])
+        self.check_fd(foo, [m])
+
+        s = Sum(2)
+        s.add(X(), 0, 0)
+        s.add(-X(), 1, 1)
+        self.check_fd(foo @ s, [a, b])
+
+        # the same parameter on two feature axes
+        s = Sum(2)
+        s.add(X(), 0, 0)
+        s.add(-X(), 0, 1)
+        self.check_fd(foo @ s, [a])
 
 
 if __name__ == "__main__":

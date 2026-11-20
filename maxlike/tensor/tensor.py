@@ -59,48 +59,27 @@ def arr_take_diag(arr, q, p, mapping):
     return arr
 
 
+def arr_eye(ndim, n, ax1, ax2):
+    """Identity of size n laid along axes ax1 and ax2 of an ndim array"""
+    shape = [1] * ndim
+    shape[ax1] = n
+    shape[ax2] = n
+    return np.eye(n).reshape(shape)
+
+
 def arr_expand_diag(arr, q, p, mapping):
-    idx = np.ones(arr.ndim, dtype=np.int32)
     for k, f in enumerate(mapping):
         if f < 0:
             continue
-        n = arr.shape[p + f]
-        idx[q + k] = n
-        idx[p + f] = n
-        arr = arr * np.eye(n).reshape(idx)
-        idx[q + k] = 1
-        idx[p + f] = 1
+        arr = arr * arr_eye(arr.ndim, arr.shape[p + f], q + k, p + f)
     return arr
 
 
 def arr_expand_cross_diag(arr, p, map1, map2):
-    idx = np.ones(arr.ndim, dtype=np.int32)
     for i, j in zip(map1, map2):
         if i == j:
             continue
-        n = arr.shape[p + i]
-        idx[p + i] = n
-        idx[p + j] = n
-        arr = arr * np.broadcast_to(np.eye(n), idx)
-        idx[p + i] = 1
-        idx[p + j] = 1
-    return arr
-
-
-def arr_swapaxes_cross(arr, p, map1, map2):
-    idx = np.ones(arr.ndim, dtype=np.int32)
-    for k, f in enumerate(map2):
-        for l, g in enumerate(map1):
-            if g == f:
-                n = arr.shape[k]
-                idx[l] = n
-                idx[p + k] = n
-                arr = arr * np.broadcast_to(np.eye(n), idx)
-                idx[l] = 1
-                idx[p + k] = 1
-                break
-        else:
-            arr = arr.swapaxes(p + k, p + f)
+        arr = arr * arr_eye(arr.ndim, arr.shape[p + i], p + i, p + j)
     return arr
 
 
@@ -489,6 +468,12 @@ class Tensor(BaseTensor):
         else:
             y_map = array('b')
 
+        # a map without any diagonal axis is the same as no map at all
+        if x_map and max(x_map) < 0:
+            x_map = array('b')
+        if y_map and max(y_map) < 0:
+            y_map = array('b')
+
         object.__setattr__(self, 'x_map', x_map)
         object.__setattr__(self, 'y_map', y_map)
 
@@ -544,10 +529,7 @@ class Tensor(BaseTensor):
 
         # applying cross_map
         for k, f in cross_map.items():
-            idx = [None] * val.ndim
-            idx[k] = slice(None)
-            idx[self.x_dim + f] = slice(None)
-            val = val * np.eye(val.shape[k])[tuple(idx)]
+            val = val * arr_eye(val.ndim, val.shape[k], k, self.x_dim + f)
 
         return Tensor(val, self.x_dim, self.y_dim, dim)
 
@@ -725,11 +707,16 @@ class Tensor(BaseTensor):
         val = arr_swapaxes(val, 0, p, self.x_map)
         val = np.multiply(other.values[tuple(l_idx)], val[tuple(r_idx)])
         val = arr_swapaxes(val, other.x_dim, other.x_dim + p, self.x_map)
-        if self.x_map:
-            x_map = compose_mappings(self.x_map, other.x_map)
-        else:
-            x_map = array('b')
-            val = arr_swapaxes(val, 0, other.x_dim, other.x_map)
+
+        # A diagonal axis of `other` (X_k == N_f) stays diagonal if self is
+        # diagonal along N_f too (N_f == M_g, hence X_k == M_g). Otherwise
+        # it is made explicit by moving the N_f axis to X_k.
+        x_map = array('b')
+        for k, f in enumerate(other.x_map):
+            g = self.x_map[f] if (f >= 0 and self.x_map) else -1
+            if f >= 0 and g < 0:
+                val = val.swapaxes(k, other.x_dim + f)
+            x_map.append(g)
 
         val = val.sum(tuple(other.x_dim + np.arange(other.n)))
         return Tensor(val, x_dim=other.x_dim, y_dim=self.y_dim, dim=dim,
@@ -776,13 +763,28 @@ class Tensor(BaseTensor):
         val = arr_swapaxes(val, 0, self.x_dim, self.x_map)
         val = other.values[tuple(l_idx)] * val[tuple(r_idx)]
         val = arr_swapaxes(val, p, p + self.x_dim, self.x_map)
-        if not self.x_map:
-            val = arr_swapaxes(val, 0, p, other.x_map)
-            val = arr_swapaxes_cross(val, other.x_dim,                      # NOT COVERED
-                                     other.x_map, other.y_map)
 
-        x_map = compose_mappings(self.x_map, other.x_map)
-        y_map = compose_mappings(self.x_map, other.y_map)
+        # Same rule as in dot_left, for both parameter spaces of `other`.
+        x_map = array('b')
+        for k, f in enumerate(other.x_map):
+            g = self.x_map[f] if (f >= 0 and self.x_map) else -1
+            if f >= 0 and g < 0:
+                val = val.swapaxes(k, p + f)
+            x_map.append(g)
+
+        y_map = array('b')
+        for k, f in enumerate(other.y_map):
+            g = self.x_map[f] if (f >= 0 and self.x_map) else -1
+            if f >= 0 and g < 0:
+                if f in other.x_map:
+                    # N_f was already moved to an X axis: Y_k == X_l
+                    l = other.x_map.index(f)
+                    val = val * arr_eye(
+                        val.ndim, val.shape[l], l, other.x_dim + k)
+                else:
+                    val = val.swapaxes(other.x_dim + k, p + f)
+            y_map.append(g)
+
         val = val.sum(tuple(p + np.arange(other.n)))
         return Tensor(val,
                       x_dim=other.x_dim, y_dim=other.y_dim, dim=dim,
