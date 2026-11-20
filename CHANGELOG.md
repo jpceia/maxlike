@@ -25,6 +25,12 @@
 - Notebooks in `docs/notebooks`, one per example: theory, model graph,
   fit, predictions and charts that check the fit (`pip install
   "maxlike[notebooks]"`), executed in CI.
+- `func.RandomWalk(s, axis)`: Gaussian random-walk penalty along a time
+  axis, for parameters that change over time (dynamic team strengths),
+  with a sparse Hessian.
+- Example and notebook on dynamic football strengths
+  (`docs/examples/football_dynamic.py`): attack and defence per team and
+  round, the step size chosen by one-round-ahead forecasts.
 - Runnable examples in `docs/examples`: football goals, football score
   distribution and betting markets, calibration to market 1X2
   probabilities, tennis, and a race; `tests/examples_test.py` runs them.

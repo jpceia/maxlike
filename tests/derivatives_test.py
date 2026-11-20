@@ -6,8 +6,8 @@ through both foo.eval (used by MaxLike.fit) and foo.grad / foo.hess.
 import unittest
 import numpy as np
 from maxlike.func import (
-    X, Take, Scalar, Vector, Constant, Linear, Quadratic, Exp, Log, Sigmoid,
-    Logistic, Poisson, LogNegativeBinomial, NegativeBinomial,
+    X, Take, Scalar, Vector, Constant, Linear, Quadratic, RandomWalk, Exp,
+    Log, Sigmoid, Logistic, Poisson, LogNegativeBinomial, NegativeBinomial,
     Sum, Product, Collapse, MarkovMatrix, MarkovVector, CollapseMatrix)
 from .numdiff import derivative_errors
 
@@ -173,6 +173,10 @@ ELEMENTARY = {
     "Linear @ Exp": (Linear([2.]) @ Exp(), [U]),
     "Exp @ Linear": (Exp() @ Linear([1., -1.]), [U, V]),
     "Quadratic": (Quadratic(.3, 2.), [U, V]),
+    "RandomWalk": (RandomWalk(.7), [U, V]),
+    "RandomWalk (2 axes, axis 0, s per step)": (
+        RandomWalk(np.array([[.5], [2.]]), axis=0),
+        [np.outer(U, V), np.outer(V, U)]),
     "Exp": (Exp(), [U]),
     "Log": (Log(), [U]),
     "Logistic": (Sigmoid("logistic"), [U]),

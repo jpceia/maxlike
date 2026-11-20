@@ -11,7 +11,7 @@ import scipy.sparse as sp
 import maxlike
 from maxlike import linalg
 from maxlike.func import (
-    X, Take, Vector, Sum, Linear, Quadratic, Exp, Poisson)
+    X, Take, Vector, Sum, Linear, Quadratic, RandomWalk, Exp, Poisson)
 from maxlike.preprocessing import prepare_index, prepare_observations
 
 
@@ -177,6 +177,35 @@ class Test(unittest.TestCase):
             return mle
 
         self.both_assemblies(build, grid)
+
+    def test_random_walk(self):
+        # attack and defence per team and period, tied by a random walk
+        n, n_periods = 8, 5
+        att, dfn, venue, goals = football_data(n, 100, seed=4)
+        period = np.arange(goals.size) * n_periods // goals.size
+        ones = np.ones(goals.size)
+
+        def build():
+            model = Sum(1)
+            model.add(Take((att, period)), 0, 0)
+            model.add(-Take((dfn, period)), 1, 0)
+            model.add(Vector(venue - .5), 2, 0)
+            mle = maxlike.Poisson()
+            mle.model = model
+            mle.add_constraint([0, 1], Linear([1, 1]))
+            mle.add_regularization([0, 1], RandomWalk(.1))
+            mle.add_param(np.zeros((n, n_periods)))
+            mle.add_param(np.zeros((n, n_periods)))
+            mle.add_param(0.)
+            mle.fit(N=ones, X=goals)
+            return mle
+
+        maxlike.maxlike_base.MaxLike.sparse_hess = False
+        reference = build()
+        maxlike.maxlike_base.MaxLike.sparse_hess = None
+        a = np.ma.getdata(reference.get_params()[0])
+        self.assertGreater(np.ptp(a, axis=1).max(), 1e-3)   # it moves
+        self.both_assemblies(build, reference)
 
     def test_negative_binomial(self):
         n = 9

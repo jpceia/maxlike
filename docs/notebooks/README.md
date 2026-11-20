@@ -10,6 +10,7 @@ already executed, so GitHub shows the charts without running anything.
 | [Football goals](football_goals.ipynb) | Poisson goals, attack and defence per team, home advantage | goal distribution, calibration of the scoring rates, dispersion |
 | [Football scores](football_scores.ipynb) | joint score distribution (two censored Poisson distributions), 1X2 and goal-line markets | observed against fitted scores, reliability of the 1X2 probabilities |
 | [Market calibration](football_market_calibration.ipynb) | the score model fitted to market 1X2 probabilities (Kullback–Leibler) | market against model probabilities, censored against truncated goal distributions |
+| [Dynamic strengths](football_dynamic.ipynb) | attack and defence per team and round, tied by a Gaussian random walk; step size chosen by one-round-ahead forecasts | estimated paths against a known truth, error per round against the static model, forecast score against the step size |
 | [Tennis](tennis.ipynb) | point → game / tie-break → set recursions, one strength per player | calibration of set-win probabilities, distribution of set scores |
 | [Races](race.ipynb) | only the winner and the winning time are observed (`FirstOrderStatistic`), with and without a race-day factor | estimates against a known truth, held-out win probabilities |
 

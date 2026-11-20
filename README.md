@@ -45,6 +45,7 @@ the tests (`python docs/examples/<name>.py`):
 | [`football_goals.py`](docs/examples/football_goals.py) | Poisson, attack/defence, one row per team and match (`Take`) | team table with standard errors, expected goals of a match |
 | [`football_scores.py`](docs/examples/football_scores.py) | bivariate Poisson score matrix, `Finite` likelihood | win/draw/loss, over/under and most likely score of a match, with standard errors |
 | [`football_market_calibration.py`](docs/examples/football_market_calibration.py) | the score model fitted to market 1X2 probabilities (KL divergence) | prices of markets that are not in the data (goal lines, handicaps) |
+| [`football_dynamic.py`](docs/examples/football_dynamic.py) | attack/defence per team and round, tied by a random walk (`RandomWalk` regularization) | strengths that change over the season, the step size chosen by forecasting, forecasts one round ahead |
 | [`tennis.py`](docs/examples/tennis.py) | point → game / tie-break → set recursions | player ranking, probability of winning a set and its score distribution |
 | [`race.py`](docs/examples/race.py) | `FirstOrderStatistic`: only the winner and the winning time are observed | recovering each runner's level, with and without a race-day common factor |
 
@@ -55,6 +56,7 @@ the theory of the model, its graph, the fit and charts that check it:
 [football goals](docs/notebooks/football_goals.ipynb),
 [football scores](docs/notebooks/football_scores.ipynb),
 [market calibration](docs/notebooks/football_market_calibration.ipynb),
+[dynamic strengths](docs/notebooks/football_dynamic.ipynb),
 [tennis](docs/notebooks/tennis.ipynb) and [races](docs/notebooks/race.ipynb).
 
 ## Installation
@@ -134,6 +136,27 @@ the same check on demand. A logistic model whose data are separated (a
 player who always wins) gives a warning instead of silently returning
 diverging estimates. Newton steps that would decrease the objective (a
 non-concave start) are damped automatically.
+
+### Parameters that change over time
+
+A parameter can carry a time axis, e.g. the attack of each team in each
+round, gathered with `Take((team, period))`. `RandomWalk(s)` used as a
+regularization ties the periods together: it adds the log density of a
+Gaussian random walk with steps of size `s`, so the fit is the posterior
+mode of the whole path (a smoother), still with exact Newton steps and a
+sparse Hessian.
+
+```python
+model.add(Take((team, period)), 0, 0)                # attack[team, period]
+mle.add_regularization([0, 1], RandomWalk(0.05))     # attack and defence
+mle.add_param(np.zeros((n_teams, n_periods)), name="attack")
+```
+
+A small `s` gives back a constant parameter, a large one an independent
+fit per period. The standard errors are those of the posterior given `s`.
+Periods after the last observation are forecasts (the last value carried
+forward). See [docs/examples/football_dynamic.py](docs/examples/football_dynamic.py),
+which chooses `s` by forecasting the next round.
 
 ### Who wins, and with what value
 

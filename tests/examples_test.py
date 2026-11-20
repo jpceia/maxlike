@@ -16,6 +16,7 @@ sys.path.insert(0, EXAMPLES)
 import football_goals  # noqa: E402
 import football_scores  # noqa: E402
 import football_market_calibration  # noqa: E402
+import football_dynamic  # noqa: E402
 import tennis  # noqa: E402
 from maxlike.func import CollapseMatrix, Collapse  # noqa: E402
 
@@ -48,6 +49,18 @@ class Test(unittest.TestCase):
         a, d, h = [np.ma.getdata(p) for p in mle.get_params()]
         # plausible scoring rates (no degenerate fit at the grid cap)
         self.assertLess(np.exp(a[:, None] - d[None, :] + h / 2).max(), 5)
+
+    def test_football_dynamic(self):
+        (dynamic, static, truth), out = run(football_dynamic)
+        self.assertIn("chosen sigma: 0.050", out)
+        # the dynamic fit follows the true strengths better than the static
+        true_a = truth["attack"].values
+        a_static = np.ma.getdata(static.get_params()[0])[:, None]
+        a_dynamic = np.ma.getdata(dynamic.get_params()[0])
+        self.assertLess(np.mean((a_dynamic - true_a) ** 2),
+                        .8 * np.mean((a_static - true_a) ** 2))
+        self.assertAlmostEqual(float(dynamic.get_params()[2]),
+                               truth["home"], delta=.1)
 
     def test_tennis(self):
         mle, out = run(tennis)
