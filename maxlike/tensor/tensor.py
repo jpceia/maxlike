@@ -237,7 +237,9 @@ class GenericTensor(BaseTensor):
         if elements is None:
             elements = ()
 
-        object.__setattr__(self, 'elements', tuple(elements))
+        # null tensors carry no shape information and contribute nothing
+        object.__setattr__(self, 'elements', tuple(
+            el for el in elements if not _is_zero(el)))
 
     def toarray(self):
         return sum([el.toarray() if isinstance(el, Tensor) else el
@@ -247,6 +249,9 @@ class GenericTensor(BaseTensor):
         # considers the impact of broadcasting
         if not sum_val and not sum_dim:
             return self
+
+        if not self.elements:
+            return Tensor(0)
 
         if sum_val is False:
             idx = []
@@ -854,6 +859,16 @@ class Tensor(BaseTensor):
                 raise InvalidOperation
 
         if self.values.ndim == 0:
+            # special case: the null tensor on the left. Avoids allocating
+            # (and later summing) a dense array of zeros shaped like `other`
+            if self.values == 0:
+                if op_type in [TensorOp.ADD, TensorOp.RSUB]:
+                    return other
+                elif op_type == TensorOp.SUB:
+                    return -other
+                elif op_type == TensorOp.MUL:
+                    return Tensor(0)
+
             return Tensor(
                 op_type.value(self.values, other.values),
                 other.x_dim, other.y_dim, other.dim, other.x_map, other.y_map)
