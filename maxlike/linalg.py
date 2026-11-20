@@ -25,14 +25,18 @@ import numpy as np
 import scipy.sparse as sp
 from scipy.linalg import lu_factor, lu_solve, LinAlgWarning
 from scipy.sparse.linalg import splu
+from scipy.sparse.csgraph import reverse_cuthill_mckee
 
 # eliminate a diagonal block only if it has at least this share of the rows
 ELIMINATION_MIN_SHARE = 0.2
 # the matrix to factorise is treated as dense up to this size, and above it
-# when its density is at least DENSE_MIN_DENSITY and it has at most
-# DENSE_MAX_SIZE rows (8 * size^2 bytes, twice during the factorisation)
+# when a sparse factor would fill at least the share DENSE_MIN_FILL of the
+# matrix (see fill_estimate) and it has at most DENSE_MAX_SIZE rows
+# (8 * size^2 bytes for the factor)
 DENSE_SIZE = 3000
-DENSE_MIN_DENSITY = 0.005
+DENSE_MIN_FILL = 0.15
+# ... or when its density is at least this (no estimate needed)
+DENSE_MIN_DENSITY = 0.05
 DENSE_MAX_SIZE = 20000
 # a matrix at least this dense is factorised as it is, as a dense matrix
 DENSE_DIRECT_DENSITY = 0.25
@@ -40,6 +44,36 @@ DENSE_DIRECT_DENSITY = 0.25
 
 class SingularMatrix(np.linalg.LinAlgError):
     """The matrix is exactly singular."""
+
+
+def fill_estimate(S):
+    """
+    Rough share of a symmetric sparse matrix that its factorisation fills:
+    the envelope of the matrix (from the first non-zero of each row to the
+    diagonal) after a reverse Cuthill-McKee ordering, which bounds the fill
+    of a banded factorisation. The few rows that are much denser than the
+    others (a parameter shared by all the observations, a constraint) are
+    left out, as an ordering puts them last.
+
+    It is small for matrices with local structure (leagues, regions,
+    neighbours) and close to 1 when the entries are scattered at random,
+    whatever their number: the factor of such a matrix is nearly full.
+    """
+    S = sp.csr_matrix(S)
+    m = S.shape[0]
+    if m == 0:
+        return 0.
+    count = np.diff(S.indptr)
+    light = np.flatnonzero(count <= max(10 * np.median(count), 10))
+    S = S[light][:, light]
+    S = sp.csr_matrix(S + S.T)
+    perm = reverse_cuthill_mckee(S, symmetric_mode=True)
+    S = sp.csr_matrix(S[perm][:, perm])
+    S.sort_indices()
+    rows = np.flatnonzero(np.diff(S.indptr))
+    first = S.indices[S.indptr[rows]]
+    envelope = np.maximum(rows - first, 0).sum() + (m - light.size) * m
+    return envelope / (m * m / 2.)
 
 
 class SymmetricSolver:
@@ -102,12 +136,15 @@ class SymmetricSolver:
     def _factor(self, S):
         m = S.shape[0]
         self.dense = m <= DENSE_SIZE or (
-            m <= DENSE_MAX_SIZE and S.nnz >= DENSE_MIN_DENSITY * m * m)
+            m <= DENSE_MAX_SIZE and DENSE_MIN_FILL <= 1 and
+            (S.nnz >= DENSE_MIN_DENSITY * m * m or
+             fill_estimate(S) >= DENSE_MIN_FILL))
         if self.dense:
             with warnings.catch_warnings():
                 # an exactly singular matrix gives a non-finite solution
                 warnings.simplefilter("ignore", LinAlgWarning)
-                self.lu = lu_factor(S.toarray(), overwrite_a=True,
+                # Fortran order: factorised in place, without a copy
+                self.lu = lu_factor(S.toarray(order="F"), overwrite_a=True,
                                     check_finite=False)
             if not np.all(np.diag(self.lu[0]) != 0):
                 raise SingularMatrix
@@ -136,9 +173,9 @@ class SymmetricSolver:
         x[self.elim] = (b_e - self.B.T @ x_k) / d
         return x
 
-    def inverse_diagonal(self, batch_bytes=1 << 27):
+    def inverse_diagonal(self, batch_bytes=1 << 25):
         """
-        Diagonal of the inverse of A.
+        Diagonal of the inverse of A. The solver cannot be used afterwards.
 
         For the entries kept, diag(S^-1); for an eliminated entry e,
         1 / d_e + (b_e' S^-1 b_e) / d_e^2 with b_e its column of B. A dense
@@ -151,7 +188,9 @@ class SymmetricSolver:
         batch = max(1, min(max(m, 1), batch_bytes // (8 * max(m, 1))))
 
         if self.dense:
-            inv = lu_solve(self.lu, np.eye(m), check_finite=False)
+            inv = lu_solve(self.lu, np.eye(m, order="F"), overwrite_b=True,
+                           check_finite=False)
+            self.lu = None      # frees the memory of the factorisation
             out[keep] = np.diag(inv)
 
             def quad(cols):

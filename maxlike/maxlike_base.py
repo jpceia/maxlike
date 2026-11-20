@@ -6,7 +6,7 @@ from collections import OrderedDict
 from scipy.linalg import pinvh
 from random import getrandbits
 from .tensor import Tensor, SparseBlock
-from .linalg import SymmetricSolver, SingularMatrix
+from .linalg import SymmetricSolver, SingularMatrix, DENSE_MAX_SIZE
 
 
 def _dense_block(t, shape):
@@ -496,8 +496,15 @@ class MaxLike(abc.ABC):
     def _use_sparse_hess(self, params, hess):
         if self.sparse_hess is not None:
             return bool(self.sparse_hess)
-        return sum(p.count() for p in params) >= self._SPARSE_MIN_SIZE and \
-            any(isinstance(h, SparseBlock) for h_line in hess for h in h_line)
+        n_free = sum(int(p.count()) for p in params)
+        blocks = [h for h_line in hess for h in h_line
+                  if isinstance(h, SparseBlock)]
+        if not blocks or n_free < self._SPARSE_MIN_SIZE:
+            return False
+        # blocks that are (nearly) full, e.g. when every pair of teams met,
+        # are cheaper to assemble and solve as a dense matrix
+        stored = sum(h.matrix.nnz for h in blocks)
+        return stored < .25 * n_free ** 2 or n_free > DENSE_MAX_SIZE
 
     def _flat_hess_sparse(self, params, hess):
         """

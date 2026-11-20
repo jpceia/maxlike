@@ -66,12 +66,12 @@ class Test(unittest.TestCase):
 
     def setUp(self):
         self._settings = (maxlike.maxlike_base.MaxLike.sparse_hess,
-                          linalg.DENSE_SIZE, linalg.DENSE_MIN_DENSITY,
+                          linalg.DENSE_SIZE, linalg.DENSE_MIN_FILL,
                           linalg.DENSE_DIRECT_DENSITY)
 
     def tearDown(self):
         (maxlike.maxlike_base.MaxLike.sparse_hess, linalg.DENSE_SIZE,
-         linalg.DENSE_MIN_DENSITY, linalg.DENSE_DIRECT_DENSITY) = \
+         linalg.DENSE_MIN_FILL, linalg.DENSE_DIRECT_DENSITY) = \
             self._settings
 
     def same_fit(self, a, b, tol=1e-8, matrices=True):
@@ -283,7 +283,7 @@ class Test(unittest.TestCase):
         # sparse LU of the whole matrix
         maxlike.maxlike_base.MaxLike.sparse_hess = True
         linalg.DENSE_SIZE = 0
-        linalg.DENSE_MIN_DENSITY = 2.
+        linalg.DENSE_MIN_FILL = 2.
         self.same_fit(build(), dense, matrices=False)
         elimination = linalg.ELIMINATION_MIN_SHARE
         try:
@@ -338,7 +338,7 @@ class Test(unittest.TestCase):
         for dense_size, share in ((10 ** 6, .2), (0, .2), (0, 2.)):
             with self.subTest(dense_size=dense_size, share=share):
                 linalg.DENSE_SIZE = dense_size
-                linalg.DENSE_MIN_DENSITY = 2.
+                linalg.DENSE_MIN_FILL = 2.
                 linalg.DENSE_DIRECT_DENSITY = 2.
                 elimination = linalg.ELIMINATION_MIN_SHARE
                 try:
@@ -358,6 +358,22 @@ class Test(unittest.TestCase):
                                            atol=1e-10)
         with self.assertRaises(linalg.SingularMatrix):
             linalg.SymmetricSolver(sp.csc_matrix((5, 5)))
+
+    def test_fill_estimate(self):
+        # neighbours only (in a shuffled order), plus one dense row and
+        # column: a sparse factor stays sparse
+        m = 400
+        rng = np.random.RandomState(12)
+        band = sp.diags([1.] * 7, range(-3, 4), shape=(m, m)).tolil()
+        band[0, :] = 1
+        band[:, 0] = 1
+        perm = rng.permutation(m)
+        self.assertLess(linalg.fill_estimate(band.tocsr()[perm][:, perm]),
+                        .05)
+        # the same number of entries scattered at random: it fills
+        scattered = sp.random(m, m, 7. / m, random_state=rng)
+        self.assertGreater(
+            linalg.fill_estimate(scattered + scattered.T + sp.eye(m)), .5)
 
     # ----------------------------------------------------------------------
     # around the fit
