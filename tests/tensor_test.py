@@ -542,6 +542,23 @@ class Test(unittest.TestCase):
         m2 = array_dot_right(d, h)
         self.assertTrue(np.allclose(m1, m2), msg.format(m1, m2))
 
+    def test_transpose(self):
+        # dense parameter axes, with x_dim != y_dim and x_dim, y_dim > 1
+        for x_dim, y_dim in [(1, 1), (2, 1), (1, 2), (2, 2), (2, 0)]:
+            shape = (2, 3, 4, 5)[:x_dim] + (6, 7)[:y_dim] + (2, )
+            arr = np.arange(np.prod(shape)).reshape(shape)
+            t = Tensor(arr, x_dim=x_dim, y_dim=y_dim).transpose()
+            self.assertEqual((t.x_dim, t.y_dim), (y_dim, x_dim))
+            expected = np.moveaxis(
+                arr, range(x_dim, x_dim + y_dim), range(y_dim))
+            self.assertEqual(t.values.shape, expected.shape)
+            self.assertTrue(np.array_equal(t.values, expected))
+
+        # mapped (diagonal) axes are transposed together with their maps
+        t = self.a12.transpose()
+        self.assertTrue(np.array_equal(
+            t.toarray(), self.a12.toarray().swapaxes(0, 1)))
+
 
 if __name__ == "__main__":
     unittest.main()

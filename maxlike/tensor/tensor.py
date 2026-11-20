@@ -633,10 +633,10 @@ class Tensor(BaseTensor):
             y_map=self.y_map)
 
     def transpose(self):
-        val = self.values
-        if (self.x_dim > 0) & (self.y_dim > 0):
-            for k in range(0, self.x_dim):
-                val = np.moveaxis(val, self.x_dim, k)
+        # [X, Y, ...] -> [Y, X, ...]
+        val = np.moveaxis(
+            self.values,
+            range(self.x_dim, self.x_dim + self.y_dim), range(self.y_dim))
         return Tensor(val, self.y_dim,  self.x_dim, self.dim,
                       self.y_map, self.x_map)
 
