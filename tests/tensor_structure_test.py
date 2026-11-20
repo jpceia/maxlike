@@ -10,7 +10,7 @@ import itertools
 import unittest
 import numpy as np
 from array import array
-from maxlike.tensor import Tensor
+from maxlike.tensor.tensor import Tensor, GenericTensor
 
 SIZE = 3
 LETTERS = "abcdefghij"
@@ -81,6 +81,17 @@ class Test(unittest.TestCase):
                     expected = op(dense(a), add_dim(dense(b), s2[3], s1[3]))
                     self.assertDense(op(a, b), expected, (name, s1, s2))
 
+        # operations with a scalar Tensor on either side
+        scalar_ops = [("scalar add", lambda u, v: u + v),
+                      ("scalar sub", lambda u, v: u - v),
+                      ("scalar mul", lambda u, v: u * v)]
+        for s in structures():
+            a = mk(*s)
+            c = Tensor(1.7)
+            for name, op in scalar_ops:
+                self.assertDense(op(c, a), op(1.7, dense(a)), (name, "l", s))
+                self.assertDense(op(a, c), op(dense(a), 1.7), (name, "r", s))
+
         # sum over feature and distribution axes, transpose
         for s in structures(max_x=2):
             x, y, n, d = s[:4]
@@ -128,6 +139,21 @@ class Test(unittest.TestCase):
                                      add_dim(dense(s), sd, e))
                 self.assertDense(s.dot_right(other), expected,
                                  ("dot_right", so, ss))
+
+    def test_generic_tensor_sum_mixed_elements(self):
+        # elements with and without distribution / feature axes
+        rng = np.random.RandomState(1)
+        with_dim = Tensor(rng.uniform(size=(SIZE, SIZE)), dim=1)
+        no_dim = Tensor(rng.uniform(size=(SIZE,)))
+        no_feat = Tensor(rng.uniform(size=(SIZE,)), dim=1)
+        A, B, C = dense(with_dim), dense(no_dim), dense(no_feat)
+        g = GenericTensor(0, 0, 1, 1, [with_dim, no_dim, no_feat])
+        self.assertDense(g.sum(True, True),
+                         A.sum() + B.sum() * SIZE + C.sum() * SIZE, "all")
+        self.assertDense(g.sum(False, True),
+                         A.sum(1) + B * SIZE + C.sum(), "dim only")
+        self.assertDense(g.sum(True, False),
+                         A.sum(0) + B.sum() + C * SIZE, "features only")
 
     def test_maps_with_unmapped_entries(self):
         self.run_all(normalize=False)

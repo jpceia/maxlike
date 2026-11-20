@@ -255,13 +255,30 @@ class GenericTensor(BaseTensor):
         if sum_dim is True:
             idx += (self.n + np.arange(self.dim)).tolist()
 
+        def summed_shape(el):
+            # sizes of the summed axes in el.values. An element has either all
+            # or none of the feature (resp. distribution) axes; missing axes
+            # broadcast, i.e. count as size 1
+            p = el.x_dim + el.y_dim
+            shape = []
+            for k in idx:
+                if k < self.n:
+                    shape.append(el.values.shape[p + k] if el.n else 1)
+                else:
+                    shape.append(el.values.shape[p + el.n + k - self.n]
+                                 if el.dim else 1)
+            return np.array(shape, dtype=int)
+
         shape_n = np.ones(len(idx), dtype=int)
         el_sizes = np.empty(len(self.elements), dtype=int)
         for k, el in enumerate(self.elements):
-            p = el.x_dim + el.y_dim
-            shape = np.array(el.values.shape)[(p + np.array(idx)).tolist()]
+            shape = summed_shape(el)
             shape_n = np.maximum(shape_n, shape)
-            el_sizes[k] = np.array(shape).prod()
+            el_sizes[k] = shape.prod()
+
+        def el_sum(el):
+            # an element without feature axes has nothing to sum over them
+            return el.sum(sum_val if el.n else False, sum_dim)
 
         size = shape_n.prod()
 
@@ -272,8 +289,8 @@ class GenericTensor(BaseTensor):
                 idx += [None] * (self.x_dim - el.x_dim) + [slice(None)] * el.x_dim
                 idx += [None] * (self.y_dim - el.y_dim) + [slice(None)] * el.y_dim
                 idx += [...]
-                values = values + el.sum(sum_val, sum_dim).\
-                    values[tuple(idx)] * (size / el_size)
+                values = values + el_sum(el).values[tuple(idx)] * \
+                    (size / el_size)
 
             dim = 0 if sum_dim is True else self.dim
             return Tensor(values, x_dim=self.x_dim, y_dim=self.y_dim, dim=dim)
@@ -281,7 +298,7 @@ class GenericTensor(BaseTensor):
         # else: some of the feature axes remain
         n = self.n if sum_val is False else self.n - len(sum_val)
         dim = 0 if sum_dim is True else self.dim
-        new_elements = [el.sum(sum_val, sum_dim) * (size / el_size)
+        new_elements = [el_sum(el) * (size / el_size)
                         for el, el_size in zip(self.elements, el_sizes)]
         return GenericTensor(self.x_dim, self.y_dim, n, dim, new_elements)
 
@@ -866,6 +883,12 @@ class Tensor(BaseTensor):
                 elif op_type == TensorOp.MUL:
                     return Tensor(0)
 
+            if op_type in [TensorOp.ADD, TensorOp.SUB, TensorOp.RSUB]:
+                # a scalar added to a mapped tensor fills the off-diagonal
+                # entries too: densify (same as a scalar on the right)
+                return Tensor(
+                    op_type.value(self.values, other.toarray()),
+                    other.x_dim, other.y_dim, other.dim)
             return Tensor(
                 op_type.value(self.values, other.values),
                 other.x_dim, other.y_dim, other.dim, other.x_map, other.y_map)
