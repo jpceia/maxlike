@@ -1,3 +1,0 @@
-global-exclude *.c
-recursive-include maxlike *.pyx
-include requirements.txt
