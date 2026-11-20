@@ -196,3 +196,23 @@ class TestRobustness(unittest.TestCase):
             self.assertTrue(mle.fit(N=N, X=X_))
             np.testing.assert_allclose(
                 np.abs(mle.get_params()[0]), [1, .8, 1.5], atol=1e-6)
+
+    def test_separation_warning(self):
+        n = 4
+        F = Sum(2)
+        F.add(X(), 0, 0)
+        F.add(-X(), 0, 1)
+        N = np.full((n, n), 10.)
+        np.fill_diagonal(N, 0)
+        X_ = N / 2
+        X_[0, :] = N[0, :]   # player 0 always wins
+        X_[:, 0] = 0
+        mle = maxlike.Logistic()
+        mle.model = F
+        mle.add_constraint(0, Linear([1]))
+        mle.add_param(np.zeros(n))
+        with self.assertWarnsRegex(RuntimeWarning, "separated"):
+            try:
+                mle.fit(N=N, X=X_, max_steps=100)
+            except maxlike.ConvergenceError:
+                pass
