@@ -19,6 +19,19 @@
   only the winner and the winning value are observed (auctions, races,
   competing risks), optionally with a latent common factor per
   observation. Documented in `docs/first_order_statistic.md`.
+- Observation-indexed models: `func.Take(index)` gathers one parameter
+  entry per observation, so data listed one row per observation need no
+  grid of all the feature combinations. It works with every likelihood,
+  with compositions, constraints and regularization, and the same
+  parameter can be gathered twice (Bradley–Terry).
+- `preprocessing.prepare_index` and `prepare_observations` build the index
+  arrays and labels from a DataFrame with one row per observation.
+- Sparse Newton system for observation-indexed models with 500 or more
+  free parameters (`mle.sparse_hess` forces the choice): the Hessian is a
+  `scipy.sparse` matrix, solved by `maxlike.linalg.SymmetricSolver`.
+  `std_error()` computes only the diagonal of the inverse. Attack/defence
+  model with 5 000 teams and 100 000 rows on one thread: 10 s and 0.3 GB,
+  against 130 s and 4.6 GB on the grid.
 
 ### Fixed
 - The convergence test no longer divides by the objective; refitting from
