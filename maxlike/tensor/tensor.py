@@ -2,7 +2,6 @@ import abc
 import numpy as np
 from random import getrandbits
 from array import array
-from six import with_metaclass
 from functools import partial
 from enum import Enum
 
@@ -118,7 +117,7 @@ class TensorOp(Enum):
     NEG = np.negative
 
 
-class BaseTensor(object, with_metaclass(abc.ABCMeta)):
+class BaseTensor(abc.ABC):
 
     __slots__ = ['x_dim', 'y_dim', 'n', 'dim']
 

@@ -4,7 +4,6 @@ from functools import wraps
 from collections import OrderedDict
 from scipy.linalg import pinvh
 from random import getrandbits
-from six import with_metaclass
 from .tensor import Tensor
 
 
@@ -51,7 +50,7 @@ class Param(object):
         raise NotImplementedError
 
 
-class MaxLike(with_metaclass(abc.ABCMeta)):
+class MaxLike(abc.ABC):
     """
     Base class to estimate the maximum likelihood under different
     probabilistic models.

@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.special import ndtri, ndtr, owens_t
-from six import with_metaclass
 from .func_base import FuncMeta
 from ..tensor import Tensor
 
@@ -71,7 +70,7 @@ class CopulaMeta(FuncMeta):
         return res
 
 
-class Copula(with_metaclass(CopulaMeta)):
+class Copula(metaclass=CopulaMeta):
     pass
 
 
