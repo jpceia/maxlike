@@ -107,3 +107,20 @@ class TestUnusedParams(unittest.TestCase):
         np.testing.assert_allclose(mle.get_params()[3], [1, 1], atol=1e-6)
         for p, q in zip(mle.get_params()[:3], ref.get_params()):
             np.testing.assert_allclose(p, q, atol=1e-6)
+
+
+class TestCaching(unittest.TestCase):
+
+    def test_refit_with_new_data(self):
+        # cached data-dependent terms must follow new data
+        mle, kwargs = poisson_model(seed=0)
+        mle.fit(**kwargs)
+        _, kwargs2 = poisson_model(seed=1)
+        mle.fit(**kwargs2)
+        fresh, _ = poisson_model(seed=1)
+        fresh.fit(**kwargs2)
+        for p, q in zip(mle.get_params(), fresh.get_params()):
+            np.testing.assert_allclose(p, q, atol=1e-10)
+        self.assertAlmostEqual(mle.akaike_information_criterion(),
+                               fresh.akaike_information_criterion(),
+                               delta=1e-12)
