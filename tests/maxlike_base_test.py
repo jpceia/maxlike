@@ -124,3 +124,75 @@ class TestCaching(unittest.TestCase):
         self.assertAlmostEqual(mle.akaike_information_criterion(),
                                fresh.akaike_information_criterion(),
                                delta=1e-12)
+
+
+def football_problem(constraint=True, seed=0):
+    rng = np.random.default_rng(seed)
+    n = 6
+    a, b = rng.normal(0, .3, (2, n))
+    v = np.arange(2) - .5
+    N = np.full((n, n, 2), 30.)
+    np.einsum('iik->ik', N)[:] = 0
+    X_ = rng.poisson(
+        N * np.exp(a[:, None, None] - b[None, :, None] + .25 * v))
+    mle = maxlike.Poisson()
+    mle.model = Sum(3)
+    mle.model.add(X(), 0, 0)
+    mle.model.add(-X(), 1, 1)
+    mle.model.add(Vector(v), 2, 2)
+    if constraint:
+        mle.add_constraint([0, 1], Linear([1, 1]))
+    mle.add_param(np.zeros(n), name="attack")
+    mle.add_param(np.zeros(n), name="defence")
+    mle.add_param(0., name="home")
+    return mle, {"N": N, "X": X_.astype(float)}
+
+
+class TestRobustness(unittest.TestCase):
+
+    def test_converged_criterion(self):
+        from maxlike.maxlike_base import _converged
+        self.assertTrue(_converged(-2.0, -2.0 * (1 + 1e-10), 1e-8))
+        self.assertFalse(_converged(-2.0, -2.1, 1e-8))
+        # an objective of exactly 0 no longer divides by zero
+        self.assertTrue(_converged(1e-12, 0.0, 1e-8))
+        self.assertFalse(_converged(1.0, 0.0, 1e-8))
+
+    def test_refit_at_optimum(self):
+        # rounding prevents any increase at the optimum: not an error
+        for method in ("newton", "broyden"):
+            mle, data = football_problem()
+            mle.fit(**data)
+            before = [np.ma.getdata(p).copy() for p in mle.get_params()]
+            self.assertTrue(mle.fit(method=method, **data))
+            for p, q in zip(before, mle.get_params()):
+                np.testing.assert_allclose(p, q, atol=1e-10)
+
+    def test_not_identifiable(self):
+        mle, data = football_problem(constraint=False)
+        with self.assertRaisesRegex(maxlike.IdentifiabilityError,
+                                    "all of 'attack'.*all of 'defence'"):
+            mle.fit(**data)
+        mle.N = maxlike.Tensor(data["N"])
+        mle.X = maxlike.Tensor(data["X"])
+        self.assertEqual(len(mle.identifiability()), 1)
+        ok, _ = football_problem()
+        ok.fit(**data)
+        self.assertEqual(ok.identifiability(), [])
+
+    def test_non_concave_start(self):
+        # log rate = a^2 is not concave near a = 0: the plain Newton step
+        # descends; the damped step reaches the maximum (|a| = 1, .8, 1.5)
+        from maxlike.func import Product
+        model = Product(1)
+        model.add(X(), 0, 0)
+        model.add(X(), 0, 0)
+        N = np.full(3, 1000.)
+        X_ = N * np.exp(np.array([1., .64, 2.25]))
+        for start in (.1, .3, -.2):
+            mle = maxlike.Poisson()
+            mle.model = model
+            mle.add_param(np.full(3, start))
+            self.assertTrue(mle.fit(N=N, X=X_))
+            np.testing.assert_allclose(
+                np.abs(mle.get_params()[0]), [1, .8, 1.5], atol=1e-6)

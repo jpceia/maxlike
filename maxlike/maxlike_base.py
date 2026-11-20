@@ -22,6 +22,24 @@ def _is_null(t):
     return values.ndim == 0 and values == 0
 
 
+def _converged(prev_g, g, tol):
+    """Relative change of the objective below tol (safe for g == 0)."""
+    diff = abs(g - prev_g)
+    scale = abs(g)
+    return diff < tol * scale if scale > 0 else diff < tol
+
+
+class _SingularHessian(Exception):
+    """The Newton system is (numerically) singular."""
+
+
+class IdentifiabilityError(ValueError):
+    """
+    The objective is flat along some direction of the free parameters:
+    they cannot all be estimated (a constraint or a fixed value is missing).
+    """
+
+
 class ConvergenceError(Exception):
     def __init__(self, message, type=0):
         super(ConvergenceError, self).__init__(message)
@@ -506,6 +524,9 @@ class MaxLike(abc.ABC):
 
         return hess
      
+    def _post_fit_checks(self, params):
+        """Hook for likelihood-specific checks after a fit (warnings)."""
+
     def _check_params_used(self, params, der):
         """
         Raises a ValueError if a parameter with free values does not affect
@@ -521,6 +542,144 @@ class MaxLike(abc.ABC):
                 "regularization, so they cannot be estimated; fix all their "
                 "values or remove them" % ", ".join(map(str, unused)))
 
+    # rcond below which the Newton system is treated as singular
+    _SINGULAR_RCOND = 1e-13
+
+    def _solve_newton(self, lhess, lgrad):
+        """
+        Solves the (bordered) Newton system. Raises _SingularHessian when it
+        is numerically singular. Uses the same LAPACK routines as
+        np.linalg.solve (getrf/getrs) plus a cheap condition estimate.
+        """
+        from scipy.linalg import lu_factor, lu_solve, LinAlgWarning
+        from scipy.linalg.lapack import dgecon
+        import warnings
+        lhess = np.asarray(lhess, dtype=float)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", LinAlgWarning)
+            try:
+                lu, piv = lu_factor(lhess, check_finite=False)
+            except (LinAlgWarning, np.linalg.LinAlgError):
+                raise _SingularHessian
+        rcond, _ = dgecon(lu, np.abs(lhess).sum(0).max(), norm="1")
+        if not rcond > self._SINGULAR_RCOND:
+            raise _SingularHessian
+        return lu_solve((lu, piv), lgrad, check_finite=False)
+
+    def _newton_direction(self, params, lgrad, lhess):
+        """
+        Newton step for the free parameters (new = old - step). If the step
+        does not increase the objective (Hessian not negative definite),
+        it is damped Levenberg-Marquardt style: lambda * I is subtracted
+        from the parameter block until it does. A singular system caused by
+        non-identifiable parameters raises IdentifiabilityError.
+        """
+        n_free = lgrad.size - len(self.constraint)
+        grad = lgrad[:n_free]
+
+        def is_ascent(step):
+            d = -step[:n_free]
+            return grad.dot(d) >= -1e-10 * np.linalg.norm(grad) * \
+                np.linalg.norm(d)
+
+        try:
+            step = self._solve_newton(lhess, lgrad)
+            if is_ascent(step):
+                return step[:n_free]
+        except _SingularHessian:
+            directions = self._null_directions(params, lhess)
+            if directions:
+                raise IdentifiabilityError(
+                    "the parameters are not identifiable: the objective is "
+                    "flat along %s. Add a constraint (add_constraint) or fix "
+                    "some values." % "; and along ".join(directions))
+
+        # make the parameter block negative definite: shift it by about
+        # twice its largest eigenvalue (exact for moderate sizes, else the
+        # Gershgorin bound), then increase the shift if still needed
+        H = np.asarray(lhess)[:n_free, :n_free]
+        scale = np.abs(np.diag(H)).max() if n_free else 1.
+        scale = scale if scale > 0 else 1.
+        if n_free <= 2000:
+            top = np.linalg.eigvalsh(H)[-1]
+        else:
+            top = (np.diag(H) + np.abs(H).sum(1) - np.abs(np.diag(H))).max()
+        lam = 2 * max(top, 0) + 1e-8 * scale
+        shift = np.zeros(lgrad.size)
+        shift[:n_free] = 1
+        for _ in range(60):
+            try:
+                step = self._solve_newton(lhess - lam * np.diag(shift), lgrad)
+                if is_ascent(step):
+                    return step[:n_free]
+            except _SingularHessian:
+                pass
+            lam *= 2
+        raise ConvergenceError("could not find an ascent direction", "step")
+
+    def _null_directions(self, params, lhess, rtol=1e-8, max_params=5000):
+        """
+        Directions of the free parameters (compatible with the constraints)
+        along which the Hessian vanishes, described in words.
+        """
+        from scipy.linalg import null_space, eigh
+        from .inference import axis_labels, param_name
+        lhess = np.asarray(lhess, dtype=float)
+        n_free = lhess.shape[0] - len(self.constraint)
+        if n_free > max_params:
+            return []
+        H = lhess[:n_free, :n_free]
+        C = lhess[n_free:, :n_free]
+        Z = null_space(C) if C.shape[0] else np.eye(n_free)
+        if Z.shape[1] == 0:
+            return []
+        w, v = eigh(Z.T @ H @ Z)
+        scale = np.abs(w).max()
+        null = np.abs(w) <= rtol * scale if scale > 0 else np.ones_like(w,
+                                                                        bool)
+        # (parameter, label) of each free entry, in optimiser order
+        entries = []
+        for k, p in enumerate(params):
+            axes = axis_labels(self, k)
+            for idx in zip(*np.nonzero(~np.asarray(p.mask))) if p.shape \
+                    else ([()] if p.count() else []):
+                label = ", ".join(str(ax[i]) for ax, i in zip(axes, idx))
+                entries.append((k, label))
+        descriptions = []
+        for u in v[:, null].T:
+            d = Z @ u
+            d = d / d[np.argmax(np.abs(d))]
+            parts = []
+            for k in range(len(params)):
+                comp = np.array([d[i] for i, (kk, _) in enumerate(entries)
+                                 if kk == k])
+                if comp.size == 0 or np.abs(comp).max() < 1e-6:
+                    continue
+                name = param_name(self, k)
+                if comp.size > 1 and np.ptp(comp) < 1e-6:
+                    parts.append("all of '%s' (%+.3g)" % (name, comp[0]))
+                    continue
+                labels = [lab for kk, lab in entries if kk == k]
+                top = np.argsort(-np.abs(comp))[:3]
+                parts.append(", ".join(
+                    "'%s'%s (%+.3g)" % (name, "[%s]" % labels[i]
+                                        if labels[i] else "", comp[i])
+                    for i in top if abs(comp[i]) >= 1e-6))
+            descriptions.append(" + ".join(parts))
+        return descriptions
+
+    def identifiability(self, params=None):
+        """
+        Checks that the free parameters can be estimated: returns the
+        directions (described in words) along which the objective is flat
+        at the given (default: current) parameters, i.e. an empty list when
+        the model is identifiable there.
+        """
+        params = self.params if params is None else params
+        y, der, hess = self.model.eval(params)
+        lhess = self.flat_hess(params, y, der, hess)
+        return self._null_directions(params, lhess)
+
     def newton_step(self, params):
         
         y, der, hess = self.model.eval(params)
@@ -530,10 +689,7 @@ class MaxLike(abc.ABC):
         lgrad = self.flat_grad(params, y, der)
         lhess = self.flat_hess(params, y, der, hess)
         
-        step = np.linalg.solve(lhess, lgrad)
-        c_len = len(self.constraint)
-        step = step[:(-(c_len + 1) % step.shape[0]) + 1]
-        
+        step = self._newton_direction(params, lgrad, lhess)
         return step, g, lgrad, lhess
 
     def fit(self, tol=1e-8, max_steps=20, verbose=0, method="Newton", **kwargs):
@@ -602,15 +758,26 @@ class MaxLike(abc.ABC):
                         if verbose > 1:
                             print("\tmultiplier = ", mult)
                 else:
+                    # no increase: at the optimum the step is negligible
+                    # (rounding prevents any increase); otherwise give up
+                    size = np.abs(step).max() if step.size else 0.
+                    if size <= 1e-8 * (1 + np.abs(flat_params).max()):
+                        params = self._reshape_params(flat_params)
+                        self.params = params
+                        self.flat_hess_ = hess
+                        self.converged = True
+                        self._post_fit_checks(params)
+                        return True
                     self.converged = False
                     raise ConvergenceError(
                         "Error: the objective function did not increase " +
                         "after %d steps" % max_inner_steps, "step")
 
-                if abs(prev_g / g - 1) < tol:
+                if _converged(prev_g, g, tol):
                     self.params = params
                     self.flat_hess_ = hess
                     self.converged = True
+                    self._post_fit_checks(params)
                     return True
 
         elif method == "broyden":
@@ -647,7 +814,7 @@ class MaxLike(abc.ABC):
                     if verbose > 0:
                         print(k + 1, g)
 
-                    if abs(prev_g / g - 1) < tol:
+                    if _converged(prev_g, g, tol):
                         self.params = params
                         self.flat_hess_ = pinvh(J)
                         self.converged = True
@@ -667,5 +834,6 @@ class MaxLike(abc.ABC):
             raise ValueError("Invalid Method")
 
         self.converged = False
+        self._post_fit_checks(params)
         raise ConvergenceError("Error: the objective function did not " +
                                "converge after %d steps" % max_steps)
