@@ -1,7 +1,8 @@
 import numpy as np
 import unittest
 from maxlike.func import (
-    Exp, Sigmoid, Scalar, Sum, Product, Affine, X, Quadratic,
+    Exp, Sigmoid, Scalar, Sum, Product, Affine, X, Quadratic, Vector,
+    Collapse,
     MarkovMatrix, Poisson, LogNegativeBinomial)
 
 
@@ -160,6 +161,27 @@ class Test(unittest.TestCase):
         s.add(X(), 0, 0)
         s.add(-X(), 0, 1)
         self.check_fd(foo @ s, [a])
+
+    def test_collapse_partial(self):
+        # summing only some of the feature axes keeps the other diagonals
+        a = np.array([.1, -.2, .3])
+        b = np.array([.2, .4, -.1, .5])
+        h = np.array(.3)
+        s = Sum(3)
+        s.add(X(), 0, 0)
+        s.add(-X(), 1, 1)
+        s.add(Vector(np.arange(2) - .5), 2, 2)
+        for sum_val in [0, [0], [1], [1, 2], [0, 2], [0, 1, 2]]:
+            self.check_fd(Collapse(Exp() @ s, sum_val=sum_val), [a, b, h])
+
+        # derivatives that are sums of incompatible diagonals
+        s = Sum(2)
+        s.add(X(), 0, 0)
+        s.add(X(), 1, 1)
+        s.add(Exp(), 0, 1)
+        for sum_val in [[0], [1]]:
+            self.check_fd(
+                Collapse(Exp() @ s, sum_val=sum_val), [a, a + .1])
 
 
 if __name__ == "__main__":

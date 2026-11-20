@@ -245,12 +245,11 @@ class GenericTensor(BaseTensor):
             idx = np.arange(self.n).tolist()
         else:
             if isinstance(sum_val, int):
-                idx = [sum_val]
-            elif isinstance(sum_val, (tuple, list)):
-                idx = list(sum_val)
-            else:
+                sum_val = [sum_val]
+            elif not isinstance(sum_val, (tuple, list)):
                 raise ValueError
 
+            idx = list(sum_val)
             if len(idx) == self.n:
                 sum_val = True
 
@@ -280,10 +279,12 @@ class GenericTensor(BaseTensor):
             dim = 0 if sum_dim is True else self.dim
             return Tensor(values, x_dim=self.x_dim, y_dim=self.y_dim, dim=dim)
 
-        # else:
-        new_elements = [el.sum(False, sum_dim) * (size / el_size)
+        # else: some of the feature axes remain
+        n = self.n if sum_val is False else self.n - len(sum_val)
+        dim = 0 if sum_dim is True else self.dim
+        new_elements = [el.sum(sum_val, sum_dim) * (size / el_size)
                         for el, el_size in zip(self.elements, el_sizes)]
-        return GenericTensor(self.x_dim, self.y_dim, self.n, 0, new_elements)
+        return GenericTensor(self.x_dim, self.y_dim, n, dim, new_elements)
 
     def expand(self, where, newsize, dim=False):
         new_n = self.n if dim else newsize
@@ -538,7 +539,16 @@ class Tensor(BaseTensor):
         for k, f in cross_map.items():
             val = val * arr_eye(val.ndim, val.shape[k], k, self.x_dim + f)
 
-        return Tensor(val, self.x_dim, self.y_dim, dim)
+        # the remaining feature axes are renumbered; parameter axes that
+        # were diagonal along them stay diagonal
+        def new_map(mapping):
+            return array('b', [
+                -1 if (f < 0 or f in sum_val) else
+                f - sum(1 for g in sum_val if g < f)
+                for f in mapping])
+
+        return Tensor(val, self.x_dim, self.y_dim, dim,
+                      new_map(self.x_map), new_map(self.y_map))
 
     def expand(self, where, newsize, dim=False):
         """
