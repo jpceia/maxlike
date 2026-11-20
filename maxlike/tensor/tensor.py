@@ -88,6 +88,137 @@ def _is_zero(t):
     return isinstance(t, Tensor) and t.values.ndim == 0 and t.values == 0
 
 
+_LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def _contract(other, self):
+    """
+    Chain-rule contraction over the feature axes N of `other`, which are the
+    parameter (x) axes of `self`:
+
+        result[X, Y, M, E] = sum_N other[X, Y_o, N, E] * self[N, Y_s, M, E]
+
+    with Y = Y_o (dot_right, self has no y axes) or Y = Y_s (dot_left, other
+    has no y axes).
+
+    Every logical axis gets an einsum label. A diagonal map (a parameter
+    axis equal to a feature axis, stored with size 1) makes the two axes
+    share a label, so the diagonals are handled by einsum itself and the
+    product is never materialised before the sum.
+    """
+    parent = {}
+
+    def find(a):
+        parent.setdefault(a, a)
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    def union(a, b):
+        parent[find(a)] = find(b)
+
+    # a map entry f indexes the non-parameter axes of its tensor: the
+    # feature axes first, then the distribution axes (E, shared by both)
+    def target(feat, n, f):
+        return (feat, f) if f < n else ("E", f - n)
+
+    def link(axes, mapping, feat, n):
+        for k, f in enumerate(mapping):
+            if f >= 0:
+                union((axes, k), target(feat, n, f))
+
+    # other: X (x axes) and Yo (y axes) map onto its axes N (+E);
+    # self: its x axes are N, they and Ys (y axes) map onto M (+E)
+    link("X", other.x_map, "N", other.n)
+    link("Yo", other.y_map, "N", other.n)
+    link("N", self.x_map, "M", self.n)
+    link("Ys", self.y_map, "M", self.n)
+
+    letters = {}
+
+    def letter(axis):
+        root = find(axis)
+        if root not in letters:
+            letters[root] = _LETTERS[len(letters)]
+        return letters[root]
+
+    def operand(t, groups):
+        # groups: (name, number of axes, map); mapped axes are size-1
+        # placeholders that are squeezed away
+        subs, squeeze, ax = [], [], 0
+        for name, count, mapping in groups:
+            for k in range(count):
+                if mapping and k < len(mapping) and mapping[k] >= 0:
+                    squeeze.append(ax)
+                else:
+                    subs.append(letter((name, k)))
+                ax += 1
+        vals = t.values
+        if squeeze:
+            vals = np.squeeze(vals, axis=tuple(squeeze))
+        return vals, "".join(subs)
+
+    dim = max(self.dim, other.dim)
+    a_vals, a_sub = operand(other, [
+        ("X", other.x_dim, other.x_map), ("Yo", other.y_dim, other.y_map),
+        ("N", other.n, None), ("E", other.dim, None)])
+    b_vals, b_sub = operand(self, [
+        ("N", self.x_dim, self.x_map), ("Ys", self.y_dim, self.y_map),
+        ("M", self.n, None), ("E", self.dim, None)])
+
+    # result axes after the parameter axes: M (self.n) then E (dim)
+    m_roots = {find(("M", g)): g for g in range(self.n)}
+    for j in range(dim):
+        m_roots.setdefault(find(("E", j)), self.n + j)
+    if other.y_dim:
+        y_name, y_dim = "Yo", other.y_dim
+    else:
+        y_name, y_dim = "Ys", self.y_dim
+
+    # output axes: X, Y, M, E. A parameter axis equal to a feature axis M_g
+    # stays diagonal (size-1 placeholder + map); repeated labels (an X and
+    # a Y axis tied to the same contracted axis) become explicit diagonals
+    out, x_map, y_map = [], array('b'), array('b')
+    for name, count, maps in (("X", other.x_dim, x_map),
+                              (y_name, y_dim, y_map)):
+        for k in range(count):
+            root = find((name, k))
+            if root in m_roots:
+                maps.append(m_roots[root])
+                out.append(None)
+            else:
+                maps.append(-1)
+                out.append(letter((name, k)))
+    out += [letter(("M", g)) for g in range(self.n)]
+    out += [letter(("E", j)) for j in range(dim)]
+
+    first = {}
+    unique = []
+    for i, lab in enumerate(out):
+        if lab is not None and lab not in first:
+            first[lab] = i
+            unique.append(lab)
+
+    val = np.einsum("%s,%s->%s" % (a_sub, b_sub, "".join(unique)),
+                    a_vals, b_vals, optimize=True)
+
+    for i, lab in enumerate(out):
+        if lab is None:
+            val = np.expand_dims(val, i)
+        elif first[lab] != i:
+            q = first[lab]
+            val = np.expand_dims(val, i)
+            val = val * arr_eye(val.ndim, val.shape[q], q, i)
+
+    if not any(f >= 0 for f in x_map):
+        x_map = None
+    if not any(f >= 0 for f in y_map):
+        y_map = None
+    return Tensor(val, x_dim=other.x_dim, y_dim=y_dim, dim=dim,
+                  x_map=x_map, y_map=y_map)
+
+
 class TensorOp(Enum):
     # wrap with enum.member so partial objects remain Enum members
     # (Python 3.13+ treats them as method descriptors otherwise)
@@ -707,32 +838,7 @@ class Tensor(BaseTensor):
                 other.x_dim, self.y_dim, self.n, dim,
                 [self.dot_left(el) for el in other.elements])
 
-        p = self.x_dim + self.y_dim
-
-        l_idx = [slice(None)] * (other.x_dim + other.n) + \
-                [None] * (self.y_dim + self.n) + \
-                [slice(None)] * other.dim + \
-                [None] * (dim - other.dim)
-        r_idx = [None] * other.x_dim + [...] + [None] * (dim - self.dim)
-
-        val = self.values
-        val = arr_swapaxes(val, 0, p, self.x_map)
-        val = np.multiply(other.values[tuple(l_idx)], val[tuple(r_idx)])
-        val = arr_swapaxes(val, other.x_dim, other.x_dim + p, self.x_map)
-
-        # A diagonal axis of `other` (X_k == N_f) stays diagonal if self is
-        # diagonal along N_f too (N_f == M_g, hence X_k == M_g). Otherwise
-        # it is made explicit by moving the N_f axis to X_k.
-        x_map = array('b')
-        for k, f in enumerate(other.x_map):
-            g = self.x_map[f] if (f >= 0 and self.x_map) else -1
-            if f >= 0 and g < 0:
-                val = val.swapaxes(k, other.x_dim + f)
-            x_map.append(g)
-
-        val = val.sum(tuple(other.x_dim + np.arange(other.n)))
-        return Tensor(val, x_dim=other.x_dim, y_dim=self.y_dim, dim=dim,
-                      x_map=x_map, y_map=self.y_map)
+        return _contract(other, self)
 
     def dot_right(self, other):
         """
@@ -763,44 +869,7 @@ class Tensor(BaseTensor):
                 other.x_dim, other.y_dim, self.n, dim,
                 [self.dot_right(el) for el in other.elements])
 
-        p = other.x_dim + other.y_dim
-
-        # to do, broadcast on dim
-        l_idx = [slice(None)] * (p + other.n) + [None] * self.n + \
-                [slice(None)] * other.dim + [None] * (dim - other.dim)
-        r_idx = [None] * p + [slice(None)] * (self.x_dim + self.n) + \
-                [None] * (dim - self.dim)
-
-        val = self.values
-        val = arr_swapaxes(val, 0, self.x_dim, self.x_map)
-        val = other.values[tuple(l_idx)] * val[tuple(r_idx)]
-        val = arr_swapaxes(val, p, p + self.x_dim, self.x_map)
-
-        # Same rule as in dot_left, for both parameter spaces of `other`.
-        x_map = array('b')
-        for k, f in enumerate(other.x_map):
-            g = self.x_map[f] if (f >= 0 and self.x_map) else -1
-            if f >= 0 and g < 0:
-                val = val.swapaxes(k, p + f)
-            x_map.append(g)
-
-        y_map = array('b')
-        for k, f in enumerate(other.y_map):
-            g = self.x_map[f] if (f >= 0 and self.x_map) else -1
-            if f >= 0 and g < 0:
-                if f in other.x_map:
-                    # N_f was already moved to an X axis: Y_k == X_l
-                    l = other.x_map.index(f)
-                    val = val * arr_eye(
-                        val.ndim, val.shape[l], l, other.x_dim + k)
-                else:
-                    val = val.swapaxes(other.x_dim + k, p + f)
-            y_map.append(g)
-
-        val = val.sum(tuple(p + np.arange(other.n)))
-        return Tensor(val,
-                      x_dim=other.x_dim, y_dim=other.y_dim, dim=dim,
-                      x_map=x_map, y_map=y_map)
+        return _contract(other, self)
 
     def __neg__(self):
         return Tensor(

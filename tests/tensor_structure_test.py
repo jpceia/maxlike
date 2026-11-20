@@ -24,13 +24,15 @@ def maps(k, n):
             yield array('b', m)
 
 
-def structures(max_x=1, max_y=1, ns=(1, 2), dims=(0, 1)):
+def structures(max_x=1, max_y=1, ns=(1, 2), dims=(0, 1), dim_maps=False):
+    # maps index the feature axes, then (if dim_maps) the distribution axes
     for x in range(max_x + 1):
         for y in range(max_y + 1):
             for n in ns:
                 for d in dims:
-                    for xm in (maps(x, n) if x else [array('b')]):
-                        for ym in (maps(y, n) if y else [array('b')]):
+                    m = n + d if dim_maps else n
+                    for xm in (maps(x, m) if x else [array('b')]):
+                        for ym in (maps(y, m) if y else [array('b')]):
                             yield x, y, n, d, xm, ym
 
 
@@ -103,10 +105,10 @@ class Test(unittest.TestCase):
             self.assertDense(a.transpose(), expected, ("transpose", s))
 
         # dot_left: other[X, N, E] . self[N, Y, M, E] -> [X, Y, M, E]
-        for so in structures(max_y=0):
+        for so in structures(max_y=0, dim_maps=True):
             ox, _, on, od = so[:4]
             other = mk(*so)
-            for ss in structures(max_x=2):
+            for ss in structures(max_x=2, dim_maps=True):
                 sx, sy, sn, sd = ss[:4]
                 if sx != on or (sd != od and 0 not in (sd, od)):
                     continue
@@ -122,10 +124,10 @@ class Test(unittest.TestCase):
                                  ("dot_left", so, ss))
 
         # dot_right: other[X, Y, N, E] . self[N, M, E] -> [X, Y, M, E]
-        for so in structures():
+        for so in structures(dim_maps=True):
             ox, oy, on, od = so[:4]
             other = mk(*so)
-            for ss in structures(max_x=2, max_y=0):
+            for ss in structures(max_x=2, max_y=0, dim_maps=True):
                 sx, _, sn, sd = ss[:4]
                 if sx != on or (sd != od and 0 not in (sd, od)):
                     continue
