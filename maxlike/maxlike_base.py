@@ -1,10 +1,12 @@
 import abc
 import numpy as np
+import scipy.sparse as sp
 from functools import wraps
 from collections import OrderedDict
 from scipy.linalg import pinvh
 from random import getrandbits
-from .tensor import Tensor
+from .tensor import Tensor, SparseBlock
+from .linalg import SymmetricSolver, SingularMatrix
 
 
 def _dense_block(t, shape):
@@ -404,24 +406,57 @@ class MaxLike(abc.ABC):
                 for i, p_i in enumerate(self.params)]
 
     def fisher_matrix(self):
-        return self._reshape_matrix(self.flat_hess_, 0)
+        """
+        Hessian of the objective, by blocks of parameters (dense arrays:
+        (number of free parameters)^2 values, also when the Hessian was
+        assembled as a sparse matrix).
+        """
+        hess = self.flat_hess_
+        if sp.issparse(hess):
+            hess = hess.toarray()
+        return self._reshape_matrix(hess, 0)
 
     def error_matrix(self):
         """
         Covariance Matrix.
+
+        It is dense, (number of free parameters)^2 values, whatever the
+        sparsity of the Hessian: for large problems use std_error().
         """
+        hess = self.flat_hess_
+        if sp.issparse(hess):
+            hess = hess.toarray()
         try:
-            mask = self.flat_hess_.mask
+            mask = hess.mask
         except AttributeError:
             mask = None
         return self._reshape_matrix(
-            -np.ma.array(pinvh(self.flat_hess_.data), mask=mask))
+            -np.ma.array(pinvh(hess.data), mask=mask))
+
+    def _sparse_solver(self, hess):
+        """
+        Factorisation of a sparse (bordered) Hessian. The entries of each
+        parameter are candidates for elimination (see maxlike.linalg).
+        """
+        stops = np.cumsum([int(p.count()) for p in self.params])
+        return SymmetricSolver(
+            hess, list(zip(np.concatenate([[0], stops[:-1]]), stops)))
+
+    def _inverse_diagonal(self, hess):
+        """Diagonal of the inverse of the (bordered) Hessian"""
+        if sp.issparse(hess):
+            return self._sparse_solver(hess).inverse_diagonal()
+        return np.diag(np.linalg.inv(hess))
 
     def std_error(self):
         """
         Standard Deviation Array.
+
+        With a sparse Hessian (see flat_hess) only the diagonal of the
+        inverse is computed, from the factorisation used by the Newton
+        steps (see maxlike.linalg for its cost).
         """
-        var = np.diag(-np.linalg.inv(self.flat_hess_))
+        var = -self._inverse_diagonal(self.flat_hess_)
         # drop the entries of the Lagrange multipliers (constraints)
         var = var[:var.size - len(self.constraint)]
         return [p.as_masked() for p in self._reshape_array(np.sqrt(var))]
@@ -451,7 +486,125 @@ class MaxLike(abc.ABC):
 
         return grad
 
+    # Assembly of the Hessian as a scipy.sparse matrix, solved by a sparse
+    # factorisation. None: when the model gives sparse blocks (observation
+    # indexed models, see maxlike.func.Take) and there are at least
+    # _SPARSE_MIN_SIZE free parameters; True / False: always / never.
+    sparse_hess = None
+    _SPARSE_MIN_SIZE = 500
+
+    def _use_sparse_hess(self, params, hess):
+        if self.sparse_hess is not None:
+            return bool(self.sparse_hess)
+        return sum(p.count() for p in params) >= self._SPARSE_MIN_SIZE and \
+            any(isinstance(h, SparseBlock) for h_line in hess for h in h_line)
+
+    def _flat_hess_sparse(self, params, hess):
+        """
+        The same matrix as flat_hess, as a scipy.sparse (CSC) matrix, from
+        the blocks returned by hess_like. Sparse blocks are never expanded.
+        """
+        c_len = len(self.constraint)
+        sizes = [int(np.prod(p.shape, dtype=int)) for p in params]
+        offset = np.concatenate([[0], np.cumsum([p.count() for p in params])])
+        n_free = int(offset[-1])
+
+        # position of every entry among the free ones (-1 if fixed)
+        free_pos = []
+        for p in params:
+            mask = np.asarray(p.mask).ravel()
+            if mask.any():
+                pos = np.cumsum(~mask) - 1
+                pos[mask] = -1
+                free_pos.append(pos)
+            else:
+                free_pos.append(None)
+
+        rows, cols, data = [], [], []
+
+        def add(i, j, block, sign=1):
+            # block: derivative with respect to parameters i and j, or with
+            # respect to the multiplier of constraint i - len(params) and
+            # parameter j; the transposed block is added too
+            if isinstance(block, SparseBlock):
+                block = block.matrix
+            if block is None or \
+                    (not sp.issparse(block) and _is_null(block)):
+                return
+            if i < len(params) and i < j:
+                i, j = j, i
+                block = block.transpose()
+            if not sp.issparse(block):
+                n_rows = sizes[i] if i < len(params) else 1
+                block = np.broadcast_to(
+                    np.asarray(getattr(block, "values", block)),
+                    (params[i].shape if i < len(params) else ()) +
+                    params[j].shape).reshape((n_rows, sizes[j]))
+            block = sp.coo_matrix(block)
+            r, c, d = block.row, block.col, sign * block.data
+            if i < len(params):
+                if free_pos[i] is not None:
+                    r = free_pos[i][r]
+                r = r + offset[i]
+            else:
+                r = r + (n_free + i - len(params))
+            if free_pos[j] is not None:
+                c = free_pos[j][c]
+                keep = c >= 0
+                if i < len(params) and free_pos[i] is not None:
+                    keep &= r >= offset[i]
+                r, c, d = r[keep], c[keep], d[keep]
+            elif i < len(params) and free_pos[i] is not None:
+                keep = r >= offset[i]
+                r, c, d = r[keep], c[keep], d[keep]
+            c = c + offset[j]
+            rows.append(r)
+            cols.append(c)
+            data.append(d)
+            if i != j:
+                rows.append(c)
+                cols.append(r)
+                data.append(d)
+
+        def add_func(foo, param_map, sign):
+            # second derivatives of a constraint / regularization
+            args = [params[k] for k in param_map]
+            sparse = getattr(foo, "hess_sparse", None)
+            for i, idx in enumerate(param_map):
+                for j in range(i + 1):
+                    add(idx, param_map[j], sparse(args, i, j) if sparse
+                        else foo.hess(args, i, j), sign)
+
+        for i in range(len(params)):
+            for j in range(i + 1):
+                add(i, j, hess[i][j])
+
+        for k, (param_map, gamma, g) in enumerate(self.constraint):
+            args = [params[k] for k in param_map]
+            grad_g = g.grad(args)
+            for i, idx in enumerate(param_map):
+                add(len(params) + k, idx, grad_g[i].sum())
+            if gamma != 0:
+                add_func(g, param_map, gamma)
+
+        for param_map, h in self.reg:
+            add_func(h, param_map, -1)
+
+        if not data:
+            return sp.csc_matrix((n_free + c_len, n_free + c_len))
+        return sp.csc_matrix(
+            (np.concatenate(data),
+             (np.concatenate(rows), np.concatenate(cols))),
+            shape=(n_free + c_len, n_free + c_len))
+
     def flat_hess(self, params, *args, **kwargs):
+        """
+        Hessian of the objective with respect to the free parameters,
+        bordered by the gradients of the constraints (KKT matrix).
+
+        A dense array, or a scipy.sparse matrix when the model gives sparse
+        blocks and the problem is large enough (see sparse_hess).
+        """
         n = len(params)
         c_len = len(self.constraint)
 
@@ -459,6 +612,9 @@ class MaxLike(abc.ABC):
         # 1st phase: Evaluate and sum
         # --------------------------------------------------------------------
         hess = self.hess_like(params, *args, **kwargs)
+
+        if self._use_sparse_hess(params, hess):
+            return self._flat_hess_sparse(params, hess)
 
         # Add blocks corresponding to constraint variables:
         # Hess_lambda_params = grad_g
@@ -552,10 +708,17 @@ class MaxLike(abc.ABC):
         is singular: exactly (LAPACK reports it) or numerically (non-finite
         solution or large residual, a cheap matrix-vector check).
         """
-        try:
-            step = np.linalg.solve(lhess, lgrad)
-        except np.linalg.LinAlgError:
-            raise _SingularHessian
+        if sp.issparse(lhess):
+            # sparse direct solver (see maxlike.linalg)
+            try:
+                step = self._sparse_solver(lhess).solve(lgrad)
+            except SingularMatrix:
+                raise _SingularHessian
+        else:
+            try:
+                step = np.linalg.solve(lhess, lgrad)
+            except np.linalg.LinAlgError:
+                raise _SingularHessian
         if not np.all(np.isfinite(step)):
             raise _SingularHessian
         residual = np.abs(lhess.dot(step) - lgrad).max()
@@ -635,19 +798,31 @@ class MaxLike(abc.ABC):
         # make the parameter block negative definite: shift it by about
         # twice its largest eigenvalue (exact for moderate sizes, else the
         # Gershgorin bound), then increase the shift if still needed
-        H = np.asarray(lhess)[:n_free, :n_free]
-        scale = np.abs(np.diag(H)).max() if n_free else 1.
+        if sp.issparse(lhess):
+            H = lhess.tocsr()[:n_free, :n_free]
+            diag = H.diagonal()
+            abs_sum = np.asarray(abs(H).sum(1)).ravel()
+        else:
+            H = np.asarray(lhess)[:n_free, :n_free]
+            diag = np.diag(H)
+            abs_sum = None
+        scale = np.abs(diag).max() if n_free else 1.
         scale = scale if scale > 0 else 1.
         if n_free <= 2000:
-            top = np.linalg.eigvalsh(H)[-1]
+            top = np.linalg.eigvalsh(
+                H.toarray() if sp.issparse(H) else H)[-1]
         else:
-            top = (np.diag(H) + np.abs(H).sum(1) - np.abs(np.diag(H))).max()
+            if abs_sum is None:
+                abs_sum = np.abs(H).sum(1)
+            top = (diag + abs_sum - np.abs(diag)).max()
         lam = 2 * max(top, 0) + 1e-8 * scale
         shift = np.zeros(lgrad.size)
         shift[:n_free] = 1
         for _ in range(60):
             try:
-                step = self._solve_newton(lhess - lam * np.diag(shift), lgrad)
+                damping = sp.diags(shift) if sp.issparse(lhess) \
+                    else np.diag(shift)
+                step = self._solve_newton(lhess - lam * damping, lgrad)
                 if is_ascent(step):
                     return step[:n_free]
             except _SingularHessian:
@@ -662,10 +837,12 @@ class MaxLike(abc.ABC):
         """
         from scipy.linalg import null_space, eigh
         from .inference import axis_labels, param_name
-        lhess = np.asarray(lhess, dtype=float)
         n_free = lhess.shape[0] - len(self.constraint)
         if n_free > max_params:
             return []
+        if sp.issparse(lhess):
+            lhess = lhess.toarray()
+        lhess = np.asarray(lhess, dtype=float)
         H = lhess[:n_free, :n_free]
         C = lhess[n_free:, :n_free]
         Z = null_space(C) if C.shape[0] else np.eye(n_free)
