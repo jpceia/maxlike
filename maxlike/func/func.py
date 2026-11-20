@@ -33,6 +33,21 @@ class Linear(Func):
 
 
 class Quadratic(Func):  # TODO : expand this class to allow more generic stuff
+    """
+    Quadratic(u, s)(p_0, ..., p_k) = sum_i sum(((p_i - u) / s) ** 2)
+
+    A scalar function (no feature axes), mostly used as a regularization:
+    it pulls every entry of the parameters towards u, with a scale s (a
+    Gaussian prior with mean u and standard deviation s / sqrt(2), up to a
+    constant).
+
+    Parameters
+    ----------
+    u : float or array
+        Centre, broadcast against the parameters.
+    s : float or array
+        Scale, broadcast against the parameters.
+    """
 
     def __init__(self, u=0, s=1):
         self.u = u
@@ -150,6 +165,14 @@ class RandomWalk(Func):
 
 
 class X(Func):
+    """
+    X()(p) = p
+
+    The identity: the output has the shape of the parameter, one feature
+    axis per axis of p. The derivative is diagonal and only its diagonal is
+    stored. Combined with Sum.add, it maps a parameter onto feature axes of
+    a grid model (e.g. attack[i] onto the axis of the home team).
+    """
 
     def __call__(self, params):
         return Tensor(params[0])
@@ -246,6 +269,17 @@ class Take(Func):
 
 
 class Constant(Func):
+    """
+    Constant(v)(params) = v
+
+    A fixed array that does not depend on the parameters (zero derivatives):
+    an offset of a linear predictor, known log-exposures, and so on.
+
+    Parameters
+    ----------
+    vector : array-like
+        The value returned.
+    """
 
     def __init__(self, vector):
         self.vector = np.asarray(vector)
@@ -258,6 +292,14 @@ class Constant(Func):
 
 
 class Scalar(Func):
+    """
+    Scalar()(p) = p
+
+    The identity for a scalar parameter (a 0-d parameter, e.g. the home
+    advantage or a global intercept): the output has no feature axes, so
+    Sum broadcasts it over all of them. For a parameter with one value per
+    observation or per cell, use X or Vector.
+    """
 
     def __call__(self, params):
         return Tensor(params[0])
@@ -299,6 +341,12 @@ class Vector(Func):
 
 
 class Exp(Func):
+    """
+    Exp()(p) = exp(p), element-wise.
+
+    Usually composed with a linear predictor, Exp() @ model, to turn a log
+    rate into a rate. The derivatives are diagonal.
+    """
 
     def __call__(self, params):
         return Tensor(np.exp(params[0]))
@@ -319,6 +367,11 @@ class Exp(Func):
 
 
 class Log(Func):
+    """
+    Log()(p) = log(p), element-wise (p > 0).
+
+    The derivatives are diagonal.
+    """
 
     def __call__(self, params):
         return Tensor(np.log(params[0]))

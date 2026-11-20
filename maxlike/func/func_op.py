@@ -4,6 +4,11 @@ from functools import reduce
 
 
 class IndexMap(list):
+    """
+    A list of positions, built from an int or an iterable. Called on a
+    sequence, it returns the elements at those positions, as a tuple: which
+    parameters (or feature / distribution axes) a wrapped function uses.
+    """
 
     def __init__(self, indexes):
         # assert min(indexes) >= 0
@@ -18,6 +23,33 @@ class IndexMap(list):
 
 
 class FuncWrap(Func):
+    """
+    A function placed inside a larger model: the term that Sum.add and
+    Product.add store.
+
+    foo receives the parameters selected by param_map, and its output (and
+    derivatives) are expanded to the axes of the model: its feature axes go
+    to the positions feat_map among n_feat feature axes, its distribution
+    axes to dim_map among n_dim, and the feature axes in feat_flip are
+    reversed. A parameter that foo does not use has a zero derivative.
+
+    Parameters
+    ----------
+    foo : Func
+        The wrapped function.
+    param_map : int or list
+        Index, in the model's parameters, of each parameter of foo.
+    feat_map : int or list
+        Model feature axis of each feature axis of foo's output.
+    n_feat : int
+        Number of feature axes of the model.
+    dim_map : list (optional)
+        Model distribution axis of each distribution axis of foo's output.
+    n_dim : int
+        Number of distribution axes of the model.
+    feat_flip : int or list (optional)
+        Feature axes to reverse.
+    """
 
     def __init__(self, foo, param_map, feat_map=None, n_feat=None,
                  dim_map=None, n_dim=0, feat_flip=None):
@@ -96,6 +128,23 @@ class FuncWrap(Func):
 
 
 class Collapse(Func):
+    """
+    Collapse(f, sum_val, sum_dim)(params) = f(params) summed over axes
+
+    Sums the output of f (and its derivatives) over its feature axes
+    (sum_val: True for all, False for none, or a list of axes) and, with
+    sum_dim=True, over its distribution axes. E.g. a total over all the
+    matches, or the probability of a set of outcomes.
+
+    Parameters
+    ----------
+    foo : Func
+        The function to sum.
+    sum_val : bool, int or list
+        Feature axes to sum over.
+    sum_dim : bool
+        Whether to sum over the distribution axes.
+    """
 
     def __init__(self, foo, sum_val=True, sum_dim=True):
         self.foo = foo
@@ -126,6 +175,29 @@ class Collapse(Func):
 
 
 class Sum(Func):
+    """
+    Sum(n_feat, n_dim)(params) = sum_k w_k * f_k(params[param_map_k]) + b
+
+    The main building block of a model: a weighted sum of terms, each a
+    function of some of the parameters placed on some of the n_feat feature
+    axes (and n_dim distribution axes) of the output. Terms are added with
+    add(); an axis a term does not map to is broadcast. Affine terms
+    (a * f + b) and nested Sums are flattened when added.
+
+    Example: log E[goals] = attack[i] - defence[j] on a (team, opponent)
+    grid,
+
+        model = Sum(2)
+        model.add(X(), 0, 0)      # parameter 0 on feature axis 0
+        model.add(-X(), 1, 1)     # parameter 1 on feature axis 1
+
+    Parameters
+    ----------
+    n_feat : int
+        Number of feature axes of the output.
+    n_dim : int
+        Number of distribution axes of the output (e.g. 1 for a pmf).
+    """
 
     def __init__(self, n_feat, n_dim=0):
         self.atoms = []
@@ -206,6 +278,22 @@ class Sum(Func):
 
 
 class Product(Func):
+    """
+    Product(n_feat, n_dim)(params) = prod_k f_k(params[param_map_k])
+
+    Element-wise product of terms, each placed on some of the n_feat
+    feature axes (and n_dim distribution axes) of the output, as in Sum.
+    Terms are added with add(foo, param_map, feat_map, dim_map); nested
+    Products are flattened. E.g. the joint pmf of two independent goal
+    counts, from the pmf of each side on its own distribution axis.
+
+    Parameters
+    ----------
+    n_feat : int
+        Number of feature axes of the output.
+    n_dim : int
+        Number of distribution axes of the output.
+    """
 
     def __init__(self, n_feat, n_dim=0):
         self.atoms = []

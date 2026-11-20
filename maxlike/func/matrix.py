@@ -5,6 +5,22 @@ import numpy as np
 
 
 class CollapseMatrix(Func):
+    """
+    CollapseMatrix(conditions)(M)[k] = sum of M[x, y] over the cells where
+        sign(A_k * x + B_k * y + C_k) == s_k
+
+    Turns a joint distribution on its last two distribution axes (e.g. the
+    score matrix of a match, home goals x away goals) into the
+    probabilities of a list of events, on one new distribution axis. The
+    default events are home win, draw and away win (sign(x - y) = 1, 0,
+    -1); (1, 1, -2.5, 1) would be "over 2.5 goals". Linear, so its Hessian
+    is zero.
+
+    Parameters
+    ----------
+    conditions : tuple (A, B, C, s), or a list of them (optional)
+        The events, in order.
+    """
 
     hess = null_func
 

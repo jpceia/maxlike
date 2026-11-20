@@ -265,6 +265,10 @@ def _contract(other, self):
 
 
 class TensorOp(Enum):
+    """
+    The element-wise operations (unary and binary) that Tensor arithmetic
+    dispatches on, including reversed subtraction and division.
+    """
     # wrap with enum.member so partial objects remain Enum members
     # (Python 3.13+ treats them as method descriptors otherwise)
     ID = member(partial(lambda x: x))
@@ -278,6 +282,20 @@ class TensorOp(Enum):
 
 
 class BaseTensor(abc.ABC):
+    """
+    Base class of the derivative containers (Tensor, GenericTensor and the
+    indexed tensors). The axes of the stored array are split into four
+    consecutive groups:
+
+        x_dim  axes of parameter i (first derivative)
+        y_dim  axes of parameter j (second derivative)
+        n      feature axes (e.g. home team, away team, venue)
+        dim    distribution axes (e.g. number of goals 0 .. k)
+
+    A subclass implements the arithmetic, sums over axes, expansion into a
+    larger model, transposition (x <-> y) and the chain-rule contractions
+    dot_left / dot_right. Instances are immutable.
+    """
 
     __slots__ = ['x_dim', 'y_dim', 'n', 'dim']
 
@@ -383,6 +401,12 @@ class BaseTensor(abc.ABC):
 
 
 class GenericTensor(BaseTensor):
+    """
+    A lazy sum of Tensors with the same axis groups but different
+    structure (different x_map / y_map), kept as separate terms instead of
+    being expanded to a dense array. Operations are applied to each term;
+    zero terms are dropped. toarray() adds up the dense terms.
+    """
 
     __slots__ = ['elements']
 
@@ -619,6 +643,27 @@ class GenericTensor(BaseTensor):
 
 
 class Tensor(BaseTensor):
+    """
+    A derivative stored with its structure.
+
+    values holds the array, with its axes split into x_dim, y_dim, n and
+    dim (see BaseTensor); n is inferred from the number of axes of values.
+    x_map[k] = f means that axis k of parameter i coincides with feature
+    axis f: the derivative is diagonal there, and values stores only the
+    diagonal (a size-1 axis in place of axis k). y_map does the same for
+    parameter j; a negative entry means no mapping. toarray() expands the
+    diagonals into the full dense array.
+
+    Parameters
+    ----------
+    values : array-like or Tensor
+    x_dim, y_dim, dim : int
+        Number of axes of each group (the rest are feature axes).
+    x_map, y_map : array('b') (optional)
+        Feature axis of each axis of parameter i / j, or -1.
+    dtype : numpy dtype (optional)
+        Defaults to float64.
+    """
 
     __slots__ = ['values', 'x_map', 'y_map']
 
